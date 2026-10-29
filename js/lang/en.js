@@ -9,9 +9,6 @@ export default {
   'demo.reset': 'Reset the demo',
   'demo.reset.confirm': 'Erase all demo data and start again from the example?',
   'demo.reset.done': 'Demo reset.',
-  'demo.client': 'Demo: to play the partner who scans this QR,',
-  'demo.client.link': 'open the scan page',
-  'demo.scan': 'Demo: here the partner would scan their Partner QR. Choose the partner:',
 
   'err.generic': 'Something went wrong. Please reload the page.',
   'err.notfound': 'Page not found.',
@@ -41,5 +38,4 @@ export default {
   'app.admin': 'Administrator',
   'home.client.desc': 'The client shows their QR at partners and sees their offers.',
   'client.home': 'Open the link sent by your guide to display your QR.',
-  'demo.clients': 'Demo: choose a client',
 };

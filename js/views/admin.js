@@ -1,5 +1,5 @@
 // Administration (français, passable en portugais) : validations, paiements, reversements, partenaires, villes.
-// En démo, pas de mot de passe. Au branchement Supabase : compte avec le rôle "admin".
+// Accès réservé au compte qui a le rôle « admin » dans la base (le tout premier créé ici).
 import { t, tRaw, getLang } from '../i18n.js';
 import { esc, money, fmtMoment, qrSvg, appLink } from '../util.js';
 import * as store from '../store.js';
@@ -7,11 +7,66 @@ import * as store from '../store.js';
 const TABS = ['dashboard', 'validations', 'payments', 'payouts', 'partners', 'cities'];
 
 export async function adminView([tab = 'dashboard']) {
+  const me = await store.currentAdmin();
+  if (!me) return loginView();
+  if (!me.isAdmin) {
+    return {
+      html: `<div class="notice bad">${t('admin.notadmin', { email: me.email })}</div>
+        <button class="btn ghost" id="logout">${t('common.logout')}</button>`,
+      mount: mountLogout,
+    };
+  }
   if (!TABS.includes(tab)) tab = 'dashboard';
   const nav = `<nav class="tabs">${TABS.map((k) => `<a href="#/${k}" class="${k === tab ? 'on' : ''}">${t(`admin.tab.${k}`)}</a>`).join('')}</nav>`;
   const data = await loadAll();
   const view = await ({ dashboard, validations, payments, payouts, partners, cities })[tab](data);
-  return { html: `<h1>${t('admin.title')}</h1>${nav}${view.html}`, mount: view.mount };
+  return {
+    html: `<div class="spread"><h1>${t('admin.title')}</h1>
+        <span class="hint">${esc(me.email)} <button class="btn ghost small" id="logout">${t('common.logout')}</button></span></div>
+      ${nav}${view.html}`,
+    mount(root, ctx) { mountLogout(root, ctx); if (view.mount) view.mount(root, ctx); },
+  };
+}
+
+function mountLogout(root, ctx) {
+  root.querySelector('#logout').onclick = async () => { await store.signOut(); ctx.go(''); };
+}
+
+function loginView() {
+  return {
+    html: `
+      <h1>${t('admin.title')}</h1>
+      <form class="card" id="login">
+        <h2>${t('auth.login')}</h2>
+        <div class="field"><label for="a-email">${t('auth.email')}</label><input id="a-email" name="email" type="email" required autocomplete="email"></div>
+        <div class="field"><label for="a-pass">${t('auth.password')}</label><input id="a-pass" name="password" type="password" required autocomplete="current-password"></div>
+        <button class="btn block">${t('auth.login')}</button>
+      </form>
+      <details class="card">
+        <summary>${t('admin.first')}</summary>
+        <form id="first" style="margin-top:12px">
+          <p class="hint">${t('admin.first.hint')}</p>
+          <div class="field"><label for="f-email">${t('auth.email')}</label><input id="f-email" name="email" type="email" required autocomplete="email"></div>
+          <div class="field"><label for="f-pass">${t('auth.password.new')}</label><input id="f-pass" name="password" type="password" required minlength="8" autocomplete="new-password"></div>
+          <button class="btn secondary block">${t('admin.first.create')}</button>
+        </form>
+      </details>`,
+    mount(root, ctx) {
+      root.querySelector('#login').onsubmit = async (e) => {
+        e.preventDefault();
+        const f = Object.fromEntries(new FormData(e.target));
+        try { await store.signIn(f.email.trim(), f.password); ctx.refresh(); } catch { alert(tRaw('auth.err.login')); }
+      };
+      root.querySelector('#first').onsubmit = async (e) => {
+        e.preventDefault();
+        const f = Object.fromEntries(new FormData(e.target));
+        try {
+          const ready = await store.signUpAdmin(f.email.trim(), f.password);
+          ctx.refresh(tRaw(ready ? 'admin.first.done' : 'auth.confirm'));
+        } catch (err) { alert(tRaw(err.message === 'exists' ? 'auth.err.exists' : 'auth.err.signup')); }
+      };
+    },
+  };
 }
 
 async function loadAll() {
@@ -54,7 +109,7 @@ async function validations({ guides, city }) {
       <h2>${t('admin.val.title')}</h2>
       ${pending.length ? `<ul class="list">${pending.map((g) => `<li>
         <div class="spread"><b>${esc(g.name)}</b><span class="hint">${esc(city(g.cityId)?.name || '')}</span></div>
-        <div class="hint">${esc(g.phone || '')} · ${esc(city(g.cityId)?.licenseLabel || '')} ${esc(g.license || '')}</div>
+        <div class="hint">${esc(g.email || '')} · ${esc(g.phone || '')} · ${esc(city(g.cityId)?.licenseLabel || '')} ${esc(g.license || '')}</div>
         <div class="row" style="margin-top:8px">
           <button class="btn small" data-ok="${esc(g.id)}">${t('admin.val.accept')}</button>
           <button class="btn ghost small" data-no="${esc(g.id)}">${t('admin.val.refuse')}</button>

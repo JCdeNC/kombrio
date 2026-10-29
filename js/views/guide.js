@@ -14,17 +14,16 @@ export async function guideView(params, ctx) {
 }
 
 async function loginView() {
-  const [guides, cities] = await Promise.all([store.listGuides(), store.listCities()]);
+  const cities = await store.listCities();
   return {
     html: `
       <h1>${t('guide.login.title')}</h1>
-      <div class="card">
-        <h2>${t('guide.login.demo')}</h2>
-        <p class="hint">${t('guide.login.demo.hint')}</p>
-        <div class="row">
-          ${guides.map((g) => `<button class="btn secondary" data-login="${esc(g.id)}">${esc(g.name)}</button>`).join('')}
-        </div>
-      </div>
+      <form class="card" id="login">
+        <h2>${t('auth.login')}</h2>
+        <div class="field"><label for="l-email">${t('auth.email')}</label><input id="l-email" name="email" type="email" required autocomplete="email"></div>
+        <div class="field"><label for="l-pass">${t('auth.password')}</label><input id="l-pass" name="password" type="password" required autocomplete="current-password"></div>
+        <button class="btn block">${t('auth.login')}</button>
+      </form>
       <form class="card" id="signup">
         <h2>${t('guide.signup.title')}</h2>
         <div class="field"><label for="g-name">${t('guide.signup.name')}</label><input id="g-name" name="name" required autocomplete="name"></div>
@@ -34,19 +33,29 @@ async function loginView() {
             <select id="g-city" name="cityId">${cities.map((c) => `<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('')}</select></div>
         </div>
         <div class="field"><label for="g-license">${t('guide.signup.license')}</label><input id="g-license" name="license" required></div>
+        <div class="grid2">
+          <div class="field"><label for="g-email">${t('auth.email')}</label><input id="g-email" name="email" type="email" required autocomplete="email"></div>
+          <div class="field"><label for="g-pass">${t('auth.password.new')}</label><input id="g-pass" name="password" type="password" required minlength="8" autocomplete="new-password"></div>
+        </div>
         <p class="hint">${t('guide.signup.hint')}</p>
         <button class="btn block">${t('guide.signup.submit')}</button>
       </form>`,
     mount(root, ctx) {
-      root.querySelectorAll('[data-login]').forEach((b) => {
-        b.onclick = async () => { await store.loginGuide(b.dataset.login); ctx.refresh(); };
-      });
+      root.querySelector('#login').onsubmit = async (e) => {
+        e.preventDefault();
+        const f = Object.fromEntries(new FormData(e.target));
+        try { await store.signIn(f.email.trim(), f.password); ctx.refresh(); } catch { alert(tRaw('auth.err.login')); }
+      };
       root.querySelector('#signup').onsubmit = async (e) => {
         e.preventDefault();
         const f = Object.fromEntries(new FormData(e.target));
-        const g = await store.addGuide({ name: f.name.trim(), phone: f.phone.trim(), license: f.license.trim(), cityId: f.cityId });
-        await store.loginGuide(g.id);
-        ctx.refresh(tRaw('guide.signup.done'));
+        try {
+          const ready = await store.signUpGuide({
+            email: f.email.trim(), password: f.password, name: f.name.trim(), phone: f.phone.trim(),
+            license: f.license.trim(), cityId: f.cityId,
+          });
+          ctx.refresh(tRaw(ready ? 'guide.signup.done' : 'auth.confirm'));
+        } catch (err) { alert(tRaw(err.message === 'exists' ? 'auth.err.exists' : 'auth.err.signup')); }
       };
     },
   };
@@ -56,7 +65,7 @@ function logoutButton() {
   return `<button class="btn ghost small" id="logout">${t('common.logout')}</button>`;
 }
 function mountLogout(root, ctx) {
-  root.querySelector('#logout').onclick = async () => { await store.logoutGuide(); ctx.go(''); };
+  root.querySelector('#logout').onclick = async () => { await store.signOut(); ctx.go(''); };
 }
 
 async function pendingView(me) {
@@ -128,7 +137,7 @@ async function stayView(me, city, stayId) {
   const lang = getLang();
   const valid = stayIsValid(stay, city);
   const visits = await store.listVisits({ stayId: stay.id });
-  const partners = await store.listPartners(city.id);
+  const partners = await store.publicPartners(city.id);
   const partnerName = (id) => partners.find((p) => p.id === id)?.name || '?';
   const clientLink = appLink('client', `c/${stay.token}`);
   const scanLink = appLink('partner', `s/${stay.token}`);

@@ -1,5 +1,6 @@
-// Partenaire : son QR Partenaire enregistre le passage, puis il déclare et paie la commission.
+// App Partenaire : son QR Partenaire enregistre le passage, puis il déclare et paie la commission.
 // Sans passage en attente, le même QR ouvre son espace (historique, offre, QR à imprimer).
+// Pas de compte : tout passe par le code secret du QR Partenaire, vérifié par la base.
 import { t, tRaw, getLang } from '../i18n.js';
 import { esc, money, fmtMoment, qrSvg, appLink, readFileAsDataUrl } from '../util.js';
 import * as store from '../store.js';
@@ -7,57 +8,46 @@ import { statusBadge, notFound } from './shared.js';
 import { readPendingStay, clearPendingStay } from './scan.js';
 
 const MAX_RECEIPT = 1.5 * 1024 * 1024;
-
 const ME_KEY = 'kombrio-partner';
 
-// L'app Partenaire ouverte sans lien : on rouvre l'espace du partenaire de ce téléphone.
+// L'app ouverte sans lien (icône sur l'écran d'accueil) : on rouvre l'espace du partenaire de ce téléphone.
 export async function partnerHome(params, ctx) {
   let me = null;
   try { me = localStorage.getItem(ME_KEY); } catch { /* rien */ }
-  if (!store.DEMO && me && await store.partnerByToken(me)) return { html: '', mount: () => ctx.replace(`p/${me}`) };
-  const demo = store.DEMO ? await store.listPartners() : [];
-  return {
-    html: `<div class="card"><h1>Kombrio</h1><p>${t('partner.home')}</p></div>
-      ${demo.length ? `<div class="card no-print"><p class="hint">${t('demo.partners')}</p><ul class="list">
-        ${demo.map((p) => `<li><a href="#/p/${encodeURIComponent(p.token)}">${esc(p.name)}</a> <span class="hint">· ${t(`ptype.${p.type}`)}</span></li>`).join('')}</ul></div>` : ''}`,
-  };
+  if (me) return { html: '', mount: () => ctx.replace(`p/${me}`) };
+  return { html: `<div class="card"><h1>Kombrio</h1><p>${t('partner.home')}</p></div>` };
 }
 
 export async function partnerView([token, action, visitId], ctx) {
-  const partner = token && await store.partnerByToken(token);
-  if (!partner) return notFound('err.partner');
-  try { localStorage.setItem(ME_KEY, partner.token); } catch { /* rien */ }
-  const city = await store.getCity(partner.cityId);
+  let space = token && await store.partnerSpace(token);
+  if (!space) {
+    try { if (localStorage.getItem(ME_KEY) === token) localStorage.removeItem(ME_KEY); } catch { /* rien */ }
+    return notFound('err.partner');
+  }
+  try { localStorage.setItem(ME_KEY, token); } catch { /* rien */ }
 
   if (!action) {
     const pending = readPendingStay();
     if (pending) {
       clearPendingStay();
-      const res = await store.recordVisit(pending, partner.id);
+      const res = await store.recordVisit(pending, token);
       if (res.ok) {
         // On change d'adresse pour qu'un rechargement n'enregistre pas un second passage.
-        return { html: '', mount: () => ctx.replace(`p/${partner.token}/passage/${res.visit.id}`) };
+        return { html: '', mount: () => ctx.replace(`p/${token}/passage/${res.visitId}`) };
       }
-      const space = await spaceView(partner, city);
-      return { ...space, html: `<div class="notice bad">${t(`visit.err.${res.reason}`)}</div>${space.html}` };
+      const view = spaceView(space);
+      return { ...view, html: `<div class="notice bad">${t(`visit.err.${res.reason}`)}</div>${view.html}` };
     }
-    return spaceView(partner, city);
+    return spaceView(space);
   }
 
-  const visit = await store.getVisit(visitId);
-  if (!visit || visit.partnerId !== partner.id) return notFound();
-  return declareView(partner, city, visit, action === 'passage');
+  const visit = space.visits.find((v) => v.id === visitId);
+  if (!visit) return notFound();
+  return declareView(space, visit, action === 'passage');
 }
 
-async function visitContext(visit) {
-  const stay = await store.getStay(visit.stayId);
-  const guide = await store.getGuide(visit.guideId);
-  return { stay, guide };
-}
-
-async function declareView(partner, city, visit, justScanned) {
+function declareView({ partner, city }, visit, justScanned) {
   const lang = getLang();
-  const { stay, guide } = await visitContext(visit);
   // Rien à afficher si le partenaire ne propose pas d'offre.
   let offer = '';
   if (justScanned && partner.offer) {
@@ -69,8 +59,8 @@ async function declareView(partner, city, visit, justScanned) {
     ${justScanned ? `<div class="notice ok"><b>${t('partner.visit.saved')}</b></div>` : ''}
     ${offer}
     <div class="card">
-      <h2>${esc(stay.client)}</h2>
-      <p class="hint">${t('scan.people', { n: visit.people })} · ${t('partner.visit.guide', { guide: guide.name })} · ${fmtMoment(visit.at, lang, city.timezone)}</p>
+      <h2>${esc(visit.client)}</h2>
+      <p class="hint">${t('scan.people', { n: visit.people })} · ${t('partner.visit.guide', { guide: visit.guideName })} · ${fmtMoment(visit.at, lang, city.timezone)}</p>
     </div>`;
 
   if (visit.status !== 'visited') {
@@ -105,25 +95,28 @@ async function declareView(partner, city, visit, justScanned) {
         const file = form.get('receipt');
         if (!file || !file.size) return;
         if (file.size > MAX_RECEIPT) { alert(tRaw('partner.declare.toobig')); return; }
+        const button = e.target.querySelector('button');
+        button.disabled = true;
         const receipt = { name: file.name, type: file.type, data: await readFileAsDataUrl(file) };
-        await store.declareVisit(visit.id, { amount: Number(form.get('amount')), method: form.get('method'), receipt });
-        ctx.go(`p/${partner.token}`, tRaw('partner.declare.thanks'));
+        try {
+          await store.declareVisit(partner.token, visit.id, { amount: Number(form.get('amount')), method: form.get('method'), receipt });
+          ctx.go(`p/${partner.token}`, tRaw('partner.declare.thanks'));
+        } catch {
+          button.disabled = false;
+          alert(tRaw('err.generic'));
+        }
       };
     },
   };
 }
 
-async function spaceView(partner, city) {
+function spaceView({ partner, city, visits }) {
   const lang = getLang();
-  const visits = await store.listVisits({ partnerId: partner.id });
-  const stays = await Promise.all(visits.map((v) => store.getStay(v.stayId)));
-  const guides = await store.listGuides();
-  const guideName = (id) => guides.find((g) => g.id === id)?.name || '?';
   const owed = visits.filter((v) => v.status === 'visited').length;
 
-  const item = (v, i) => `<li>
-    <div class="spread"><b>${esc(stays[i]?.client || '?')}</b>${statusBadge(v)}</div>
-    <div class="hint">${fmtMoment(v.at, lang, city.timezone)} · ${t('scan.people', { n: v.people })} · ${t('partner.visit.guide', { guide: guideName(v.guideId) })}</div>
+  const item = (v) => `<li>
+    <div class="spread"><b>${esc(v.client || '?')}</b>${statusBadge(v)}</div>
+    <div class="hint">${fmtMoment(v.at, lang, city.timezone)} · ${t('scan.people', { n: v.people })} · ${t('partner.visit.guide', { guide: v.guideName || '?' })}</div>
     ${v.amount != null && v.status !== 'visited' ? `<div>${t('partner.visit.amount', { amount: money(v.amount, city.currency, lang) })}</div>` : ''}
     ${v.status === 'visited' ? `<a class="btn small" href="#/p/${encodeURIComponent(partner.token)}/declarer/${encodeURIComponent(v.id)}">${t('partner.declare.button')}</a>` : ''}
   </li>`;
@@ -151,7 +144,7 @@ async function spaceView(partner, city) {
     mount(root, ctx) {
       root.querySelector('#offer').onsubmit = async (e) => {
         e.preventDefault();
-        await store.updatePartner(partner.id, { offer: new FormData(e.target).get('offer').trim() });
+        await store.setPartnerOffer(partner.token, new FormData(e.target).get('offer'));
         ctx.refresh(tRaw('common.saved'));
       };
       root.querySelector('#print').onclick = () => window.print();

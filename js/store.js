@@ -1,231 +1,218 @@
-// Données du prototype, en MODE DÉMO : tout reste dans ce navigateur (localStorage).
-// Les fonctions sont asynchrones pour être remplacées plus tard, une à une,
-// par des appels Supabase (voir supabase/schema.sql) sans toucher aux écrans.
-import { randomToken, todayIn, addDays, stayIsValid } from './util.js';
+// Données de Kombrio : base Supabase (projet « kombrio », São Paulo).
+// - Guide et administrateur : un compte (e-mail + mot de passe). La base ne leur montre que ce qui les concerne.
+// - Client et partenaire : pas de compte. Le code secret de leur QR passe par des fonctions de la base
+//   (supabase/002_branchement.sql) qui vérifient tout côté serveur.
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm';
+import { SUPABASE_URL, SUPABASE_KEY } from './config.js';
+import { randomToken } from './util.js';
 
-export const DEMO = true;
+export const DEMO = false;
 export const SHARE = { platform: 0.2, guide: 0.8 };
-// Types de partenaires : un libellé par langue dans js/lang/ (clé ptype.xxx).
 export const PARTNER_TYPES = ['restaurant', 'shop'];
 
-const KEY = 'kombrio-demo-v2';
-const ME_KEY = 'kombrio-demo-guide';
+// Chaque application garde sa propre session (un guide et l'admin peuvent être connectés sur le même ordinateur).
+const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
+  auth: { persistSession: true, storageKey: `kombrio-auth-${window.KOMBRIO_APP || 'hub'}` },
+});
 
-const id = (prefix) => `${prefix}_${randomToken(8)}`;
-const now = () => new Date().toISOString();
+const round = (n) => Math.round(n * 100) / 100;
+export const guideShare = (amount) => round((amount || 0) * SHARE.guide);
+export const platformShare = (amount) => round((amount || 0) * SHARE.platform);
 
-function seed() {
-  const city = {
-    id: 'rio', name: 'Rio de Janeiro', country: 'BR', currency: 'BRL', timezone: 'America/Sao_Paulo',
-    methods: ['pix', 'transfer'], licenseLabel: 'Cadastur',
-    payTo: 'Pix : exemplo-pix@kombrio.com.br · Banco 000, ag. 0000, c/c 00000-0 (exemplo)',
-  };
-  const today = todayIn(city.timezone);
-  const daysAgo = (n) => new Date(Date.now() - n * 864e5).toISOString();
-  const guides = [
-    { id: 'g_marcos', cityId: 'rio', name: 'Marcos Silva', phone: '+55 21 90000-0001', license: '00.000000.00.0001-0', status: 'validated', createdAt: daysAgo(30) },
-    { id: 'g_ana', cityId: 'rio', name: 'Ana Costa', phone: '+55 21 90000-0002', license: '00.000000.00.0002-0', status: 'pending', createdAt: daysAgo(1) },
-  ];
-  const partners = [
-    { id: 'p_boteco', cityId: 'rio', type: 'restaurant', name: 'Boteco da Praia', area: 'Copacabana', offer: 'Uma caipirinha por pessoa', token: 'P-boteco-demo', status: 'active' },
-    { id: 'p_cantina', cityId: 'rio', type: 'restaurant', name: 'Cantina Santa Teresa', area: 'Santa Teresa', offer: '', token: 'P-cantina-demo', status: 'active' },
-    { id: 'p_sabor', cityId: 'rio', type: 'shop', name: 'Ateliê do Morro', area: 'Vidigal', offer: '10 % de desconto no artesanato', token: 'P-sabor-demo', status: 'active' },
-  ];
-  const stays = [
-    { id: 's_martin', guideId: 'g_marcos', client: 'Famille Martin', people: 4, start: addDays(today, -3), end: addDays(today, 4), token: 'C-martin-demo', createdAt: daysAgo(4) },
-    { id: 's_smith', guideId: 'g_marcos', client: 'Smith group', people: 6, start: addDays(today, -20), end: addDays(today, -15), token: 'C-smith-demo', createdAt: daysAgo(21) },
-  ];
-  const visits = [
-    { id: 'v_1', stayId: 's_smith', partnerId: 'p_cantina', guideId: 'g_marcos', at: daysAgo(18), people: 6, offerGiven: false,
-      status: 'paid', amount: 90, method: 'pix', receipt: null, declaredAt: daysAgo(17), receivedAt: daysAgo(16), payoutId: 'po_1' },
-    { id: 'v_2', stayId: 's_martin', partnerId: 'p_boteco', guideId: 'g_marcos', at: daysAgo(2), people: 4, offerGiven: true,
-      status: 'received', amount: 50, method: 'pix', receipt: null, declaredAt: daysAgo(2), receivedAt: daysAgo(1) },
-    { id: 'v_3', stayId: 's_martin', partnerId: 'p_sabor', guideId: 'g_marcos', at: daysAgo(1), people: 4, offerGiven: true,
-      status: 'declared', amount: 60, method: 'transfer', receipt: null, declaredAt: daysAgo(1) },
-    { id: 'v_4', stayId: 's_martin', partnerId: 'p_cantina', guideId: 'g_marcos', at: daysAgo(0.2), people: 4, offerGiven: false,
-      status: 'visited' },
-  ];
-  const payouts = [{ id: 'po_1', guideId: 'g_marcos', amount: 72, at: daysAgo(10), visitIds: ['v_1'] }];
-  return { cities: [city], guides, partners, stays, visits, payouts };
-}
-
-function load() {
-  try {
-    const raw = localStorage.getItem(KEY);
-    if (raw) return JSON.parse(raw);
-  } catch { /* données illisibles : on repart de la démo */ }
-  const data = seed();
-  save(data);
+function check({ data, error }) {
+  if (error) { console.error(error); throw new Error(error.message || 'db'); }
   return data;
 }
 
-function save(data) {
-  try { localStorage.setItem(KEY, JSON.stringify(data)); } catch (e) {
-    throw new Error('storage-full');
-  }
+/* ---------- Conversion base → écrans ---------- */
+const toCity = (r) => r && ({
+  id: r.id, name: r.name, country: r.country, currency: r.currency, timezone: r.timezone,
+  methods: r.methods || [], licenseLabel: r.license_label, payTo: r.pay_to,
+});
+const toGuide = (r) => r && ({
+  id: r.id, cityId: r.city_id, name: r.name, phone: r.phone, license: r.license, photo: r.photo,
+  status: r.status, email: r.email, createdAt: r.created_at,
+});
+const toPartner = (r) => r && ({
+  id: r.id, cityId: r.city_id, type: r.type, name: r.name, area: r.area, offer: r.offer || '', token: r.token, status: r.status,
+});
+const toStay = (r) => r && ({
+  id: r.id, guideId: r.guide_id, client: r.client, people: r.people, start: r.start_day, end: r.end_day,
+  token: r.token, createdAt: r.created_at,
+});
+function toReceipt(text) {
+  if (!text) return null;
+  try { return JSON.parse(text); } catch { return null; }
 }
-
-function mutate(fn) {
-  const data = load();
-  const result = fn(data);
-  save(data);
-  return result;
-}
-
-export async function resetDemo() {
-  try { localStorage.removeItem(KEY); localStorage.removeItem(ME_KEY); } catch { /* rien */ }
-}
+const toVisit = (r) => r && ({
+  id: r.id, stayId: r.stay_id, partnerId: r.partner_id, guideId: r.guide_id, at: r.at, people: r.people,
+  offerGiven: r.offer_given, status: r.status, amount: r.amount == null ? null : Number(r.amount), method: r.method,
+  receipt: toReceipt(r.receipt), rejected: r.rejected, declaredAt: r.declared_at, receivedAt: r.received_at,
+  payoutId: r.payout_id, client: r.client, guideName: r.guide_name,
+});
+const toPayout = (r) => r && ({ id: r.id, guideId: r.guide_id, amount: Number(r.amount), at: r.at });
 
 /* ---------- Villes ---------- */
-export async function listCities() { return load().cities; }
-export async function getCity(cityId) { return load().cities.find((c) => c.id === cityId); }
-export async function addCity(city) {
-  return mutate((d) => {
-    const c = { ...city, id: id('city') };
-    d.cities.push(c);
-    return c;
-  });
+export async function listCities() {
+  return check(await sb.from('cities').select('*').order('name')).map(toCity);
 }
-export async function updateCity(cityId, patch) {
-  return mutate((d) => Object.assign(d.cities.find((c) => c.id === cityId), patch));
+export async function getCity(cityId) {
+  return toCity(check(await sb.from('cities').select('*').eq('id', cityId).maybeSingle()));
 }
-
-/* ---------- Guides ---------- */
-export async function listGuides(status) {
-  return load().guides.filter((g) => !status || g.status === status);
-}
-export async function getGuide(guideId) { return load().guides.find((g) => g.id === guideId); }
-export async function addGuide(guide) {
-  return mutate((d) => {
-    const g = { ...guide, id: id('g'), status: 'pending', createdAt: now() };
-    d.guides.push(g);
-    return g;
-  });
-}
-export async function setGuideStatus(guideId, status) {
-  return mutate((d) => { d.guides.find((g) => g.id === guideId).status = status; });
-}
-
-// Connexion du guide : en démo, on choisit simplement son nom.
-export async function currentGuide() {
-  let me = null;
-  try { me = localStorage.getItem(ME_KEY); } catch { /* rien */ }
-  return me ? getGuide(me) : null;
-}
-export async function loginGuide(guideId) { try { localStorage.setItem(ME_KEY, guideId); } catch { /* rien */ } }
-export async function logoutGuide() { try { localStorage.removeItem(ME_KEY); } catch { /* rien */ } }
-
-/* ---------- Partenaires ---------- */
-export async function listPartners(cityId) {
-  return load().partners.filter((p) => !cityId || p.cityId === cityId);
-}
-export async function getPartner(partnerId) { return load().partners.find((p) => p.id === partnerId); }
-export async function partnerByToken(token) { return load().partners.find((p) => p.token === token); }
-export async function addPartner(partner) {
-  return mutate((d) => {
-    const p = { ...partner, id: id('p'), token: `P-${randomToken(16)}`, status: 'active' };
-    d.partners.push(p);
-    return p;
-  });
-}
-export async function updatePartner(partnerId, patch) {
-  return mutate((d) => Object.assign(d.partners.find((p) => p.id === partnerId), patch));
-}
-// Si le QR Partenaire a été copié : on en fabrique un nouveau, l'ancien ne marche plus.
-export async function renewPartnerToken(partnerId) {
-  return updatePartner(partnerId, { token: `P-${randomToken(16)}` });
-}
-
-/* ---------- Séjours ---------- */
-export async function addStay(guideId, stay) {
-  return mutate((d) => {
-    const s = { ...stay, id: id('s'), guideId, token: `C-${randomToken(20)}`, createdAt: now() };
-    d.stays.push(s);
-    return s;
-  });
-}
-export async function listStays(guideId) {
-  return load().stays.filter((s) => s.guideId === guideId).sort((a, b) => b.end.localeCompare(a.end));
-}
-export async function getStay(stayId) { return load().stays.find((s) => s.id === stayId); }
-export async function stayByToken(token) { return load().stays.find((s) => s.token === token); }
-
-/* ---------- Passages et commissions ---------- */
-// Statuts : visited (passé) → declared (déclaré + comprovante) → received (argent reçu) → paid (reversé au guide).
-
-export async function listVisits(filter = {}) {
-  return load().visits
-    .filter((v) => Object.entries(filter).every(([k, val]) => (Array.isArray(val) ? val.includes(v[k]) : v[k] === val)))
-    .sort((a, b) => b.at.localeCompare(a.at));
-}
-export async function getVisit(visitId) { return load().visits.find((v) => v.id === visitId); }
-
-// Le partenaire a scanné le QR du client puis son QR Partenaire.
-export async function recordVisit(stayToken, partnerId) {
-  return mutate((d) => {
-    const stay = d.stays.find((s) => s.token === stayToken);
-    if (!stay) return { ok: false, reason: 'unknown' };
-    const guide = d.guides.find((g) => g.id === stay.guideId);
-    const partner = d.partners.find((p) => p.id === partnerId);
-    const city = d.cities.find((c) => c.id === partner.cityId);
-    if (!stayIsValid(stay, city)) return { ok: false, reason: 'expired' };
-    if (guide.status !== 'validated') return { ok: false, reason: 'guide' };
-    // L'offre du partenaire (s'il en a une) vaut une fois par groupe et par séjour.
-    const earlier = d.visits.find((v) => v.stayId === stay.id && v.partnerId === partnerId && v.offerGiven);
-    const visit = {
-      id: id('v'), stayId: stay.id, partnerId, guideId: stay.guideId, at: now(), people: stay.people,
-      offerGiven: Boolean(partner.offer) && !earlier, status: 'visited',
-    };
-    d.visits.push(visit);
-    return { ok: true, visit, earlier };
-  });
-}
-
-export async function declareVisit(visitId, { amount, method, receipt }) {
-  return mutate((d) => Object.assign(d.visits.find((v) => v.id === visitId), {
-    status: 'declared', amount, method, receipt, declaredAt: now(), rejected: false,
+export async function addCity(c) {
+  const id = c.name.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  return check(await sb.from('cities').insert({
+    id, name: c.name, country: c.country, currency: c.currency, timezone: c.timezone,
+    methods: c.methods, license_label: c.licenseLabel, pay_to: c.payTo,
   }));
 }
 
-export async function confirmVisit(visitId) {
-  return mutate((d) => Object.assign(d.visits.find((v) => v.id === visitId), { status: 'received', receivedAt: now() }));
+/* ---------- Comptes (guide et administrateur) ---------- */
+async function currentUser() {
+  const { data } = await sb.auth.getSession();
+  return data.session?.user || null;
 }
 
-// Comprovante absent ou illisible : le partenaire doit redéclarer.
+export async function signIn(email, password) {
+  const { error } = await sb.auth.signInWithPassword({ email, password });
+  if (error) throw new Error('auth');
+}
+export async function signOut() { await sb.auth.signOut(); }
+
+// Inscription d'un guide. Renvoie false si la base demande d'abord de confirmer l'e-mail.
+export async function signUpGuide({ email, password, name, phone, license, cityId }) {
+  const { data, error } = await sb.auth.signUp({
+    email, password,
+    options: { data: { role: 'guide', name, phone, license, city_id: cityId }, emailRedirectTo: location.href.split('#')[0] },
+  });
+  if (error) throw new Error(error.message.includes('registered') ? 'exists' : 'auth');
+  return Boolean(data.session);
+}
+
+// Premier compte administrateur (accepté seulement s'il n'en existe aucun).
+export async function signUpAdmin(email, password) {
+  const { data, error } = await sb.auth.signUp({
+    email, password, options: { data: { role: 'admin' }, emailRedirectTo: location.href.split('#')[0] },
+  });
+  if (error) throw new Error(error.message.includes('registered') ? 'exists' : 'auth');
+  return Boolean(data.session);
+}
+
+export async function currentGuide() {
+  const user = await currentUser();
+  if (!user) return null;
+  return toGuide(check(await sb.from('guides').select('*').eq('id', user.id).maybeSingle()));
+}
+
+// null = pas connecté ; { isAdmin } sinon.
+export async function currentAdmin() {
+  const user = await currentUser();
+  if (!user) return null;
+  const profile = check(await sb.from('profiles').select('role').eq('id', user.id).maybeSingle());
+  return { email: user.email, isAdmin: profile?.role === 'admin' };
+}
+
+/* ---------- Guides (administrateur) ---------- */
+export async function listGuides(status) {
+  let q = sb.from('guides').select('*').order('created_at', { ascending: false });
+  if (status) q = q.eq('status', status);
+  return check(await q).map(toGuide);
+}
+export async function setGuideStatus(guideId, status) {
+  check(await sb.from('guides').update({ status }).eq('id', guideId));
+}
+
+/* ---------- Partenaires ---------- */
+export async function listPartners() {
+  return check(await sb.from('partners').select('*').order('name')).map(toPartner);
+}
+// Version publique, sans code secret (page du client, noms pour le guide).
+export async function publicPartners(cityId) {
+  return check(await sb.rpc('public_partners', { p_city: cityId })).map((r) => ({ ...r, offer: r.offer || '' }));
+}
+export async function addPartner(p) {
+  check(await sb.from('partners').insert({
+    city_id: p.cityId, type: p.type, name: p.name, area: p.area, offer: p.offer || null, token: `P-${randomToken(24)}`,
+  }));
+}
+export async function renewPartnerToken(partnerId) {
+  check(await sb.from('partners').update({ token: `P-${randomToken(24)}` }).eq('id', partnerId));
+}
+
+// Espace du partenaire, à partir de son QR Partenaire. null si le QR n'est pas reconnu.
+export async function partnerSpace(token) {
+  const d = check(await sb.rpc('partner_space', { p_token: token }));
+  if (!d) return null;
+  return { partner: toPartner(d.partner), city: toCity(d.city), visits: (d.visits || []).map(toVisit) };
+}
+export async function setPartnerOffer(token, offer) {
+  check(await sb.rpc('set_partner_offer', { p_token: token, p_offer: offer }));
+}
+
+/* ---------- Séjours ---------- */
+export async function addStay(guideId, s) {
+  const row = check(await sb.from('stays').insert({
+    guide_id: guideId, client: s.client, people: s.people, start_day: s.start, end_day: s.end, token: `C-${randomToken(24)}`,
+  }).select().single());
+  return toStay(row);
+}
+export async function listStays(guideId) {
+  return check(await sb.from('stays').select('*').eq('guide_id', guideId).order('end_day', { ascending: false })).map(toStay);
+}
+export async function getStay(stayId) {
+  return toStay(check(await sb.from('stays').select('*').eq('id', stayId).maybeSingle()));
+}
+// Page du client et page du scan, à partir du QR du client. null si le QR n'est pas reconnu.
+export async function stayPublic(token) {
+  const d = check(await sb.rpc('stay_public', { p_token: token }));
+  if (!d) return null;
+  return { stay: toStay(d.stay), guide: toGuide(d.guide), city: toCity(d.city) };
+}
+
+/* ---------- Passages et commissions ---------- */
+export async function listVisits(filter = {}) {
+  let q = sb.from('visits').select('*').order('at', { ascending: false });
+  const cols = { guideId: 'guide_id', stayId: 'stay_id', partnerId: 'partner_id', status: 'status' };
+  Object.entries(filter).forEach(([k, v]) => { q = Array.isArray(v) ? q.in(cols[k], v) : q.eq(cols[k], v); });
+  return check(await q).map(toVisit);
+}
+
+export async function recordVisit(stayToken, partnerToken) {
+  const r = check(await sb.rpc('record_visit', { p_stay_token: stayToken, p_partner_token: partnerToken }));
+  return r.ok ? { ok: true, visitId: r.visit_id } : { ok: false, reason: r.reason };
+}
+
+export async function declareVisit(partnerToken, visitId, { amount, method, receipt }) {
+  const ok = check(await sb.rpc('declare_visit', {
+    p_partner_token: partnerToken, p_visit: visitId, p_amount: amount, p_method: method,
+    p_receipt: receipt ? JSON.stringify(receipt) : null,
+  }));
+  if (!ok) throw new Error('declare');
+}
+
+export async function confirmVisit(visitId) {
+  check(await sb.from('visits').update({ status: 'received', received_at: new Date().toISOString() }).eq('id', visitId));
+}
 export async function rejectVisit(visitId) {
-  return mutate((d) => Object.assign(d.visits.find((v) => v.id === visitId), { status: 'visited', rejected: true }));
+  check(await sb.from('visits').update({ status: 'visited', rejected: true }).eq('id', visitId));
 }
 
 export async function listPayouts(guideId) {
-  return load().payouts.filter((p) => !guideId || p.guideId === guideId).sort((a, b) => b.at.localeCompare(a.at));
+  let q = sb.from('payouts').select('*').order('at', { ascending: false });
+  if (guideId) q = q.eq('guide_id', guideId);
+  return check(await q).map(toPayout);
 }
-
-// Virement mensuel au guide : regroupe tout ce qui a été reçu et pas encore reversé.
 export async function payGuide(guideId) {
-  return mutate((d) => {
-    const due = d.visits.filter((v) => v.guideId === guideId && v.status === 'received');
-    if (!due.length) return null;
-    const payout = {
-      id: id('po'), guideId, at: now(), visitIds: due.map((v) => v.id),
-      amount: round(due.reduce((sum, v) => sum + v.amount * SHARE.guide, 0)),
-    };
-    due.forEach((v) => { v.status = 'paid'; v.payoutId = payout.id; });
-    d.payouts.push(payout);
-    return payout;
-  });
+  return check(await sb.rpc('pay_guide', { p_guide: guideId }));
 }
-
-export const guideShare = (amount) => round((amount || 0) * SHARE.guide);
-export const platformShare = (amount) => round((amount || 0) * SHARE.platform);
-function round(n) { return Math.round(n * 100) / 100; }
 
 export async function guideSummary(guideId) {
   const visits = await listVisits({ guideId });
   const sum = (status) => round(visits.filter((v) => v.status === status).reduce((s, v) => s + guideShare(v.amount), 0));
   return {
     toDeclare: visits.filter((v) => v.status === 'visited').length,
-    checking: sum('declared'),
-    due: sum('received'),
-    paid: sum('paid'),
+    checking: sum('declared'), due: sum('received'), paid: sum('paid'),
   };
 }
+
+export async function resetDemo() { /* plus de mode démo */ }

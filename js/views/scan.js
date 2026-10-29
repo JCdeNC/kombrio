@@ -20,16 +20,14 @@ export function clearPendingStay() {
 }
 
 export async function scanView([token]) {
-  const stay = token && await store.stayByToken(token);
-  if (!stay) return notFound('err.qr');
-  const guide = await store.getGuide(stay.guideId);
-  const city = await store.getCity(guide.cityId);
+  const data = token && await store.stayPublic(token);
+  if (!data) return notFound('err.qr');
+  const { stay, guide, city } = data;
   const lang = getLang();
   const valid = stayIsValid(stay, city) && guide.status === 'validated';
   if (valid) {
     try { localStorage.setItem(PENDING_KEY, JSON.stringify({ token: stay.token, at: Date.now() })); } catch { /* rien */ }
   }
-  const partners = store.DEMO ? await store.listPartners(city.id) : [];
 
   return {
     html: `
@@ -42,10 +40,6 @@ export async function scanView([token]) {
       </div>
       ${valid
         ? `<div class="notice ok"><b>${t('scan.next')}</b><br>${t('scan.next.hint', { min: PENDING_MINUTES })}</div>`
-        : `<div class="notice bad">${t('scan.invalid')}</div>`}
-      ${store.DEMO && valid ? `<div class="card no-print">
-        <p class="hint">${t('demo.scan')}</p>
-        <div class="row">${partners.map((p) => `<a class="btn secondary small" href="#/p/${encodeURIComponent(p.token)}">${esc(p.name)}</a>`).join('')}</div>
-      </div>` : ''}`,
+        : `<div class="notice bad">${t('scan.invalid')}</div>`}`,
   };
 }

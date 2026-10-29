@@ -8,8 +8,17 @@ Cadrage complet : document « Kombrio : cadrage du projet » (Claude Docs).
 Double-cliquer sur **Ouvrir le prototype.command**. Le navigateur s'ouvre sur la page d'accueil.
 (La première fois, macOS peut demander une confirmation : clic droit › Ouvrir.)
 
-Le prototype est en **mode démo** : les données restent dans le navigateur, rien n'est envoyé nulle part.
-Le bouton « Remettre la démo à zéro », en bas de page, recharge l'exemple.
+Depuis la **v3**, les applications utilisent la vraie base **Supabase** (projet « kombrio », São Paulo) : les données sont partagées entre tous les téléphones.
+
+## Premiers pas sur la vraie base
+
+1. **App Administrateur** › « Première utilisation : créer le compte administrateur » (une seule fois : ce premier compte devient administrateur).
+2. **App Guide** › « Ser guia Kombrio » avec un autre e-mail (astuce Gmail : `prenom.nom+guide@gmail.com` arrive dans la même boîte).
+3. **App Administrateur** › Guides à valider › Valider.
+4. **App Guide** › créer un client › le QR apparaît.
+5. Partenaires de test déjà créés : « Restaurante Teste » (avec offre) et « Loja Teste » (sans offre). Leur QR Partenaire est dans l'app Administrateur › Partenaires.
+
+Si Supabase demande de confirmer l'e-mail : ouvrir l'e-mail reçu et cliquer sur le lien (même si la page qui s'ouvre ne s'affiche pas, le compte est confirmé), puis se connecter.
 
 ## Sauvegarder
 
@@ -54,14 +63,16 @@ La page d'accueil (`/`) donne les liens vers les quatre. Le numéro de version s
 | `js/app.js` | Navigation, choix de la langue, écrans autorisés pour chaque application |
 | `js/version.js` | Le numéro de version affiché |
 | `js/views/` | Les écrans : accueil, guide, client, scan, partenaire, administration |
-| `js/store.js` | Les données (mode démo). À remplacer par Supabase, fonction par fonction |
+| `js/store.js` | Les données : lien avec la base Supabase |
+| `js/config.js` | Adresse de la base et clé publique (jamais la clé secrète) |
+| `js/store-demo.js` | Ancien mode démo, gardé pour mémoire |
 | `js/lang/` | Les traductions |
-| `supabase/schema.sql` | La base de données, à coller dans Supabase le moment venu |
+| `supabase/schema.sql`, `supabase/002_branchement.sql` | La base de données (tables, règles d'accès, fonctions), déjà installée dans Supabase |
 
 ## Prochaines étapes techniques
 
-1. Créer les comptes gratuits **Supabase** (région São Paulo) et **Netlify**.
-2. Coller `supabase/schema.sql` dans Supabase, puis brancher `js/store.js` dessus.
+1. ~~Créer Supabase et brancher les applications~~ (fait, v3).
+2. Retirer les deux partenaires de test avant le pilote.
 3. Mettre le site en ligne sur Netlify (glisser-déposer le dossier suffit au début).
 4. Pointer **kombrio.com.br** vers Netlify depuis Registro.br.
 

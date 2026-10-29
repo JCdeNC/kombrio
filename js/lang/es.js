@@ -9,9 +9,6 @@ export default {
   'demo.reset': 'Reiniciar la demostración',
   'demo.reset.confirm': '¿Borrar todos los datos de la demostración y volver al ejemplo?',
   'demo.reset.done': 'Demostración reiniciada.',
-  'demo.client': 'Demostración: para hacer de socio que escanea este QR,',
-  'demo.client.link': 'abrir la página del escaneo',
-  'demo.scan': 'Demostración: aquí el socio escanearía su QR Socio. Elija el socio:',
 
   'err.generic': 'Ha ocurrido un error. Recargue la página.',
   'err.notfound': 'Página no encontrada.',
@@ -41,5 +38,4 @@ export default {
   'app.admin': 'Administrador',
   'home.client.desc': 'El cliente muestra su QR en los socios y ve sus ofertas.',
   'client.home': 'Abra el enlace enviado por su guía para mostrar su QR.',
-  'demo.clients': 'Demostración: elegir un cliente',
 };
