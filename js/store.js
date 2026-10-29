@@ -5,8 +5,10 @@ import { randomToken, todayIn, addDays, stayIsValid } from './util.js';
 
 export const DEMO = true;
 export const SHARE = { platform: 0.2, guide: 0.8 };
+// Types de partenaires : un libellé par langue dans js/lang/ (clé ptype.xxx).
+export const PARTNER_TYPES = ['restaurant', 'shop'];
 
-const KEY = 'kombrio-demo-v1';
+const KEY = 'kombrio-demo-v2';
 const ME_KEY = 'kombrio-demo-guide';
 
 const id = (prefix) => `${prefix}_${randomToken(8)}`;
@@ -25,22 +27,22 @@ function seed() {
     { id: 'g_ana', cityId: 'rio', name: 'Ana Costa', phone: '+55 21 90000-0002', license: '00.000000.00.0002-0', status: 'pending', createdAt: daysAgo(1) },
   ];
   const partners = [
-    { id: 'p_boteco', cityId: 'rio', name: 'Boteco da Praia', area: 'Copacabana', offer: 'Uma caipirinha por pessoa', token: 'P-boteco-demo', status: 'active' },
-    { id: 'p_cantina', cityId: 'rio', name: 'Cantina Santa Teresa', area: 'Santa Teresa', offer: 'Uma taça de vinho na chegada', token: 'P-cantina-demo', status: 'active' },
-    { id: 'p_sabor', cityId: 'rio', name: 'Sabor do Morro', area: 'Vidigal', offer: 'Um chopp ou um suco natural', token: 'P-sabor-demo', status: 'active' },
+    { id: 'p_boteco', cityId: 'rio', type: 'restaurant', name: 'Boteco da Praia', area: 'Copacabana', offer: 'Uma caipirinha por pessoa', token: 'P-boteco-demo', status: 'active' },
+    { id: 'p_cantina', cityId: 'rio', type: 'restaurant', name: 'Cantina Santa Teresa', area: 'Santa Teresa', offer: '', token: 'P-cantina-demo', status: 'active' },
+    { id: 'p_sabor', cityId: 'rio', type: 'shop', name: 'Ateliê do Morro', area: 'Vidigal', offer: '10 % de desconto no artesanato', token: 'P-sabor-demo', status: 'active' },
   ];
   const stays = [
     { id: 's_martin', guideId: 'g_marcos', client: 'Famille Martin', people: 4, start: addDays(today, -3), end: addDays(today, 4), token: 'C-martin-demo', createdAt: daysAgo(4) },
     { id: 's_smith', guideId: 'g_marcos', client: 'Smith group', people: 6, start: addDays(today, -20), end: addDays(today, -15), token: 'C-smith-demo', createdAt: daysAgo(21) },
   ];
   const visits = [
-    { id: 'v_1', stayId: 's_smith', partnerId: 'p_cantina', guideId: 'g_marcos', at: daysAgo(18), people: 6, offerGiven: true,
+    { id: 'v_1', stayId: 's_smith', partnerId: 'p_cantina', guideId: 'g_marcos', at: daysAgo(18), people: 6, offerGiven: false,
       status: 'paid', amount: 90, method: 'pix', receipt: null, declaredAt: daysAgo(17), receivedAt: daysAgo(16), payoutId: 'po_1' },
     { id: 'v_2', stayId: 's_martin', partnerId: 'p_boteco', guideId: 'g_marcos', at: daysAgo(2), people: 4, offerGiven: true,
       status: 'received', amount: 50, method: 'pix', receipt: null, declaredAt: daysAgo(2), receivedAt: daysAgo(1) },
     { id: 'v_3', stayId: 's_martin', partnerId: 'p_sabor', guideId: 'g_marcos', at: daysAgo(1), people: 4, offerGiven: true,
       status: 'declared', amount: 60, method: 'transfer', receipt: null, declaredAt: daysAgo(1) },
-    { id: 'v_4', stayId: 's_martin', partnerId: 'p_cantina', guideId: 'g_marcos', at: daysAgo(0.2), people: 4, offerGiven: true,
+    { id: 'v_4', stayId: 's_martin', partnerId: 'p_cantina', guideId: 'g_marcos', at: daysAgo(0.2), people: 4, offerGiven: false,
       status: 'visited' },
   ];
   const payouts = [{ id: 'po_1', guideId: 'g_marcos', amount: 72, at: daysAgo(10), visitIds: ['v_1'] }];
@@ -168,11 +170,11 @@ export async function recordVisit(stayToken, partnerId) {
     const city = d.cities.find((c) => c.id === partner.cityId);
     if (!stayIsValid(stay, city)) return { ok: false, reason: 'expired' };
     if (guide.status !== 'validated') return { ok: false, reason: 'guide' };
-    // L'apéro est offert une fois par groupe et par séjour chez chaque partenaire.
+    // L'offre du partenaire (s'il en a une) vaut une fois par groupe et par séjour.
     const earlier = d.visits.find((v) => v.stayId === stay.id && v.partnerId === partnerId && v.offerGiven);
     const visit = {
       id: id('v'), stayId: stay.id, partnerId, guideId: stay.guideId, at: now(), people: stay.people,
-      offerGiven: !earlier, status: 'visited',
+      offerGiven: Boolean(partner.offer) && !earlier, status: 'visited',
     };
     d.visits.push(visit);
     return { ok: true, visit, earlier };

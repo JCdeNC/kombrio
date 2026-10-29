@@ -19,9 +19,9 @@ Tout est expliqué dans **Procédure de sauvegarde et de récupération.html**.
 ## Le parcours à tester
 
 1. **Espace guide** › se connecter comme Marcos Silva › créer un nouveau client › le QR apparaît.
-2. **Voir la page du client** : son QR, son guide, l'apéro offert chez chaque partenaire.
-3. **Ouvrir la page du scan** (ce que voit le restaurant après avoir scanné le QR du client) › choisir le partenaire (en vrai : il scanne son QR Partenaire).
-4. Le passage est enregistré, l'apéro à offrir s'affiche › déclarer la commission avec le comprovante.
+2. **Voir la page du client** : son QR, son guide, les partenaires (restaurants et boutiques) et leur offre s'ils en ont une.
+3. **Ouvrir la page du scan** (ce que voit le partenaire après avoir scanné le QR du client) › choisir le partenaire (en vrai : il scanne son QR Partenaire).
+4. Le passage est enregistré, l'offre à accorder s'affiche (si le partenaire en propose une) › déclarer la commission avec le comprovante.
 5. **Administration** › Paiements à vérifier › « Argent reçu » › Virements aux guides › « Marquer comme versé ».
 6. Revenir dans l'espace guide : les montants ont changé.
 

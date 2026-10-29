@@ -1,4 +1,4 @@
-// Page du client : son QR à montrer, et les apéros offerts chez les partenaires.
+// Page du client : son QR à montrer, et les partenaires (avec leur offre s'ils en ont une).
 import { t, getLang } from '../i18n.js';
 import { esc, fmtDay, stayIsValid, qrSvg, appLink } from '../util.js';
 import * as store from '../store.js';
@@ -32,8 +32,8 @@ export async function clientView([token]) {
         <p class="hint">${t('client.partners.hint')}</p>
         <ul class="list">
           ${partners.map((p) => `<li>
-            <b>${esc(p.name)}</b> <span class="hint">· ${esc(p.area || '')}</span>
-            ${p.offer ? `<div class="offer">🍹 ${esc(p.offer)}</div>` : ''}
+            <b>${esc(p.name)}</b> <span class="hint">· ${t(`ptype.${p.type}`)} · ${esc(p.area || '')}</span>
+            ${p.offer ? `<div class="offer">${esc(p.offer)}</div>` : ''}
           </li>`).join('')}
         </ul>
       </div>

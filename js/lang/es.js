@@ -26,12 +26,15 @@ export default {
   'stay.expired': 'Terminó el {day}',
 
   'client.title': 'Bienvenido, {client}',
-  'client.show': 'Muestre este QR en el restaurante socio.',
+  'client.show': 'Muestre este QR en el socio.',
   'client.people': 'Para {n} persona(s), hasta el {end}.',
   'client.expired': 'Su estancia ha terminado. ¡Gracias y hasta pronto!',
   'client.yourguide': 'Recomendado por su guía',
-  'client.partners': 'El aperitivo de regalo en nuestros socios',
-  'client.partners.hint': 'Una vez por grupo y por estancia, en cada socio.',
+  'client.partners': 'Nuestros socios',
+  'client.partners.hint': 'Las ofertas valen una vez por grupo y por estancia, en cada socio.',
 
   'scan.people': '{n} persona(s)',
+
+  'ptype.restaurant': 'Restaurante',
+  'ptype.shop': 'Tienda',
 };

@@ -148,8 +148,8 @@ async function partners({ partnerList, cityList, city }) {
     html: `<div class="card">
       <h2>${t('admin.part.title')}</h2>
       <ul class="list">${partnerList.map((p) => `<li>
-        <div class="spread"><b>${esc(p.name)}</b><span class="hint">${esc(p.area || '')} · ${esc(city(p.cityId)?.name || '')}</span></div>
-        ${p.offer ? `<div class="offer">🍹 ${esc(p.offer)}</div>` : ''}
+        <div class="spread"><b>${esc(p.name)}</b><span class="hint">${t(`ptype.${p.type}`)} · ${esc(p.area || '')} · ${esc(city(p.cityId)?.name || '')}</span></div>
+        ${p.offer ? `<div class="offer">${esc(p.offer)}</div>` : `<div class="hint">${t('admin.part.nooffer')}</div>`}
         <details style="margin-top:8px"><summary>${t('admin.part.qr')}</summary>
           <div class="qr">${qrSvg(appLink(`p/${p.token}`))}</div>
           <div class="row">
@@ -162,10 +162,12 @@ async function partners({ partnerList, cityList, city }) {
       <h2>${t('admin.part.add')}</h2>
       <div class="grid2">
         <div class="field"><label for="p-name">${t('admin.part.name')}</label><input id="p-name" name="name" required></div>
+        <div class="field"><label for="p-type">${t('admin.part.type')}</label>
+          <select id="p-type" name="type">${store.PARTNER_TYPES.map((k) => `<option value="${k}">${t(`ptype.${k}`)}</option>`).join('')}</select></div>
         <div class="field"><label for="p-area">${t('admin.part.area')}</label><input id="p-area" name="area"></div>
         <div class="field"><label for="p-city">${t('admin.part.city')}</label>
           <select id="p-city" name="cityId">${cityList.map((c) => `<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('')}</select></div>
-        <div class="field"><label for="p-offer">${t('admin.part.offer')}</label><input id="p-offer" name="offer" required placeholder="${t('admin.part.offer.ph')}"></div>
+        <div class="field"><label for="p-offer">${t('admin.part.offer')}</label><input id="p-offer" name="offer" placeholder="${t('admin.part.offer.ph')}"></div>
       </div>
       <button class="btn block">${t('admin.part.create')}</button>
     </form>`,
@@ -173,7 +175,7 @@ async function partners({ partnerList, cityList, city }) {
       root.querySelector('#add-partner').onsubmit = async (e) => {
         e.preventDefault();
         const f = Object.fromEntries(new FormData(e.target));
-        await store.addPartner({ name: f.name.trim(), area: f.area.trim(), cityId: f.cityId, offer: f.offer.trim() });
+        await store.addPartner({ name: f.name.trim(), type: f.type, area: f.area.trim(), cityId: f.cityId, offer: f.offer.trim() });
         ctx.refresh(tRaw('admin.part.created'));
       };
       root.querySelectorAll('[data-renew]').forEach((b) => {

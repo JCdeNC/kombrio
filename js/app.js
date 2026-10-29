@@ -2,6 +2,7 @@
 import { t, LANGS, chosenLang, chooseLang, useLang, getLang, browserLang } from './i18n.js';
 import { esc } from './util.js';
 import * as store from './store.js';
+import { VERSION, VERSION_DATE } from './version.js';
 import { homeView } from './views/home.js';
 import { guideView } from './views/guide.js';
 import { clientView } from './views/client.js';
@@ -62,10 +63,10 @@ async function render() {
       </select>
     </header>
     <main>${message}${out.html}</main>
-    ${store.DEMO ? `<footer class="demo">
-      <span>${t('demo.banner')}</span>
-      <button class="btn ghost small" id="demo-reset">${t('demo.reset')}</button>
-    </footer>` : ''}`;
+    <footer class="demo">
+      <span>Kombrio ${VERSION} · ${VERSION_DATE}${store.DEMO ? ` · ${t('demo.banner')}` : ''}</span>
+      ${store.DEMO ? `<button class="btn ghost small" id="demo-reset">${t('demo.reset')}</button>` : ''}
+    </footer>`;
 
   document.getElementById('lang').onchange = (e) => { chooseLang(e.target.value); render(); };
   const reset = document.getElementById('demo-reset');

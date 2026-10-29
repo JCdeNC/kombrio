@@ -1,5 +1,5 @@
 // Partenaire : son QR Partenaire enregistre le passage, puis il déclare et paie la commission.
-// Sans passage en attente, le même QR ouvre son espace (historique, apéro, QR à imprimer).
+// Sans passage en attente, le même QR ouvre son espace (historique, offre, QR à imprimer).
 import { t, tRaw, getLang } from '../i18n.js';
 import { esc, money, fmtMoment, qrSvg, appLink, readFileAsDataUrl } from '../util.js';
 import * as store from '../store.js';
@@ -42,11 +42,13 @@ async function visitContext(visit) {
 async function declareView(partner, city, visit, justScanned) {
   const lang = getLang();
   const { stay, guide } = await visitContext(visit);
-  const offer = justScanned
-    ? (visit.offerGiven
-      ? `<div class="notice ok"><b>${t('partner.offer.give')}</b><div class="offer">🍹 ${esc(partner.offer || '')}</div></div>`
-      : `<div class="notice warn">${t('partner.offer.already')}</div>`)
-    : '';
+  // Rien à afficher si le partenaire ne propose pas d'offre.
+  let offer = '';
+  if (justScanned && partner.offer) {
+    offer = visit.offerGiven
+      ? `<div class="notice ok"><b>${t('partner.offer.give')}</b><div class="offer">${esc(partner.offer)}</div></div>`
+      : `<div class="notice warn">${t('partner.offer.already')}</div>`;
+  }
   const head = `
     ${justScanned ? `<div class="notice ok"><b>${t('partner.visit.saved')}</b></div>` : ''}
     ${offer}
@@ -121,7 +123,7 @@ async function spaceView(partner, city) {
       <form class="card" id="offer">
         <h2>${t('partner.offer.title')}</h2>
         <p class="hint">${t('partner.offer.hint')}</p>
-        <div class="field"><input name="offer" value="${esc(partner.offer || '')}" required maxlength="120"></div>
+        <div class="field"><input name="offer" value="${esc(partner.offer || '')}" maxlength="120" placeholder="${t('partner.offer.none')}"></div>
         <button class="btn secondary">${t('common.save')}</button>
       </form>
       <div class="card" style="text-align:center">

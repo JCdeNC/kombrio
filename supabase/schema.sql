@@ -38,9 +38,10 @@ create table guides (
 create table partners (
   id      uuid primary key default gen_random_uuid(),
   city_id text not null references cities,
+  type    text not null default 'restaurant',   -- 'restaurant', 'shop', … (libellés dans js/lang/)
   name    text not null,
   area    text,
-  offer   text,                                 -- l'apéro offert aux clients Kombrio
+  offer   text,                                 -- offre facultative aux clients Kombrio (vide = rien d'affiché)
   token   text not null unique,                 -- renouvelable si le QR est copié
   status  text not null default 'active' check (status in ('active', 'paused')),
   created_at timestamptz not null default now()
@@ -66,7 +67,7 @@ create table visits (
   guide_id    uuid not null references guides,
   at          timestamptz not null default now(),
   people      int not null,
-  offer_given boolean not null default true,    -- apéro : une fois par groupe, par séjour, par partenaire
+  offer_given boolean not null default false,   -- offre accordée : une fois par groupe, par séjour, par partenaire
   status      text not null default 'visited'
               check (status in ('visited', 'declared', 'received', 'paid')),
   amount      numeric(10, 2),                    -- commission saisie par le partenaire
@@ -127,7 +128,7 @@ create policy "admin gère les virements" on payouts for all using (is_admin());
 -- serveur qui vérifient le token : la page ne lit jamais les tables directement.
 -- À écrire au branchement : stay_public(token), partner_space(token),
 -- record_visit(stay_token, partner_token), declare_visit(partner_token, visit_id, amount, method, receipt),
--- et la liste publique des partenaires d'une ville (nom, quartier, apéro) pour la page du client.
+-- et la liste publique des partenaires d'une ville (nom, type, quartier, offre) pour la page du client.
 
 insert into cities (id, name, country, currency, timezone, methods, license_label, pay_to)
 values ('rio', 'Rio de Janeiro', 'BR', 'BRL', 'America/Sao_Paulo', '{pix,transfer}', 'Cadastur', 'à définir');
