@@ -18,9 +18,6 @@ export default {
   'err.qr': 'This QR code is not recognised.',
 
   'home.tagline': 'Guides recommend, partners say thank you: the guide gets paid even when they are not there.',
-  'home.guide': 'Guide area',
-  'home.partner': 'Partner area',
-  'home.admin': 'Administration',
 
   'stay.valid.until': 'Valid until {day}',
   'stay.expired': 'Ended on {day}',
@@ -37,4 +34,12 @@ export default {
 
   'ptype.restaurant': 'Restaurant',
   'ptype.shop': 'Shop',
+
+  'app.client': 'Client',
+  'app.partner': 'Partner',
+  'app.guide': 'Guide',
+  'app.admin': 'Administrator',
+  'home.client.desc': 'The client shows their QR at partners and sees their offers.',
+  'client.home': 'Open the link sent by your guide to display your QR.',
+  'demo.clients': 'Demo: choose a client',
 };

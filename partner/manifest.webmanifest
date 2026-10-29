@@ -1,0 +1,10 @@
+{
+  "name": "Kombrio Parceiro",
+  "short_name": "Kombrio Parceiro",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#faf7f2",
+  "theme_color": "#0f3d3e",
+  "icons": [{ "src": "../icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}

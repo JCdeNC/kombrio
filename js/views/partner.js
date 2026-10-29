@@ -8,9 +8,25 @@ import { readPendingStay, clearPendingStay } from './scan.js';
 
 const MAX_RECEIPT = 1.5 * 1024 * 1024;
 
+const ME_KEY = 'kombrio-partner';
+
+// L'app Partenaire ouverte sans lien : on rouvre l'espace du partenaire de ce téléphone.
+export async function partnerHome(params, ctx) {
+  let me = null;
+  try { me = localStorage.getItem(ME_KEY); } catch { /* rien */ }
+  if (!store.DEMO && me && await store.partnerByToken(me)) return { html: '', mount: () => ctx.replace(`p/${me}`) };
+  const demo = store.DEMO ? await store.listPartners() : [];
+  return {
+    html: `<div class="card"><h1>Kombrio</h1><p>${t('partner.home')}</p></div>
+      ${demo.length ? `<div class="card no-print"><p class="hint">${t('demo.partners')}</p><ul class="list">
+        ${demo.map((p) => `<li><a href="#/p/${encodeURIComponent(p.token)}">${esc(p.name)}</a> <span class="hint">· ${t(`ptype.${p.type}`)}</span></li>`).join('')}</ul></div>` : ''}`,
+  };
+}
+
 export async function partnerView([token, action, visitId], ctx) {
   const partner = token && await store.partnerByToken(token);
   if (!partner) return notFound('err.partner');
+  try { localStorage.setItem(ME_KEY, partner.token); } catch { /* rien */ }
   const city = await store.getCity(partner.cityId);
 
   if (!action) {
@@ -129,7 +145,7 @@ async function spaceView(partner, city) {
       <div class="card" style="text-align:center">
         <h2>${t('partner.qr.title')}</h2>
         <p class="hint">${t('partner.qr.hint')}</p>
-        <div class="qr">${qrSvg(appLink(`p/${partner.token}`))}</div>
+        <div class="qr">${qrSvg(appLink('partner', `p/${partner.token}`))}</div>
         <button class="btn ghost no-print" id="print">${t('partner.qr.print')}</button>
       </div>`,
     mount(root, ctx) {

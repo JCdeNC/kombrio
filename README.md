@@ -16,13 +16,26 @@ Le bouton « Remettre la démo à zéro », en bas de page, recharge l'exemple.
 Après chaque séance de travail : double-clic sur **Sauvegarder Kombrio.command** (version + copie dans Google Drive › 00 Kombrio › Sauvegardes).
 Tout est expliqué dans **Procédure de sauvegarde et de récupération.html**.
 
+## Les 4 applications
+
+Chacune a son propre lien et s'installe sur l'écran d'accueil du téléphone. Elles partagent le même code et les mêmes données.
+
+| Application | Lien (sur ce Mac) | Pour qui | Langue de départ |
+| --- | --- | --- | --- |
+| Client | `/client/` | Le client : son QR, son guide, les partenaires et leurs offres | Celle du téléphone |
+| Partenaire | `/partner/` | Restaurant ou boutique : scan, offre à accorder, déclaration, historique | Portugais |
+| Guide | `/guide/` | Le guide : ses clients, leurs QR, ses passages et ses gains | Portugais |
+| Administrateur | `/admin/` | Kombrio : validations, paiements, virements, partenaires, villes | Français (ou portugais) |
+
+La page d'accueil (`/`) donne les liens vers les quatre. Le numéro de version s'affiche en bas de chaque page (`js/version.js`).
+
 ## Le parcours à tester
 
-1. **Espace guide** › se connecter comme Marcos Silva › créer un nouveau client › le QR apparaît.
-2. **Voir la page du client** : son QR, son guide, les partenaires (restaurants et boutiques) et leur offre s'ils en ont une.
-3. **Ouvrir la page du scan** (ce que voit le partenaire après avoir scanné le QR du client) › choisir le partenaire (en vrai : il scanne son QR Partenaire).
+1. **App Guide** › se connecter comme Marcos Silva › créer un nouveau client › le QR apparaît.
+2. **Voir la page du client** (elle s'ouvre dans l'app Client) : son QR, son guide, les partenaires (restaurants et boutiques) et leur offre s'ils en ont une.
+3. **Ouvrir la page du scan** (dans l'app Partenaire : ce que voit le partenaire après avoir scanné le QR du client) › choisir le partenaire (en vrai : il scanne son QR Partenaire).
 4. Le passage est enregistré, l'offre à accorder s'affiche (si le partenaire en propose une) › déclarer la commission avec le comprovante.
-5. **Administration** › Paiements à vérifier › « Argent reçu » › Virements aux guides › « Marquer comme versé ».
+5. **App Administrateur** › Paiements à vérifier › « Argent reçu » › Virements aux guides › « Marquer comme versé ».
 6. Revenir dans l'espace guide : les montants ont changé.
 
 ## Langues
@@ -35,8 +48,11 @@ Tout est expliqué dans **Procédure de sauvegarde et de récupération.html**.
 
 | Fichier | Rôle |
 | --- | --- |
-| `index.html`, `css/style.css` | La page et son style |
-| `js/app.js` | Navigation entre les écrans, choix de la langue |
+| `index.html` | Page d'accueil : liens vers les 4 applications |
+| `client/`, `partner/`, `guide/`, `admin/` | Les 4 applications (page d'entrée + fichier d'installation) |
+| `css/style.css`, `icon.svg` | Le style et l'icône |
+| `js/app.js` | Navigation, choix de la langue, écrans autorisés pour chaque application |
+| `js/version.js` | Le numéro de version affiché |
 | `js/views/` | Les écrans : accueil, guide, client, scan, partenaire, administration |
 | `js/store.js` | Les données (mode démo). À remplacer par Supabase, fonction par fonction |
 | `js/lang/` | Les traductions |

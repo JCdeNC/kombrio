@@ -8,7 +8,7 @@ const TABS = ['dashboard', 'validations', 'payments', 'payouts', 'partners', 'ci
 
 export async function adminView([tab = 'dashboard']) {
   if (!TABS.includes(tab)) tab = 'dashboard';
-  const nav = `<nav class="tabs">${TABS.map((k) => `<a href="#/admin/${k}" class="${k === tab ? 'on' : ''}">${t(`admin.tab.${k}`)}</a>`).join('')}</nav>`;
+  const nav = `<nav class="tabs">${TABS.map((k) => `<a href="#/${k}" class="${k === tab ? 'on' : ''}">${t(`admin.tab.${k}`)}</a>`).join('')}</nav>`;
   const data = await loadAll();
   const view = await ({ dashboard, validations, payments, payouts, partners, cities })[tab](data);
   return { html: `<h1>${t('admin.title')}</h1>${nav}${view.html}`, mount: view.mount };
@@ -151,9 +151,9 @@ async function partners({ partnerList, cityList, city }) {
         <div class="spread"><b>${esc(p.name)}</b><span class="hint">${t(`ptype.${p.type}`)} · ${esc(p.area || '')} · ${esc(city(p.cityId)?.name || '')}</span></div>
         ${p.offer ? `<div class="offer">${esc(p.offer)}</div>` : `<div class="hint">${t('admin.part.nooffer')}</div>`}
         <details style="margin-top:8px"><summary>${t('admin.part.qr')}</summary>
-          <div class="qr">${qrSvg(appLink(`p/${p.token}`))}</div>
+          <div class="qr">${qrSvg(appLink('partner', `p/${p.token}`))}</div>
           <div class="row">
-            <a class="btn ghost small" href="#/p/${encodeURIComponent(p.token)}">${t('admin.part.open')}</a>
+            <a class="btn ghost small" target="_blank" rel="noopener" href="${esc(appLink('partner', `p/${p.token}`))}">${t('admin.part.open')}</a>
             <button class="btn ghost small" data-renew="${esc(p.id)}">${t('admin.part.renew')}</button>
           </div>
         </details></li>`).join('')}</ul>

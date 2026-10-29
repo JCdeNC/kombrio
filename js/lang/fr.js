@@ -25,12 +25,9 @@ export default {
   'err.partner': 'Ce QR Partenaire n\'est plus valable. Demandez-en un nouveau à Kombrio.',
 
   'home.tagline': 'Les guides recommandent, les partenaires remercient : le guide est payé même quand il n\'est pas là.',
-  'home.guide': 'Espace guide',
-  'home.guide.desc': 'Enregistrer un client, envoyer son QR, suivre ses passages et ses gains.',
-  'home.partner': 'Espace partenaire',
-  'home.partner.desc': 'Le partenaire entre en scannant son QR Partenaire. Démo :',
-  'home.admin': 'Administration',
-  'home.admin.desc': 'Valider les guides, vérifier les paiements, reverser les guides.',
+  'home.guide.desc': 'Le guide enregistre son client, envoie le QR, suit les passages et ses gains.',
+  'home.partner.desc': 'Le restaurant ou la boutique enregistre le passage, déclare et paie la commission.',
+  'home.admin.desc': 'Valider les guides, vérifier les paiements, verser les guides, gérer partenaires et villes.',
 
   'stay.people': '{n} pers.',
   'stay.visits': '{n} passage(s)',
@@ -203,4 +200,15 @@ export default {
   'admin.part.type': 'Type',
   'ptype.restaurant': 'Restaurant',
   'ptype.shop': 'Boutique',
+
+  'app.client': 'Client',
+  'app.partner': 'Partenaire',
+  'app.guide': 'Guide',
+  'app.admin': 'Administrateur',
+  'home.client.desc': 'Le client montre son QR chez les partenaires et voit leurs offres.',
+  'home.install': 'Chaque application a son propre lien et s\'installe sur l\'écran d\'accueil du téléphone (menu du navigateur › « Sur l\'écran d\'accueil »).',
+  'client.home': 'Ouvrez le lien envoyé par votre guide pour afficher votre QR.',
+  'partner.home': 'Scannez votre QR Partenaire avec l\'appareil photo pour ouvrir votre espace.',
+  'demo.clients': 'Démo : choisir un client',
+  'demo.partners': 'Démo : choisir un partenaire',
 };

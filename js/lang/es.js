@@ -18,9 +18,6 @@ export default {
   'err.qr': 'Este código QR no se reconoce.',
 
   'home.tagline': 'Los guías recomiendan, los socios agradecen: el guía cobra incluso cuando no está.',
-  'home.guide': 'Área del guía',
-  'home.partner': 'Área del socio',
-  'home.admin': 'Administración',
 
   'stay.valid.until': 'Válido hasta el {day}',
   'stay.expired': 'Terminó el {day}',
@@ -37,4 +34,12 @@ export default {
 
   'ptype.restaurant': 'Restaurante',
   'ptype.shop': 'Tienda',
+
+  'app.client': 'Cliente',
+  'app.partner': 'Socio',
+  'app.guide': 'Guía',
+  'app.admin': 'Administrador',
+  'home.client.desc': 'El cliente muestra su QR en los socios y ve sus ofertas.',
+  'client.home': 'Abra el enlace enviado por su guía para mostrar su QR.',
+  'demo.clients': 'Demostración: elegir un cliente',
 };

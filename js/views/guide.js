@@ -56,7 +56,7 @@ function logoutButton() {
   return `<button class="btn ghost small" id="logout">${t('common.logout')}</button>`;
 }
 function mountLogout(root, ctx) {
-  root.querySelector('#logout').onclick = async () => { await store.logoutGuide(); ctx.go('guide'); };
+  root.querySelector('#logout').onclick = async () => { await store.logoutGuide(); ctx.go(''); };
 }
 
 async function pendingView(me) {
@@ -77,7 +77,7 @@ async function dashboardView(me, city) {
 
   const stayItem = (s) => {
     const count = visits.filter((v) => v.stayId === s.id).length;
-    return `<li><a href="#/guide/sejour/${encodeURIComponent(s.id)}">
+    return `<li><a href="#/sejour/${encodeURIComponent(s.id)}">
       <div class="spread"><b>${esc(s.client)}</b>${validity(s, stayIsValid(s, city), lang)}</div>
       <div class="hint">${t('stay.people', { n: s.people })} · ${fmtDay(s.start, lang)} → ${fmtDay(s.end, lang)} · ${t('stay.visits', { n: count })}</div>
     </a></li>`;
@@ -116,7 +116,7 @@ async function dashboardView(me, city) {
         const f = Object.fromEntries(new FormData(e.target));
         if (f.end < f.start) { alert(tRaw('guide.stay.err.dates')); return; }
         const s = await store.addStay(me.id, { client: f.client.trim(), people: Number(f.people), start: f.start, end: f.end });
-        ctx.go(`guide/sejour/${s.id}`, tRaw('guide.stay.created'));
+        ctx.go(`sejour/${s.id}`, tRaw('guide.stay.created'));
       };
     },
   };
@@ -130,8 +130,8 @@ async function stayView(me, city, stayId) {
   const visits = await store.listVisits({ stayId: stay.id });
   const partners = await store.listPartners(city.id);
   const partnerName = (id) => partners.find((p) => p.id === id)?.name || '?';
-  const clientLink = appLink(`c/${stay.token}`);
-  const scanLink = appLink(`s/${stay.token}`);
+  const clientLink = appLink('client', `c/${stay.token}`);
+  const scanLink = appLink('partner', `s/${stay.token}`);
   const share = tRaw('guide.share.text', { client: stay.client, guide: me.name, link: clientLink });
 
   const visitItem = (v) => `<li>
@@ -142,7 +142,7 @@ async function stayView(me, city, stayId) {
 
   return {
     html: `
-      <p><a href="#/guide">← ${t('guide.back')}</a></p>
+      <p><a href="#/">← ${t('guide.back')}</a></p>
       <div class="card">
         <div class="spread"><h1>${esc(stay.client)}</h1>${validity(stay, valid, lang)}</div>
         <p class="hint">${t('stay.people', { n: stay.people })} · ${fmtDay(stay.start, lang)} → ${fmtDay(stay.end, lang)}</p>
@@ -151,7 +151,7 @@ async function stayView(me, city, stayId) {
         <div class="row">
           <a class="btn" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent(share)}">${t('guide.stay.whatsapp')}</a>
           <button class="btn secondary" id="copy">${t('guide.stay.copy')}</button>
-          <a class="btn ghost" href="#/c/${encodeURIComponent(stay.token)}">${t('guide.stay.preview')}</a>
+          <a class="btn ghost" target="_blank" rel="noopener" href="${esc(clientLink)}">${t('guide.stay.preview')}</a>
         </div>
       </div>
       <div class="card">

@@ -1,27 +1,34 @@
-// Point d'entrée : routeur, en-tête, langue, message de démo.
-import { t, LANGS, chosenLang, chooseLang, useLang, getLang, browserLang } from './i18n.js';
+// Point d'entrée commun aux 4 applications : Client, Partenaire, Guide, Administrateur.
+// Chaque application a son dossier (client/, partner/, guide/, admin/) et sa page index.html
+// qui indique laquelle elle est (window.KOMBRIO_APP). Elle n'ouvre que ses propres écrans.
+import { t, LANGS, chosenLang, chooseLang, useLang, getLang, browserLang, setLangScope } from './i18n.js';
 import { esc } from './util.js';
 import * as store from './store.js';
 import { VERSION, VERSION_DATE } from './version.js';
 import { homeView } from './views/home.js';
 import { guideView } from './views/guide.js';
-import { clientView } from './views/client.js';
+import { clientView, clientHome } from './views/client.js';
 import { scanView } from './views/scan.js';
-import { partnerView } from './views/partner.js';
+import { partnerView, partnerHome } from './views/partner.js';
 import { adminView } from './views/admin.js';
 
-const ROUTES = {
-  '': { view: homeView, lang: 'fr' },
-  guide: { view: guideView, lang: 'pt' },
-  c: { view: clientView, lang: 'client' }, // page du client (son QR)
-  s: { view: scanView, lang: 'pt' },       // ce que voit le partenaire après avoir scanné le QR du client
-  p: { view: partnerView, lang: 'pt' },    // QR Partenaire et espace du partenaire
-  admin: { view: adminView, lang: 'fr', langs: ['fr', 'pt'] },
+const APP = window.KOMBRIO_APP || 'hub';
+
+// routes : premier mot de l'adresse (#/c/…, #/p/…) → écran. "all" : l'écran reçoit toute l'adresse.
+const APPS = {
+  hub: { routes: { '': homeView }, lang: 'fr' },
+  client: { routes: { '': clientHome, c: clientView }, lang: 'client' },
+  partner: { routes: { '': partnerHome, s: scanView, p: partnerView }, lang: 'pt' },
+  guide: { routes: { '': guideView }, lang: 'pt', all: true },
+  admin: { routes: { '': adminView }, lang: 'fr', langs: ['fr', 'pt'], all: true },
 };
+const conf = APPS[APP] || APPS.hub;
+setLangScope(APP);
 
 let flash = null;
 
 const ctx = {
+  app: APP,
   go(path, message) {
     flash = message || null;
     if (location.hash === `#/${path}`) render(); else location.hash = `/${path}`;
@@ -36,28 +43,33 @@ const ctx = {
 
 async function render() {
   const parts = location.hash.replace(/^#\/?/, '').split('/').filter(Boolean).map(decodeURIComponent);
-  const name = parts[0] || '';
-  const route = ROUTES[name] || ROUTES[''];
-  const fallback = route.lang === 'client' ? browserLang() : route.lang;
+  let view = conf.routes[''];
+  let params = parts;
+  if (!conf.all && conf.routes[parts[0]]) {
+    view = conf.routes[parts[0]];
+    params = parts.slice(1);
+  }
+  const fallback = conf.lang === 'client' ? browserLang() : conf.lang;
   let lang = chosenLang() || fallback;
-  if (route.langs && !route.langs.includes(lang)) lang = route.langs[0];
+  if (conf.langs && !conf.langs.includes(lang)) lang = conf.langs[0];
   useLang(lang);
 
-  const app = document.getElementById('app');
+  const root = document.getElementById('app');
   let out;
   try {
-    out = await route.view(parts.slice(1), ctx);
+    out = await view(params, ctx);
   } catch (err) {
     console.error(err);
     out = { html: `<div class="notice bad">${t(err.message === 'storage-full' ? 'err.storage' : 'err.generic')}</div>` };
   }
   const message = flash ? `<div class="notice ok" role="status">${esc(flash)}</div>` : '';
   flash = null;
-  const langs = route.langs ? LANGS.filter(([code]) => route.langs.includes(code)) : LANGS;
+  const langs = conf.langs ? LANGS.filter(([code]) => conf.langs.includes(code)) : LANGS;
+  document.title = APP === 'hub' ? 'Kombrio' : `Kombrio · ${t(`app.${APP}`)}`;
 
-  app.innerHTML = `
+  root.innerHTML = `
     <header class="top">
-      <a class="brand" href="#/">Komb<span>rio</span></a>
+      <a class="brand" href="#/">Komb<span>rio</span>${APP === 'hub' ? '' : ` <small>${t(`app.${APP}`)}</small>`}</a>
       <select id="lang" aria-label="${t('common.language')}">
         ${langs.map(([code, label]) => `<option value="${code}" ${code === getLang() ? 'selected' : ''}>${label}</option>`).join('')}
       </select>
@@ -78,7 +90,7 @@ async function render() {
     };
   }
   window.scrollTo(0, 0);
-  if (out.mount) out.mount(app.querySelector('main'), ctx);
+  if (out.mount) out.mount(root.querySelector('main'), ctx);
 }
 
 window.addEventListener('hashchange', render);

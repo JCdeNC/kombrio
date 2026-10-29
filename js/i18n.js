@@ -7,16 +7,19 @@ import es from './lang/es.js';
 
 const DICTS = { pt, fr, en, es };
 export const LANGS = [['pt', 'Português'], ['fr', 'Français'], ['en', 'English'], ['es', 'Español']];
-const STORE_KEY = 'kombrio-lang';
+let storeKey = 'kombrio-lang';
+
+// Chaque application garde sa propre langue sur l'appareil.
+export function setLangScope(app) { storeKey = `kombrio-lang-${app}`; }
 
 let current = 'pt';
 
 export function chosenLang() {
-  try { return localStorage.getItem(STORE_KEY); } catch { return null; }
+  try { return localStorage.getItem(storeKey); } catch { return null; }
 }
 
 export function chooseLang(lang) {
-  try { localStorage.setItem(STORE_KEY, lang); } catch { /* navigation privée */ }
+  try { localStorage.setItem(storeKey, lang); } catch { /* navigation privée */ }
   useLang(lang);
 }
 

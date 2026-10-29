@@ -54,9 +54,13 @@ export function initials(name) {
   return String(name || '?').split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join('');
 }
 
-// Lien absolu vers une page de l'application (ex. "s/abc" → https://…/#/s/abc).
-export function appLink(path) {
-  return `${location.origin}${location.pathname}#/${path}`;
+// Racine du site (le dossier qui contient js/), en ligne comme sur le Mac.
+const ROOT = new URL('../', import.meta.url).href;
+export const APP_DIRS = { hub: '', client: 'client/', partner: 'partner/', guide: 'guide/', admin: 'admin/' };
+
+// Lien absolu vers un écran d'une des 4 applications (ex. appLink('partner', 's/abc')).
+export function appLink(app, path = '') {
+  return `${ROOT}${APP_DIRS[app]}${path ? `#/${path}` : ''}`;
 }
 
 export function qrSvg(text) {
