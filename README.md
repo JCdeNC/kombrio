@@ -11,6 +11,11 @@ Double-cliquer sur **Ouvrir le prototype.command**. Le navigateur s'ouvre sur la
 Le prototype est en **mode démo** : les données restent dans le navigateur, rien n'est envoyé nulle part.
 Le bouton « Remettre la démo à zéro », en bas de page, recharge l'exemple.
 
+## Sauvegarder
+
+Après chaque séance de travail : double-clic sur **Sauvegarder Kombrio.command** (version + copie dans Google Drive › 00 Kombrio › Sauvegardes).
+Tout est expliqué dans **Procédure de sauvegarde et de récupération.html**.
+
 ## Le parcours à tester
 
 1. **Espace guide** › se connecter comme Marcos Silva › créer un nouveau client › le QR apparaît.
