@@ -79,3 +79,35 @@ export function readFileAsDataUrl(file) {
     reader.readAsDataURL(file);
   });
 }
+
+// Message d'erreur affiché en haut de la page (les fenêtres alert/confirm ne s'affichent pas partout).
+export function notify(message) {
+  const main = document.querySelector('main');
+  if (!main) return;
+  main.querySelector('.notice.js-notify')?.remove();
+  const box = document.createElement('div');
+  box.className = 'notice bad js-notify';
+  box.setAttribute('role', 'alert');
+  box.textContent = message;
+  main.prepend(box);
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// Confirmation en deux clics : le premier affiche la question sur le bouton, le second lance l'action.
+export function confirmTwice(button, question, action, errorMessage) {
+  const label = button.textContent;
+  let armed = false;
+  let timer;
+  button.onclick = async () => {
+    if (!armed) {
+      armed = true;
+      button.textContent = question;
+      button.classList.add('armed');
+      timer = setTimeout(() => { armed = false; button.textContent = label; button.classList.remove('armed'); }, 8000);
+      return;
+    }
+    clearTimeout(timer);
+    button.disabled = true;
+    try { await action(); } catch { button.disabled = false; notify(errorMessage); }
+  };
+}

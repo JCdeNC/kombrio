@@ -1,6 +1,6 @@
 // Espace du guide : connexion, séjours, QR, suivi des passages et de ses gains.
 import { t, tRaw, getLang } from '../i18n.js';
-import { esc, money, fmtDay, fmtMoment, todayIn, addDays, stayIsValid, qrSvg, appLink } from '../util.js';
+import { esc, money, fmtDay, fmtMoment, todayIn, addDays, stayIsValid, qrSvg, appLink, notify } from '../util.js';
 import * as store from '../store.js';
 import { validity, statusBadge, guideAmounts, notFound } from './shared.js';
 
@@ -44,7 +44,7 @@ async function loginView() {
       root.querySelector('#login').onsubmit = async (e) => {
         e.preventDefault();
         const f = Object.fromEntries(new FormData(e.target));
-        try { await store.signIn(f.email.trim(), f.password); ctx.refresh(); } catch { alert(tRaw('auth.err.login')); }
+        try { await store.signIn(f.email.trim(), f.password); ctx.refresh(); } catch { notify(tRaw('auth.err.login')); }
       };
       root.querySelector('#signup').onsubmit = async (e) => {
         e.preventDefault();
@@ -55,7 +55,7 @@ async function loginView() {
             license: f.license.trim(), cityId: f.cityId,
           });
           ctx.refresh(tRaw(ready ? 'guide.signup.done' : 'auth.confirm'));
-        } catch (err) { alert(tRaw(err.message === 'exists' ? 'auth.err.exists' : 'auth.err.signup')); }
+        } catch (err) { notify(tRaw(err.message === 'exists' ? 'auth.err.exists' : 'auth.err.signup')); }
       };
     },
   };
@@ -123,7 +123,7 @@ async function dashboardView(me, city) {
       root.querySelector('#new-stay').onsubmit = async (e) => {
         e.preventDefault();
         const f = Object.fromEntries(new FormData(e.target));
-        if (f.end < f.start) { alert(tRaw('guide.stay.err.dates')); return; }
+        if (f.end < f.start) { notify(tRaw('guide.stay.err.dates')); return; }
         const s = await store.addStay(me.id, { client: f.client.trim(), people: Number(f.people), start: f.start, end: f.end });
         ctx.go(`sejour/${s.id}`, tRaw('guide.stay.created'));
       };

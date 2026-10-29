@@ -1,7 +1,7 @@
 // Administration (français, passable en portugais) : validations, paiements, reversements, partenaires, villes.
 // Accès réservé au compte qui a le rôle « admin » dans la base (le tout premier créé ici).
 import { t, tRaw, getLang } from '../i18n.js';
-import { esc, money, fmtMoment, qrSvg, appLink } from '../util.js';
+import { esc, money, fmtMoment, qrSvg, appLink, notify, confirmTwice } from '../util.js';
 import * as store from '../store.js';
 
 const TABS = ['dashboard', 'validations', 'payments', 'payouts', 'partners', 'cities'];
@@ -55,7 +55,7 @@ function loginView() {
       root.querySelector('#login').onsubmit = async (e) => {
         e.preventDefault();
         const f = Object.fromEntries(new FormData(e.target));
-        try { await store.signIn(f.email.trim(), f.password); ctx.refresh(); } catch { alert(tRaw('auth.err.login')); }
+        try { await store.signIn(f.email.trim(), f.password); ctx.refresh(); } catch { notify(tRaw('auth.err.login')); }
       };
       root.querySelector('#first').onsubmit = async (e) => {
         e.preventDefault();
@@ -63,7 +63,7 @@ function loginView() {
         try {
           const ready = await store.signUpAdmin(f.email.trim(), f.password);
           ctx.refresh(tRaw(ready ? 'admin.first.done' : 'auth.confirm'));
-        } catch (err) { alert(tRaw(err.message === 'exists' ? 'auth.err.exists' : 'auth.err.signup')); }
+        } catch (err) { notify(tRaw(err.message === 'exists' ? 'auth.err.exists' : 'auth.err.signup')); }
       };
     },
   };
@@ -187,13 +187,10 @@ async function payouts({ guides, visits, payoutList, cur, guide }) {
       </table></div>` : `<p class="hint">${t('admin.out.history.none')}</p>`}
     </div>`,
     mount(root, ctx) {
-      root.querySelectorAll('[data-pay]').forEach((b) => {
-        b.onclick = async () => {
-          if (!confirm(tRaw('admin.out.confirm'))) return;
-          await store.payGuide(b.dataset.pay);
-          ctx.refresh(tRaw('admin.out.done'));
-        };
-      });
+      root.querySelectorAll('[data-pay]').forEach((b) => confirmTwice(b, tRaw('admin.out.confirm'), async () => {
+        await store.payGuide(b.dataset.pay);
+        ctx.refresh(tRaw('admin.out.done'));
+      }, tRaw('err.generic')));
     },
   };
 }
@@ -233,13 +230,10 @@ async function partners({ partnerList, cityList, city }) {
         await store.addPartner({ name: f.name.trim(), type: f.type, area: f.area.trim(), cityId: f.cityId, offer: f.offer.trim() });
         ctx.refresh(tRaw('admin.part.created'));
       };
-      root.querySelectorAll('[data-renew]').forEach((b) => {
-        b.onclick = async () => {
-          if (!confirm(tRaw('admin.part.renew.confirm'))) return;
-          await store.renewPartnerToken(b.dataset.renew);
-          ctx.refresh(tRaw('admin.part.renewed'));
-        };
-      });
+      root.querySelectorAll('[data-renew]').forEach((b) => confirmTwice(b, tRaw('admin.part.renew.confirm'), async () => {
+        await store.renewPartnerToken(b.dataset.renew);
+        ctx.refresh(tRaw('admin.part.renewed'));
+      }, tRaw('err.generic')));
     },
   };
 }
@@ -271,8 +265,8 @@ async function cities({ cityList }) {
       root.querySelector('#add-city').onsubmit = async (e) => {
         e.preventDefault();
         const f = Object.fromEntries(new FormData(e.target));
-        try { new Intl.DateTimeFormat('en', { timeZone: f.timezone }); } catch { alert(tRaw('admin.city.err.tz')); return; }
-        try { new Intl.NumberFormat('en', { style: 'currency', currency: f.currency.toUpperCase() }); } catch { alert(tRaw('admin.city.err.currency')); return; }
+        try { new Intl.DateTimeFormat('en', { timeZone: f.timezone }); } catch { notify(tRaw('admin.city.err.tz')); return; }
+        try { new Intl.NumberFormat('en', { style: 'currency', currency: f.currency.toUpperCase() }); } catch { notify(tRaw('admin.city.err.currency')); return; }
         await store.addCity({
           name: f.name.trim(), country: f.country.trim().toUpperCase(), currency: f.currency.trim().toUpperCase(),
           timezone: f.timezone.trim(), licenseLabel: f.licenseLabel.trim(), payTo: f.payTo.trim(),

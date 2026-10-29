@@ -61,6 +61,7 @@ a.card:hover { border-color: var(--brand); }
 .btn.secondary { background: transparent; color: var(--brand); }
 .btn.ghost { background: transparent; border-color: var(--line); color: var(--ink); }
 .btn.small { padding: 6px 10px; font-size: .9rem; }
+.btn.armed { background: var(--warn); border-color: var(--warn); color: #fff; }
 .btn.block { display: block; width: 100%; }
 .btn + .btn { margin-left: 8px; }
 .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }

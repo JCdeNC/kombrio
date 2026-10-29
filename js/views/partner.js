@@ -2,7 +2,7 @@
 // Sans passage en attente, le même QR ouvre son espace (historique, offre, QR à imprimer).
 // Pas de compte : tout passe par le code secret du QR Partenaire, vérifié par la base.
 import { t, tRaw, getLang } from '../i18n.js';
-import { esc, money, fmtMoment, qrSvg, appLink, readFileAsDataUrl } from '../util.js';
+import { esc, money, fmtMoment, qrSvg, appLink, readFileAsDataUrl, notify } from '../util.js';
 import * as store from '../store.js';
 import { statusBadge, notFound } from './shared.js';
 import { readPendingStay, clearPendingStay } from './scan.js';
@@ -94,7 +94,7 @@ function declareView({ partner, city }, visit, justScanned) {
         const form = new FormData(e.target);
         const file = form.get('receipt');
         if (!file || !file.size) return;
-        if (file.size > MAX_RECEIPT) { alert(tRaw('partner.declare.toobig')); return; }
+        if (file.size > MAX_RECEIPT) { notify(tRaw('partner.declare.toobig')); return; }
         const button = e.target.querySelector('button');
         button.disabled = true;
         const receipt = { name: file.name, type: file.type, data: await readFileAsDataUrl(file) };
@@ -103,7 +103,7 @@ function declareView({ partner, city }, visit, justScanned) {
           ctx.go(`p/${partner.token}`, tRaw('partner.declare.thanks'));
         } catch {
           button.disabled = false;
-          alert(tRaw('err.generic'));
+          notify(tRaw('err.generic'));
         }
       };
     },
