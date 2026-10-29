@@ -1,0 +1,5 @@
+# Restent sur le Mac et dans le Drive, pas sur GitHub
+.DS_Store
+.claude/
+Procédure de sauvegarde et de récupération.html
+*.command
