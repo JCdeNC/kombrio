@@ -111,3 +111,34 @@ export function confirmTwice(button, question, action, errorMessage) {
     try { await action(); } catch { button.disabled = false; notify(errorMessage); }
   };
 }
+
+/* ---------- CPF / CNPJ (Brésil) ---------- */
+export const onlyDigits = (s) => String(s || '').replace(/\D/g, '');
+
+function checkDigits(base, weights) {
+  const sum = weights.reduce((s, w, i) => s + Number(base[i]) * w, 0);
+  const r = sum % 11;
+  return r < 2 ? 0 : 11 - r;
+}
+export function validCpf(value) {
+  const d = onlyDigits(value);
+  if (d.length !== 11 || /^(\d)\1+$/.test(d)) return false;
+  const d1 = (() => { const s = [...d.slice(0, 9)].reduce((a, n, i) => a + Number(n) * (10 - i), 0); const r = (s * 10) % 11; return r === 10 ? 0 : r; })();
+  const d2 = (() => { const s = [...d.slice(0, 10)].reduce((a, n, i) => a + Number(n) * (11 - i), 0); const r = (s * 10) % 11; return r === 10 ? 0 : r; })();
+  return d1 === Number(d[9]) && d2 === Number(d[10]);
+}
+export function validCnpj(value) {
+  const d = onlyDigits(value);
+  if (d.length !== 14 || /^(\d)\1+$/.test(d)) return false;
+  const d1 = checkDigits(d, [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]);
+  const d2 = checkDigits(d, [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]);
+  return d1 === Number(d[12]) && d2 === Number(d[13]);
+}
+// CPF (11 chiffres) ou CNPJ (14 chiffres).
+export const validTaxId = (value) => validCpf(value) || validCnpj(value);
+export function fmtTaxId(value) {
+  const d = onlyDigits(value);
+  if (d.length === 11) return d.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
+  if (d.length === 14) return d.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5');
+  return d;
+}

@@ -1,7 +1,7 @@
 // Administration (français, passable en portugais) : validations, paiements, reversements, partenaires, villes.
 // Accès réservé au compte qui a le rôle « admin » dans la base (le tout premier créé ici).
 import { t, tRaw, getLang } from '../i18n.js';
-import { esc, money, fmtMoment, qrSvg, appLink, notify, confirmTwice } from '../util.js';
+import { esc, money, fmtMoment, qrSvg, appLink, notify, confirmTwice, validTaxId, fmtTaxId, onlyDigits } from '../util.js';
 import * as store from '../store.js';
 
 const TABS = ['dashboard', 'validations', 'payments', 'payouts', 'partners', 'cities'];
@@ -110,6 +110,7 @@ async function validations({ guides, city }) {
       ${pending.length ? `<ul class="list">${pending.map((g) => `<li>
         <div class="spread"><b>${esc(g.name)}</b><span class="hint">${esc(city(g.cityId)?.name || '')}</span></div>
         <div class="hint">${esc(g.email || '')} · ${esc(g.phone || '')} · ${esc(city(g.cityId)?.licenseLabel || '')} ${esc(g.license || '')}</div>
+        <div class="hint">${t('admin.val.cpf')} ${g.cpf ? esc(fmtTaxId(g.cpf)) : `<b>${t('admin.missing')}</b>`} · ${t('admin.val.pix')} ${g.pixKey ? esc(g.pixKey) : `<b>${t('admin.missing')}</b>`}</div>
         <div class="row" style="margin-top:8px">
           <button class="btn small" data-ok="${esc(g.id)}">${t('admin.val.accept')}</button>
           <button class="btn ghost small" data-no="${esc(g.id)}">${t('admin.val.refuse')}</button>
@@ -175,7 +176,7 @@ async function payouts({ guides, visits, payoutList, cur, guide }) {
       <p class="hint">${t('admin.out.hint')}</p>
       ${due.length ? `<ul class="list">${due.map(({ g, items, total }) => `<li>
         <div class="spread"><b>${esc(g.name)}</b><b>${cur(total, g.cityId)}</b></div>
-        <div class="hint">${t('admin.out.line', { n: items.length, phone: g.phone || '' })}</div>
+        <div class="hint">${t('admin.out.line', { n: items.length, pix: g.pixKey || tRaw('admin.missing'), cpf: g.cpf ? fmtTaxId(g.cpf) : tRaw('admin.missing') })}</div>
         <button class="btn small" style="margin-top:8px" data-pay="${esc(g.id)}">${t('admin.out.pay')}</button>
       </li>`).join('')}</ul>` : `<p class="hint">${t('admin.out.none')}</p>`}
     </div>
@@ -201,6 +202,7 @@ async function partners({ partnerList, cityList, city }) {
       <h2>${t('admin.part.title')}</h2>
       <ul class="list">${partnerList.map((p) => `<li>
         <div class="spread"><b>${esc(p.name)}</b><span class="hint">${t(`ptype.${p.type}`)} · ${esc(p.area || '')} · ${esc(city(p.cityId)?.name || '')}</span></div>
+        <div class="hint">${t('admin.part.taxid')} ${p.taxId ? esc(fmtTaxId(p.taxId)) : `<b>${t('admin.missing')}</b>`}</div>
         ${p.offer ? `<div class="offer">${esc(p.offer)}</div>` : `<div class="hint">${t('admin.part.nooffer')}</div>`}
         <details style="margin-top:8px"><summary>${t('admin.part.qr')}</summary>
           <div class="qr">${qrSvg(appLink('partner', `p/${p.token}`))}</div>
@@ -216,6 +218,7 @@ async function partners({ partnerList, cityList, city }) {
         <div class="field"><label for="p-name">${t('admin.part.name')}</label><input id="p-name" name="name" required></div>
         <div class="field"><label for="p-type">${t('admin.part.type')}</label>
           <select id="p-type" name="type">${store.PARTNER_TYPES.map((k) => `<option value="${k}">${t(`ptype.${k}`)}</option>`).join('')}</select></div>
+        <div class="field"><label for="p-tax">${t('admin.part.taxid')}</label><input id="p-tax" name="taxId" required inputmode="numeric" placeholder="00.000.000/0000-00"></div>
         <div class="field"><label for="p-area">${t('admin.part.area')}</label><input id="p-area" name="area"></div>
         <div class="field"><label for="p-city">${t('admin.part.city')}</label>
           <select id="p-city" name="cityId">${cityList.map((c) => `<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('')}</select></div>
@@ -227,8 +230,11 @@ async function partners({ partnerList, cityList, city }) {
       root.querySelector('#add-partner').onsubmit = async (e) => {
         e.preventDefault();
         const f = Object.fromEntries(new FormData(e.target));
-        await store.addPartner({ name: f.name.trim(), type: f.type, area: f.area.trim(), cityId: f.cityId, offer: f.offer.trim() });
-        ctx.refresh(tRaw('admin.part.created'));
+        if (!validTaxId(f.taxId)) { notify(tRaw('admin.part.err.taxid')); return; }
+        try {
+          await store.addPartner({ name: f.name.trim(), type: f.type, area: f.area.trim(), cityId: f.cityId, offer: f.offer.trim(), taxId: onlyDigits(f.taxId) });
+          ctx.refresh(tRaw('admin.part.created'));
+        } catch { notify(tRaw('err.generic')); }
       };
       root.querySelectorAll('[data-renew]').forEach((b) => confirmTwice(b, tRaw('admin.part.renew.confirm'), async () => {
         await store.renewPartnerToken(b.dataset.renew);

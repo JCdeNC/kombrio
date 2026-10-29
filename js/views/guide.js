@@ -1,6 +1,6 @@
 // Espace du guide : connexion, séjours, QR, suivi des passages et de ses gains.
 import { t, tRaw, getLang } from '../i18n.js';
-import { esc, money, fmtDay, fmtMoment, todayIn, addDays, stayIsValid, qrSvg, appLink, notify } from '../util.js';
+import { esc, money, fmtDay, fmtMoment, todayIn, addDays, stayIsValid, qrSvg, appLink, notify, validCpf, onlyDigits } from '../util.js';
 import * as store from '../store.js';
 import { validity, statusBadge, guideAmounts, notFound } from './shared.js';
 
@@ -34,6 +34,11 @@ async function loginView() {
         </div>
         <div class="field"><label for="g-license">${t('guide.signup.license')}</label><input id="g-license" name="license" required></div>
         <div class="grid2">
+          <div class="field"><label for="g-cpf">${t('guide.signup.cpf')}</label><input id="g-cpf" name="cpf" required inputmode="numeric" placeholder="000.000.000-00"></div>
+          <div class="field"><label for="g-pix">${t('guide.signup.pix')}</label><input id="g-pix" name="pixKey" required></div>
+        </div>
+        <p class="hint">${t('guide.signup.pix.hint')}</p>
+        <div class="grid2">
           <div class="field"><label for="g-email">${t('auth.email')}</label><input id="g-email" name="email" type="email" required autocomplete="email"></div>
           <div class="field"><label for="g-pass">${t('auth.password.new')}</label><input id="g-pass" name="password" type="password" required minlength="8" autocomplete="new-password"></div>
         </div>
@@ -49,10 +54,11 @@ async function loginView() {
       root.querySelector('#signup').onsubmit = async (e) => {
         e.preventDefault();
         const f = Object.fromEntries(new FormData(e.target));
+        if (!validCpf(f.cpf)) { notify(tRaw('guide.signup.err.cpf')); return; }
         try {
           const ready = await store.signUpGuide({
             email: f.email.trim(), password: f.password, name: f.name.trim(), phone: f.phone.trim(),
-            license: f.license.trim(), cityId: f.cityId,
+            license: f.license.trim(), cityId: f.cityId, cpf: onlyDigits(f.cpf), pixKey: f.pixKey.trim(),
           });
           ctx.refresh(tRaw(ready ? 'guide.signup.done' : 'auth.confirm'));
         } catch (err) { notify(tRaw(err.message === 'exists' ? 'auth.err.exists' : 'auth.err.signup')); }

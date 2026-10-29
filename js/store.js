@@ -31,10 +31,10 @@ const toCity = (r) => r && ({
 });
 const toGuide = (r) => r && ({
   id: r.id, cityId: r.city_id, name: r.name, phone: r.phone, license: r.license, photo: r.photo,
-  status: r.status, email: r.email, createdAt: r.created_at,
+  status: r.status, email: r.email, cpf: r.cpf, pixKey: r.pix_key, createdAt: r.created_at,
 });
 const toPartner = (r) => r && ({
-  id: r.id, cityId: r.city_id, type: r.type, name: r.name, area: r.area, offer: r.offer || '', token: r.token, status: r.status,
+  id: r.id, cityId: r.city_id, type: r.type, name: r.name, area: r.area, offer: r.offer || '', token: r.token, status: r.status, taxId: r.tax_id,
 });
 const toStay = (r) => r && ({
   id: r.id, guideId: r.guide_id, client: r.client, people: r.people, start: r.start_day, end: r.end_day,
@@ -80,10 +80,10 @@ export async function signIn(email, password) {
 export async function signOut() { await sb.auth.signOut(); }
 
 // Inscription d'un guide. Renvoie false si la base demande d'abord de confirmer l'e-mail.
-export async function signUpGuide({ email, password, name, phone, license, cityId }) {
+export async function signUpGuide({ email, password, name, phone, license, cityId, cpf, pixKey }) {
   const { data, error } = await sb.auth.signUp({
     email, password,
-    options: { data: { role: 'guide', name, phone, license, city_id: cityId }, emailRedirectTo: location.href.split('#')[0] },
+    options: { data: { role: 'guide', name, phone, license, city_id: cityId, cpf, pix_key: pixKey }, emailRedirectTo: location.href.split('#')[0] },
   });
   if (error) throw new Error(error.message.includes('registered') ? 'exists' : 'auth');
   return Boolean(data.session);
@@ -132,7 +132,7 @@ export async function publicPartners(cityId) {
 }
 export async function addPartner(p) {
   check(await sb.from('partners').insert({
-    city_id: p.cityId, type: p.type, name: p.name, area: p.area, offer: p.offer || null, token: `P-${randomToken(24)}`,
+    city_id: p.cityId, type: p.type, name: p.name, area: p.area, offer: p.offer || null, tax_id: p.taxId, token: `P-${randomToken(24)}`,
   }));
 }
 export async function renewPartnerToken(partnerId) {
