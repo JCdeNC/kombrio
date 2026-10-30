@@ -150,7 +150,9 @@ th { color: var(--muted); font-weight: 600; border-top: 0; }
 
 .receipt img { max-width: 160px; max-height: 160px; border-radius: 8px; border: 1px solid var(--line); display: block; }
 
+.print-only { display: none; }
 @media print {
+  .print-only { display: block; }
   .top, .demo, .no-print { display: none !important; }
   body { background: #fff; }
 }

@@ -2,7 +2,7 @@
 // Sans passage en attente, le même QR ouvre son espace (historique, offre, QR à imprimer).
 // Pas de compte : tout passe par le code secret du QR Partenaire, vérifié par la base.
 import { t, tRaw, getLang } from '../i18n.js';
-import { esc, money, fmtMoment, fmtDay, qrSvg, appLink, readFileAsDataUrl, notify, pixPayload, pixKeyOf, photoToJpeg } from '../util.js';
+import { esc, money, fmtMoment, fmtDay, qrSvg, appLink, readFileAsDataUrl, notify, pixPayload, pixKeyOf, photoToJpeg, confirmTwice, fmtTaxId, locale } from '../util.js';
 import * as store from '../store.js';
 import { statusBadge, notFound } from './shared.js';
 import { readPendingStay, clearPendingStay } from './scan.js';
@@ -42,6 +42,7 @@ export async function partnerView([token, action, visitId], ctx) {
   }
 
   if (action === 'pagar') return payView(space);
+  if (action === 'relatorio') return reportPage(space, visitId);
   const visit = space.visits.find((v) => v.id === visitId);
   if (!visit) return notFound();
   return declareView(space, visit, action === 'passage');
@@ -130,6 +131,11 @@ function spaceView({ partner, city, visits }) {
       <div class="card">
         <h2>${t('partner.visits')}</h2>
         ${visits.length ? `<ul class="list">${visits.map(item).join('')}</ul>` : `<p class="hint">${t('partner.visits.none')}</p>`}
+      </div>
+      <div class="card no-print">
+        <h2>${t('report.card')}</h2>
+        <p class="hint">${t('report.card.hint')}</p>
+        <a class="btn secondary" href="#/p/${encodeURIComponent(partner.token)}/relatorio">${t('report.open')}</a>
       </div>
       <form class="card" id="offer">
         <h2>${t('partner.offer.title')}</h2>
@@ -243,4 +249,109 @@ function payView({ partner, city, visits }) {
       };
     },
   };
+}
+
+/* ---------- Relevé mensuel (partenaire et comptable) ---------- */
+const monthOf = (iso, tz) => new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit' }).format(new Date(iso));
+const monthLabel = (m, lang) => new Intl.DateTimeFormat(locale(lang), { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${m}-15T12:00:00Z`));
+const PAID = ['received', 'paid'];
+const shortMoment = (iso, lang, tz) => new Intl.DateTimeFormat(locale(lang), { dateStyle: 'short', timeStyle: 'short', timeZone: tz }).format(new Date(iso));
+
+function reportBlock({ partner, city, visits }, month, base) {
+  const lang = getLang();
+  const months = [...new Set([monthOf(new Date().toISOString(), city.timezone), ...visits.map((v) => monthOf(v.at, city.timezone))])].sort().reverse();
+  const m = months.includes(month) ? month : months[0];
+  const rows = visits.filter((v) => monthOf(v.at, city.timezone) === m).sort((a, b) => a.at.localeCompare(b.at));
+  const cur = (n) => money(n, city.currency, lang);
+  const declared = rows.filter((v) => v.status !== 'visited').reduce((s, v) => s + (v.amount || 0), 0);
+  const paid = rows.filter((v) => PAID.includes(v.status)).reduce((s, v) => s + (v.amount || 0), 0);
+  const todo = rows.filter((v) => v.status === 'visited').length;
+  const html = `
+    <div class="card">
+      <div class="spread">
+        <div><h1 style="margin-bottom:2px">${t('report.title')}</h1>
+          <div class="hint">${esc(partner.name)}${partner.taxId ? ` · ${t('report.taxid')} ${esc(fmtTaxId(partner.taxId))}` : ''}${partner.area ? ` · ${esc(partner.area)}` : ''}</div></div>
+        <select id="month" class="no-print" style="width:auto">${months.map((x) => `<option value="${x}" ${x === m ? 'selected' : ''}>${esc(monthLabel(x, lang))}</option>`).join('')}</select>
+      </div>
+      <p class="print-only"><b>${esc(monthLabel(m, lang))}</b></p>
+      <div class="stats" style="margin-top:12px">
+        <div class="stat"><b>${rows.length}</b><span>${t('report.visits')}</span></div>
+        <div class="stat"><b>${cur(declared)}</b><span>${t('report.declared')}</span></div>
+        <div class="stat"><b>${cur(paid)}</b><span>${t('report.paid')}</span></div>
+      </div>
+      ${todo ? `<div class="notice warn">${t('partner.todeclare', { n: todo })}</div>` : ''}
+      ${rows.length ? `<div class="table-wrap"><table>
+        <tr><th>${t('report.col.date')}</th><th>${t('report.col.client')}</th><th>${t('report.col.guide')}</th><th>${t('report.col.people')}</th><th>${t('report.col.amount')}</th><th>${t('report.col.method')}</th><th>${t('report.col.status')}</th></tr>
+        ${rows.map((v) => `<tr><td style="white-space:nowrap">${shortMoment(v.at, lang, city.timezone)}</td><td>${esc(v.client || '')}</td><td>${esc(v.guideName || '')}</td><td>${v.people}</td>
+          <td>${v.amount != null && v.status !== 'visited' ? cur(v.amount) : '—'}</td><td>${v.method && v.status !== 'visited' ? t(`method.${v.method}`) : '—'}</td><td>${statusBadge(v)}</td></tr>`).join('')}
+        <tr><td colspan="4"><b>${t('report.total')}</b></td><td><b>${cur(declared)}</b></td><td colspan="2"></td></tr>
+      </table></div>` : `<p class="hint">${t('report.none')}</p>`}
+      <div class="row no-print" style="margin-top:12px">
+        <button type="button" class="btn secondary" id="csv">${t('report.excel')}</button>
+        <button type="button" class="btn ghost" id="pdf">${t('report.print')}</button>
+      </div>
+      <p class="hint" style="margin-top:10px">kombrio · ${t('report.generated', { date: fmtDay(new Date().toISOString().slice(0, 10), lang) })}</p>
+    </div>`;
+  const mount = (root, ctx) => {
+    root.querySelector('#month').onchange = (e) => ctx.go(`${base}/${e.target.value}`);
+    root.querySelector('#pdf').onclick = () => window.print();
+    root.querySelector('#csv').onclick = () => {
+      const num = (n) => (n == null ? '' : String(n.toFixed(2)).replace('.', ','));
+      const cell = (x) => `"${String(x ?? '').replace(/"/g, '""')}"`;
+      const head = ['report.col.date', 'report.col.client', 'report.col.guide', 'report.col.people', 'report.col.amount', 'report.col.method', 'report.col.status'].map((k) => cell(tRaw(k)));
+      const lines = rows.map((v) => [shortMoment(v.at, lang, city.timezone), v.client, v.guideName, v.people,
+        v.status !== 'visited' ? num(v.amount) : '', v.method && v.status !== 'visited' ? tRaw(`method.${v.method}`) : '',
+        tRaw(v.status === 'visited' && v.rejected ? 'status.rejected' : `status.${v.status}`)].map(cell));
+      lines.push([cell(tRaw('report.total')), '', '', '', cell(num(declared)), '', '']);
+      const csv = '﻿' + [head, ...lines].map((r) => r.join(';')).join('\r\n');
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+      a.download = `kombrio-${partner.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${m}.csv`;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+    };
+  };
+  return { html, mount };
+}
+
+// Relevé vu par le partenaire, avec le lien à donner au comptable.
+function reportPage(space, month) {
+  const { partner } = space;
+  const base = `p/${partner.token}/relatorio`;
+  const block = reportBlock(space, month, base);
+  const link = partner.reportToken ? appLink('partner', `r/${partner.reportToken}`) : '';
+  return {
+    html: `
+      <p class="no-print"><a href="#/p/${encodeURIComponent(partner.token)}">← ${t('partner.space')}</a></p>
+      ${block.html}
+      <div class="card no-print">
+        <h2>${t('report.share.title')}</h2>
+        <p class="hint">${t('report.share.hint')}</p>
+        ${link ? `<input readonly value="${esc(link)}" id="replink" style="margin-bottom:10px">
+          <div class="row">
+            <button type="button" class="btn" id="copylink">${t('report.share.copy')}</button>
+            <a class="btn secondary" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent(tRaw('report.share.text', { name: partner.name, link }))}">WhatsApp</a>
+            <a class="btn secondary" href="mailto:?subject=${encodeURIComponent(tRaw('report.share.subject', { name: partner.name }))}&body=${encodeURIComponent(tRaw('report.share.text', { name: partner.name, link }))}">E-mail</a>
+            <button type="button" class="btn ghost" id="renew">${t('report.share.renew')}</button>
+          </div>`
+        : `<button type="button" class="btn" id="create">${t('report.share.create')}</button>`}
+      </div>`,
+    mount(root, ctx) {
+      block.mount(root, ctx);
+      const create = root.querySelector('#create');
+      if (create) create.onclick = async () => { try { await store.renewReportToken(partner.token); ctx.refresh(); } catch { notify(tRaw('err.generic')); } };
+      const copy = root.querySelector('#copylink');
+      if (copy) copy.onclick = async () => { try { await navigator.clipboard.writeText(link); copy.textContent = tRaw('common.copied'); } catch { prompt('', link); } };
+      const renew = root.querySelector('#renew');
+      if (renew) confirmTwice(renew, tRaw('report.share.renew.confirm'), async () => { await store.renewReportToken(partner.token); ctx.refresh(); }, tRaw('err.generic'));
+    },
+  };
+}
+
+// Relevé vu par le comptable : lecture seule, à partir de son lien.
+export async function reportView([reportToken, month]) {
+  const data = reportToken && await store.partnerReport(reportToken);
+  if (!data) return notFound('err.report');
+  const block = reportBlock(data, month, `r/${reportToken}`);
+  return { html: `<p class="hint no-print">${t('report.readonly')}</p>${block.html}`, mount: block.mount };
 }

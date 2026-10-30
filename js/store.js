@@ -35,7 +35,7 @@ const toGuide = (r) => r && ({
 });
 const toPartner = (r) => r && ({
   id: r.id, cityId: r.city_id, type: r.type, name: r.name, area: r.area, offer: r.offer || '', token: r.token, status: r.status, taxId: r.tax_id,
-  photo: r.photo || '', address: r.address || '',
+  photo: r.photo || '', address: r.address || '', reportToken: r.report_token || '',
 });
 const toStay = (r) => r && ({
   id: r.id, guideId: r.guide_id, client: r.client, people: r.people, start: r.start_day, end: r.end_day,
@@ -173,6 +173,15 @@ export async function partnerSpace(token) {
   const d = check(await sb.rpc('partner_space', { p_token: token }));
   if (!d) return null;
   return { partner: toPartner(d.partner), city: toCity(d.city), visits: (d.visits || []).map(toVisit) };
+}
+// Relevé du comptable (lecture seule), à partir de son lien. null si le lien n'est pas reconnu.
+export async function partnerReport(reportToken) {
+  const d = check(await sb.rpc('partner_report', { p_token: reportToken }));
+  if (!d) return null;
+  return { partner: toPartner(d.partner), city: toCity(d.city), visits: (d.visits || []).map(toVisit) };
+}
+export async function renewReportToken(partnerToken) {
+  return check(await sb.rpc('renew_report_token', { p_partner_token: partnerToken }));
 }
 export async function setPartnerOffer(token, offer) {
   check(await sb.rpc('set_partner_offer', { p_token: token, p_offer: offer }));

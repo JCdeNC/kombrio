@@ -69,7 +69,7 @@ La page d'accueil (`/`) donne les liens vers les quatre. Le numéro de version s
 | `js/config.js` | Adresse de la base et clé publique (jamais la clé secrète) |
 | `js/store-demo.js` | Ancien mode démo, gardé pour mémoire |
 | `js/lang/` | Les traductions |
-| `supabase/schema.sql`, `002_branchement.sql`, `003_cpf_pix.sql`, `004_vitrine.sql` | La base de données (tables, règles d'accès, fonctions), déjà installée dans Supabase, dans cet ordre |
+| `supabase/schema.sql`, `002_branchement.sql`, `003_cpf_pix.sql`, `004_vitrine.sql`, `005_releve_comptable.sql` | La base de données (tables, règles d'accès, fonctions), déjà installée dans Supabase, dans cet ordre |
 
 ## Prochaines étapes techniques
 
