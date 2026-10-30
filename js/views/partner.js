@@ -82,7 +82,7 @@ function declareView({ partner, city }, visit, justScanned) {
           <div class="field"><label for="d-method">${t('partner.declare.method')}</label>
             <select id="d-method" name="method">${city.methods.map((m) => `<option value="${esc(m)}">${t(`method.${m}`)}</option>`).join('')}</select></div>
         </div>
-        <div class="notice">${t('partner.declare.payto')}<br><b>${esc(city.payTo)}</b></div>
+        <div class="notice">${t('partner.declare.payto')}<br><b>${city.payTo && !/d[ée]finir/i.test(city.payTo) ? esc(city.payTo) : t('partner.declare.payto.pending')}</b></div>
         <div class="field"><label for="d-receipt">${t('partner.declare.receipt')}</label>
           <input id="d-receipt" name="receipt" type="file" accept="image/*,application/pdf" required></div>
         <button class="btn block">${t('partner.declare.submit')}</button>

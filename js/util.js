@@ -136,6 +136,21 @@ export function validCnpj(value) {
 }
 // CPF (11 chiffres) ou CNPJ (14 chiffres).
 export const validTaxId = (value) => validCpf(value) || validCnpj(value);
+// Met en forme un champ CPF / CNPJ pendant la saisie (000.000.000-00 ou 00.000.000/0000-00).
+export function maskTaxId(input, only = 'both') {
+  input.addEventListener('input', () => {
+    const max = only === 'cpf' ? 11 : 14;
+    const d = onlyDigits(input.value).slice(0, max);
+    let v = d;
+    if (d.length <= 11 && only !== 'cnpj') {
+      v = d.replace(/^(\d{3})(\d)/, '$1.$2').replace(/^(\d{3})\.(\d{3})(\d)/, '$1.$2.$3').replace(/\.(\d{3})(\d{1,2})$/, '.$1-$2');
+    } else {
+      v = d.replace(/^(\d{2})(\d)/, '$1.$2').replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3')
+        .replace(/^(\d{2})\.(\d{3})\.(\d{3})(\d)/, '$1.$2.$3/$4').replace(/\/(\d{4})(\d{1,2})$/, '/$1-$2');
+    }
+    input.value = v;
+  });
+}
 export function fmtTaxId(value) {
   const d = onlyDigits(value);
   if (d.length === 11) return d.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');

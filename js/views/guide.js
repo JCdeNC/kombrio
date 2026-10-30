@@ -2,10 +2,12 @@
 import { t, tRaw, getLang } from '../i18n.js';
 import { esc, money, fmtDay, fmtMoment, todayIn, addDays, stayIsValid, qrSvg, appLink, notify, validCpf, onlyDigits } from '../util.js';
 import * as store from '../store.js';
-import { validity, statusBadge, guideAmounts, notFound } from './shared.js';
+import { validity, statusBadge, guideAmounts, notFound, forgotLink, mountForgot, resetView } from './shared.js';
+import { maskTaxId } from '../util.js';
 
 export async function guideView(params, ctx) {
   const me = await store.currentGuide();
+  if (me && store.inRecovery()) return resetView();
   if (!me) return loginView();
   if (me.status !== 'validated') return pendingView(me);
   const city = await store.getCity(me.cityId);
@@ -23,6 +25,7 @@ async function loginView() {
         <div class="field"><label for="l-email">${t('auth.email')}</label><input id="l-email" name="email" type="email" required autocomplete="email"></div>
         <div class="field"><label for="l-pass">${t('auth.password')}</label><input id="l-pass" name="password" type="password" required autocomplete="current-password"></div>
         <button class="btn block">${t('auth.login')}</button>
+        ${forgotLink()}
       </form>
       <form class="card" id="signup">
         <h2>${t('guide.signup.title')}</h2>
@@ -32,7 +35,7 @@ async function loginView() {
           <div class="field"><label for="g-city">${t('guide.signup.city')}</label>
             <select id="g-city" name="cityId">${cities.map((c) => `<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('')}</select></div>
         </div>
-        <div class="field"><label for="g-license">${t('guide.signup.license')}</label><input id="g-license" name="license" required></div>
+        <div class="field"><label for="g-license">${t('guide.signup.license')}</label><input id="g-license" name="license" required inputmode="numeric" placeholder="000.000.000-00 / 00.000.000/0000-00"></div>
         <div class="grid2">
           <div class="field"><label for="g-cpf">${t('guide.signup.cpf')}</label><input id="g-cpf" name="cpf" required inputmode="numeric" placeholder="000.000.000-00"></div>
           <div class="field"><label for="g-pix">${t('guide.signup.pix')}</label><input id="g-pix" name="pixKey" required></div>
@@ -42,10 +45,14 @@ async function loginView() {
           <div class="field"><label for="g-email">${t('auth.email')}</label><input id="g-email" name="email" type="email" required autocomplete="email"></div>
           <div class="field"><label for="g-pass">${t('auth.password.new')}</label><input id="g-pass" name="password" type="password" required minlength="8" autocomplete="new-password"></div>
         </div>
+        <div class="field"><label for="g-pass2">${t('auth.password.confirm')}</label><input id="g-pass2" name="password2" type="password" required minlength="8" autocomplete="new-password"></div>
         <p class="hint">${t('guide.signup.hint')}</p>
         <button class="btn block">${t('guide.signup.submit')}</button>
       </form>`,
     mount(root, ctx) {
+      mountForgot(root.querySelector('#login'));
+      maskTaxId(root.querySelector('#g-cpf'), 'cpf');
+      maskTaxId(root.querySelector('#g-license'));
       root.querySelector('#login').onsubmit = async (e) => {
         e.preventDefault();
         const f = Object.fromEntries(new FormData(e.target));
@@ -54,6 +61,7 @@ async function loginView() {
       root.querySelector('#signup').onsubmit = async (e) => {
         e.preventDefault();
         const f = Object.fromEntries(new FormData(e.target));
+        if (f.password !== f.password2) { notify(tRaw('auth.err.mismatch')); return; }
         if (!validCpf(f.cpf)) { notify(tRaw('guide.signup.err.cpf')); return; }
         try {
           const ready = await store.signUpGuide({

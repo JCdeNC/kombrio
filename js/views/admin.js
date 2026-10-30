@@ -3,11 +3,14 @@
 import { t, tRaw, getLang } from '../i18n.js';
 import { esc, money, fmtMoment, qrSvg, appLink, notify, confirmTwice, validTaxId, fmtTaxId, onlyDigits } from '../util.js';
 import * as store from '../store.js';
+import { forgotLink, mountForgot, resetView } from './shared.js';
+import { maskTaxId } from '../util.js';
 
 const TABS = ['dashboard', 'validations', 'payments', 'payouts', 'partners', 'cities'];
 
 export async function adminView([tab = 'dashboard']) {
   const me = await store.currentAdmin();
+  if (me && store.inRecovery()) return resetView();
   if (!me) return loginView();
   if (!me.isAdmin) {
     return {
@@ -41,6 +44,7 @@ function loginView() {
         <div class="field"><label for="a-email">${t('auth.email')}</label><input id="a-email" name="email" type="email" required autocomplete="email"></div>
         <div class="field"><label for="a-pass">${t('auth.password')}</label><input id="a-pass" name="password" type="password" required autocomplete="current-password"></div>
         <button class="btn block">${t('auth.login')}</button>
+        ${forgotLink()}
       </form>
       <details class="card">
         <summary>${t('admin.first')}</summary>
@@ -52,6 +56,7 @@ function loginView() {
         </form>
       </details>`,
     mount(root, ctx) {
+      mountForgot(root.querySelector('#login'));
       root.querySelector('#login').onsubmit = async (e) => {
         e.preventDefault();
         const f = Object.fromEntries(new FormData(e.target));
@@ -68,6 +73,9 @@ function loginView() {
     },
   };
 }
+
+// « 1 guide actif » / « 2 guides actifs ».
+const plural = (key, n) => tRaw(`${key}.${n === 1 ? 'one' : 'other'}`, { n });
 
 async function loadAll() {
   const [cityList, guides, partnerList, visits, payoutList] = await Promise.all([
@@ -97,7 +105,7 @@ async function dashboard({ guides, partnerList, visits, cur, cityList }) {
         <div class="stat"><b>${cur(store.guideShare(sum(['received'])), cityId)}</b><span>${t('admin.stat.topay')}</span></div>
       </div>
       <div class="card">
-        <p>${t('admin.stat.people', { guides: guides.filter((g) => g.status === 'validated').length, pending: guides.filter((g) => g.status === 'pending').length, partners: partnerList.length })}</p>
+        <p>${t('admin.stat.people', { guides: plural('admin.stat.guides', guides.filter((g) => g.status === 'validated').length), pending: guides.filter((g) => g.status === 'pending').length, partners: plural('admin.stat.partners', partnerList.length) })}</p>
       </div>`,
   };
 }
@@ -227,6 +235,7 @@ async function partners({ partnerList, cityList, city }) {
       <button class="btn block">${t('admin.part.create')}</button>
     </form>`,
     mount(root, ctx) {
+      maskTaxId(root.querySelector('#p-tax'));
       root.querySelector('#add-partner').onsubmit = async (e) => {
         e.preventDefault();
         const f = Object.fromEntries(new FormData(e.target));

@@ -79,6 +79,23 @@ export async function signIn(email, password) {
 }
 export async function signOut() { await sb.auth.signOut(); }
 
+// Mot de passe oublié : Supabase envoie un lien qui ramène sur cette même page.
+// Le lien arrive avec « type=recovery » dans l'adresse : on le note avant que Supabase ne l'efface.
+const RECOVERY_KEY = `kombrio-recovery-${window.KOMBRIO_APP || 'hub'}`;
+try { if (/type=recovery/.test(location.hash)) sessionStorage.setItem(RECOVERY_KEY, '1'); } catch { /* rien */ }
+export function inRecovery() {
+  try { return sessionStorage.getItem(RECOVERY_KEY) === '1'; } catch { return false; }
+}
+export async function sendPasswordReset(email) {
+  const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: location.href.split('#')[0] });
+  if (error) throw new Error('auth');
+}
+export async function setNewPassword(password) {
+  const { error } = await sb.auth.updateUser({ password });
+  if (error) throw new Error('auth');
+  try { sessionStorage.removeItem(RECOVERY_KEY); } catch { /* rien */ }
+}
+
 // Inscription d'un guide. Renvoie false si la base demande d'abord de confirmer l'e-mail.
 export async function signUpGuide({ email, password, name, phone, license, cityId, cpf, pixKey }) {
   const { data, error } = await sb.auth.signUp({

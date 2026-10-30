@@ -5,7 +5,7 @@ Cadrage complet : document « Kombrio : cadrage du projet » (Claude Docs).
 
 ## Ouvrir le prototype
 
-**En ligne :** https://jcdenc.github.io/kombrio/ (Client `/client/`, Partenaire `/partner/`, Guide `/guide/`, Administrateur `/admin/`). Mis à jour à chaque sauvegarde.
+**En ligne :** https://app.kombrio.com.br/ (Client `/client/`, Partenaire `/partner/`, Guide `/guide/`, Administrateur `/admin/`). Mis à jour à chaque sauvegarde.
 
 **Sur ce Mac :** double-cliquer sur **Ouvrir le prototype.command**. Le navigateur s'ouvre sur la page d'accueil.
 (La première fois, macOS peut demander une confirmation : clic droit › Ouvrir.)
@@ -75,7 +75,7 @@ La page d'accueil (`/`) donne les liens vers les quatre. Le numéro de version s
 
 1. ~~Créer Supabase et brancher les applications~~ (fait, v3).
 2. Retirer les deux partenaires de test avant le pilote.
-3. ~~Mettre le site en ligne~~ (fait le 30/10/2026 : GitHub Pages, https://jcdenc.github.io/kombrio/).
-4. Afficher le site sous **kombrio.com.br** : domaine personnalisé GitHub Pages, réglé depuis Registro.br (Netlify n'est plus nécessaire).
+3. ~~Mettre le site en ligne~~ (fait le 30/10/2026 : GitHub Pages).
+4. ~~Adresse pro~~ (fait le 30/10/2026 : **https://app.kombrio.com.br**, ligne CNAME `app` → `jcdenc.github.io` chez Registro.br, HTTPS obligatoire). `kombrio.com.br` reste libre pour un futur site vitrine.
 
 Coût : 0 R$ par mois tant que les offres gratuites suffisent.
