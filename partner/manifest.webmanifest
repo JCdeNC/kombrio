@@ -1,7 +1,6 @@
 {
   "name": "Kombrio Parceiro",
   "short_name": "Kombrio Parceiro",
-  "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "background_color": "#F4F7F8",
