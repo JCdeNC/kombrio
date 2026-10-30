@@ -3,7 +3,7 @@ import { t, tRaw, getLang } from '../i18n.js';
 import { esc, money, fmtDay, fmtMoment, todayIn, addDays, stayIsValid, qrSvg, appLink, notify, validCpf, onlyDigits } from '../util.js';
 import * as store from '../store.js';
 import { validity, statusBadge, guideAmounts, notFound, forgotLink, mountForgot, resetView } from './shared.js';
-import { maskTaxId } from '../util.js';
+import { maskTaxId, qrCardBlob, shareOrDownload } from '../util.js';
 
 export async function guideView(params, ctx) {
   const me = await store.currentGuide();
@@ -173,6 +173,7 @@ async function stayView(me, city, stayId) {
         <p class="hint" style="text-align:center">${t('guide.stay.qr.hint')}</p>
         <div class="row">
           <a class="btn" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent(share)}">${t('guide.stay.whatsapp')}</a>
+          <button type="button" class="btn secondary" id="sendqr">${t('guide.stay.sendqr')}</button>
           <button class="btn secondary" id="copy">${t('guide.stay.copy')}</button>
           <a class="btn ghost" target="_blank" rel="noopener" href="${esc(clientLink)}">${t('guide.stay.preview')}</a>
         </div>
@@ -182,6 +183,12 @@ async function stayView(me, city, stayId) {
         ${visits.length ? `<ul class="list">${visits.map(visitItem).join('')}</ul>` : `<p class="hint">${t('guide.stay.visits.none')}</p>`}
       </div>`,
     mount(root) {
+      root.querySelector('#sendqr').onclick = async () => {
+        const blob = await qrCardBlob(scanLink, {
+          title: stay.client, line1: tRaw('client.valid.until', { end: fmtDay(stay.end, lang) }), line2: tRaw('guide.stay.qr.hint'),
+        });
+        await shareOrDownload(blob, 'kombrio-qr.png', share);
+      };
       root.querySelector('#copy').onclick = async (e) => {
         try { await navigator.clipboard.writeText(clientLink); e.target.textContent = tRaw('common.copied'); } catch { prompt('', clientLink); }
       };

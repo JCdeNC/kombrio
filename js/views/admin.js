@@ -4,7 +4,7 @@ import { t, tRaw, getLang } from '../i18n.js';
 import { esc, money, fmtMoment, qrSvg, appLink, notify, confirmTwice, validTaxId, fmtTaxId, onlyDigits } from '../util.js';
 import * as store from '../store.js';
 import { forgotLink, mountForgot, resetView } from './shared.js';
-import { maskTaxId } from '../util.js';
+import { maskTaxId, photoToJpeg } from '../util.js';
 
 const TABS = ['dashboard', 'validations', 'payments', 'payouts', 'partners', 'cities'];
 
@@ -212,6 +212,16 @@ async function partners({ partnerList, cityList, city }) {
         <div class="spread"><b>${esc(p.name)}</b><span class="hint">${t(`ptype.${p.type}`)} · ${esc(p.area || '')} · ${esc(city(p.cityId)?.name || '')}</span></div>
         <div class="hint">${t('admin.part.taxid')} ${p.taxId ? esc(fmtTaxId(p.taxId)) : `<b>${t('admin.missing')}</b>`}</div>
         ${p.offer ? `<div class="offer">${esc(p.offer)}</div>` : `<div class="hint">${t('admin.part.nooffer')}</div>`}
+        <details style="margin-top:8px"><summary>${t('admin.part.showcase')}</summary>
+          <form class="pdetails" data-id="${esc(p.id)}" style="margin-top:10px">
+            <div class="row" style="align-items:flex-start">
+              ${p.photo && p.photo.startsWith('data:image/') ? `<img class="thumb" src="${esc(p.photo)}" alt="">` : ''}
+              <div class="field" style="flex:1"><label>${t('admin.part.photo')}</label><input type="file" name="photo" accept="image/*"></div>
+            </div>
+            <div class="field"><label>${t('admin.part.address')}</label><input name="address" value="${esc(p.address)}" placeholder="${t('admin.part.address.ph')}"></div>
+            <button class="btn small">${t('admin.part.save')}</button>
+          </form>
+        </details>
         <details style="margin-top:8px"><summary>${t('admin.part.qr')}</summary>
           <div class="qr">${qrSvg(appLink('partner', `p/${p.token}`))}</div>
           <div class="row">
@@ -236,6 +246,17 @@ async function partners({ partnerList, cityList, city }) {
     </form>`,
     mount(root, ctx) {
       maskTaxId(root.querySelector('#p-tax'));
+      root.querySelectorAll('.pdetails').forEach((form) => {
+        form.onsubmit = async (e) => {
+          e.preventDefault();
+          const file = form.photo.files[0];
+          try {
+            const photo = file ? await photoToJpeg(file) : undefined;
+            await store.setPartnerDetails(form.dataset.id, { photo, address: form.address.value.trim() });
+            ctx.refresh(tRaw('admin.part.saved'));
+          } catch { notify(tRaw('err.generic')); }
+        };
+      });
       root.querySelector('#add-partner').onsubmit = async (e) => {
         e.preventDefault();
         const f = Object.fromEntries(new FormData(e.target));

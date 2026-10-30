@@ -35,6 +35,7 @@ const toGuide = (r) => r && ({
 });
 const toPartner = (r) => r && ({
   id: r.id, cityId: r.city_id, type: r.type, name: r.name, area: r.area, offer: r.offer || '', token: r.token, status: r.status, taxId: r.tax_id,
+  photo: r.photo || '', address: r.address || '',
 });
 const toStay = (r) => r && ({
   id: r.id, guideId: r.guide_id, client: r.client, people: r.people, start: r.start_day, end: r.end_day,
@@ -150,7 +151,14 @@ export async function publicPartners(cityId) {
 export async function addPartner(p) {
   check(await sb.from('partners').insert({
     city_id: p.cityId, type: p.type, name: p.name, area: p.area, offer: p.offer || null, tax_id: p.taxId, token: `P-${randomToken(24)}`,
+    address: p.address || null,
   }));
+}
+// Photo (JPEG réduite) et adresse, pour la vitrine du client.
+export async function setPartnerDetails(partnerId, { photo, address }) {
+  const row = { address: address || null };
+  if (photo !== undefined) row.photo = photo || null;
+  check(await sb.from('partners').update(row).eq('id', partnerId));
 }
 export async function renewPartnerToken(partnerId) {
   check(await sb.from('partners').update({ token: `P-${randomToken(24)}` }).eq('id', partnerId));

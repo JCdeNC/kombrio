@@ -1,6 +1,6 @@
 // Morceaux d'écran communs à plusieurs pages.
 import { t, tRaw } from '../i18n.js';
-import { esc, initials, fmtDay, money, notify } from '../util.js';
+import { esc, initials, fmtDay, money, notify, mapsLink } from '../util.js';
 import * as store from '../store.js';
 
 const { guideShare } = store;
@@ -77,4 +77,35 @@ export function resetView() {
       };
     },
   };
+}
+
+// Vitrine des partenaires (page du client) : fiches avec photo, offre, itinéraire, et filtres par type.
+const TYPE_ICON = {
+  restaurant: '<svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3v8M4 3v5a3 3 0 0 0 6 0V3M7 11v10M17 3c-2 2-3 5-3 8h3v10"/></svg>',
+  shop: '<svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8h14l-1 12H6L5 8z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/></svg>',
+};
+export function partnerShowcase(partners, city) {
+  const list = [...partners].sort((a, b) => (b.offer ? 1 : 0) - (a.offer ? 1 : 0) || a.name.localeCompare(b.name));
+  const types = [...new Set(list.map((p) => p.type))];
+  const chips = types.length > 1
+    ? `<div class="chips">${['all', ...types].map((k, i) => `<button type="button" class="chip${i ? '' : ' on'}" data-f="${esc(k)}">${k === 'all' ? t('client.filter.all') : t(`ptype.${k}.many`)}</button>`).join('')}</div>`
+    : '';
+  const photo = (p) => (p.photo && p.photo.startsWith('data:image/') ? `<img src="${esc(p.photo)}" alt="" loading="lazy">` : TYPE_ICON[p.type] || '');
+  return `${chips}<div class="pcards">${list.map((p) => `<article class="pcard" data-type="${esc(p.type)}">
+      <div class="pphoto">${photo(p)}</div>
+      <div class="pbody">
+        <h3>${esc(p.name)}</h3>
+        <div class="hint">${t(`ptype.${p.type}`)}${p.area ? ` · ${esc(p.area)}` : ''}</div>
+        ${p.offer ? `<div class="offer"><b>${t('client.offer')}</b> ${esc(p.offer)}</div>` : ''}
+        <a class="btn ghost small" target="_blank" rel="noopener" href="${esc(mapsLink(p, city.name))}">${t('client.directions')}</a>
+      </div>
+    </article>`).join('')}</div>`;
+}
+export function mountShowcase(root) {
+  root.querySelectorAll('.chip').forEach((b) => {
+    b.onclick = () => {
+      root.querySelectorAll('.chip').forEach((x) => x.classList.toggle('on', x === b));
+      root.querySelectorAll('.pcard').forEach((c) => { c.hidden = b.dataset.f !== 'all' && c.dataset.type !== b.dataset.f; });
+    };
+  });
 }

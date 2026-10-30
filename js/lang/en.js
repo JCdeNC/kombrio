@@ -38,4 +38,12 @@ export default {
   'app.admin': 'Administrator',
   'home.client.desc': 'The client shows their QR at partners and sees their offers.',
   'client.home': 'Open the link sent by your guide to display your QR.',
+  'client.filter.all': 'All',
+  'ptype.restaurant.many': 'Restaurants',
+  'ptype.shop.many': 'Shops',
+  'client.offer': 'Kombrio offer:',
+  'client.directions': 'Directions',
+  'client.saveqr': 'Save the QR to my photos',
+  'client.saveqr.hint': 'Always at hand, even offline.',
+  'client.valid.until': 'Valid until {end}',
 };

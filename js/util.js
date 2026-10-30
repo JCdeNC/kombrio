@@ -71,6 +71,60 @@ export function qrSvg(text) {
   return qr.createSvgTag({ cellSize: 6, margin: 2, scalable: true });
 }
 
+// Lien Google Maps vers un partenaire (adresse si connue, sinon nom + quartier + ville).
+export function mapsLink(p, cityName = '') {
+  const q = p.address || [p.name, p.area, cityName].filter(Boolean).join(', ');
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`;
+}
+
+// Réduit une photo (fichier) en JPEG d'au plus `max` px de large : ~40 Ko, assez pour une fiche.
+export async function photoToJpeg(file, max = 640, quality = 0.72) {
+  const url = await readFileAsDataUrl(file);
+  const img = await new Promise((resolve, reject) => { const i = new Image(); i.onload = () => resolve(i); i.onerror = reject; i.src = url; });
+  const scale = Math.min(1, max / img.width);
+  const c = document.createElement('canvas');
+  c.width = Math.round(img.width * scale); c.height = Math.round(img.height * scale);
+  c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+  return c.toDataURL('image/jpeg', quality);
+}
+
+// Image du QR client aux couleurs Kombrio (à partager dans WhatsApp ou à garder dans les photos).
+export async function qrCardBlob(text, { title, line1, line2 }) {
+  const W = 1080, H = 1350;
+  const c = document.createElement('canvas'); c.width = W; c.height = H;
+  const g = c.getContext('2d');
+  try { await document.fonts.ready; } catch { /* rien */ }
+  g.fillStyle = '#F4F7F8'; g.fillRect(0, 0, W, H);
+  g.fillStyle = '#102C38'; g.fillRect(0, 0, W, 170);
+  const icon = await new Promise((resolve) => { const i = new Image(); i.onload = () => resolve(i); i.onerror = () => resolve(null); i.src = new URL('../icon.svg', import.meta.url).href; });
+  if (icon) g.drawImage(icon, 60, 45, 80, 80);
+  g.fillStyle = '#fff'; g.font = '800 64px "Plus Jakarta Sans", sans-serif'; g.textBaseline = 'middle';
+  g.fillText('kombrio', 160, 88);
+  const wWord = g.measureText('kombrio').width;
+  g.fillStyle = '#F6B73C'; g.beginPath(); g.arc(160 + wWord + 12, 62, 9, 0, Math.PI * 2); g.fill();
+  g.textAlign = 'center'; g.fillStyle = '#102C38';
+  g.font = '700 56px "Plus Jakarta Sans", sans-serif'; g.fillText(title, W / 2, 270, W - 120);
+  g.font = '500 36px "DM Sans", sans-serif'; g.fillStyle = '#007F65'; g.fillText(line1, W / 2, 340, W - 120);
+  const qr = window.qrcode(0, 'M'); qr.addData(text); qr.make();
+  const n = qr.getModuleCount(), size = 760, cell = Math.floor(size / (n + 4)), qs = cell * (n + 4);
+  const x0 = (W - qs) / 2, y0 = 400;
+  g.fillStyle = '#fff'; g.beginPath(); g.roundRect(x0 - 20, y0 - 20, qs + 40, qs + 40, 32); g.fill();
+  g.fillStyle = '#102C38';
+  for (let r = 0; r < n; r += 1) for (let k = 0; k < n; k += 1) if (qr.isDark(r, k)) g.fillRect(x0 + (k + 2) * cell, y0 + (r + 2) * cell, cell, cell);
+  g.font = '500 34px "DM Sans", sans-serif'; g.fillStyle = '#5B6F78'; g.fillText(line2, W / 2, y0 + qs + 80, W - 120);
+  return new Promise((resolve) => c.toBlob(resolve, 'image/png'));
+}
+
+// Partage l'image (feuille de partage du téléphone : WhatsApp, Photos…) ou la télécharge sur ordinateur.
+export async function shareOrDownload(blob, filename, text) {
+  const file = new File([blob], filename, { type: 'image/png' });
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    try { await navigator.share({ files: [file], text }); return; } catch (e) { if (e && e.name === 'AbortError') return; }
+  }
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = filename; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+}
+
 export function readFileAsDataUrl(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();

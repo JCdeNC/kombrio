@@ -1,8 +1,8 @@
 // App Client : son QR à montrer, son guide, et les partenaires (avec leur offre s'ils en ont une).
-import { t, getLang } from '../i18n.js';
-import { esc, fmtDay, stayIsValid, qrSvg, appLink } from '../util.js';
+import { t, tRaw, getLang } from '../i18n.js';
+import { esc, fmtDay, stayIsValid, qrSvg, appLink, qrCardBlob, shareOrDownload } from '../util.js';
 import * as store from '../store.js';
-import { guideCard, validity, notFound } from './shared.js';
+import { guideCard, validity, notFound, partnerShowcase, mountShowcase } from './shared.js';
 
 const LAST_KEY = 'kombrio-client-stay';
 
@@ -33,7 +33,9 @@ export async function clientView([token]) {
         <p>${validity(stay, valid, lang)}</p>
         ${valid ? `<div class="qr">${qrSvg(appLink('partner', `s/${stay.token}`))}</div>
           <p><b>${t('client.show')}</b></p>
-          <p class="hint">${t('client.people', { n: stay.people, end: fmtDay(stay.end, lang) })}</p>`
+          <p class="hint">${t('client.people', { n: stay.people, end: fmtDay(stay.end, lang) })}</p>
+          <button type="button" class="btn block" id="saveqr">${t('client.saveqr')}</button>
+          <p class="hint" style="margin-top:8px">${t('client.saveqr.hint')}</p>`
           : `<p>${t('client.expired')}</p>`}
       </div>
       <div class="card">
@@ -43,12 +45,19 @@ export async function clientView([token]) {
       <div class="card">
         <h2>${t('client.partners')}</h2>
         <p class="hint">${t('client.partners.hint')}</p>
-        <ul class="list">
-          ${partners.map((p) => `<li>
-            <b>${esc(p.name)}</b> <span class="hint">· ${t(`ptype.${p.type}`)} · ${esc(p.area || '')}</span>
-            ${p.offer ? `<div class="offer">${esc(p.offer)}</div>` : ''}
-          </li>`).join('')}
-        </ul>
+        ${partnerShowcase(partners, city)}
       </div>`,
+    mount(root) {
+      mountShowcase(root);
+      const b = root.querySelector('#saveqr');
+      if (b) {
+        b.onclick = async () => {
+          const blob = await qrCardBlob(appLink('partner', `s/${stay.token}`), {
+            title: stay.client, line1: tRaw('client.valid.until', { end: fmtDay(stay.end, lang) }), line2: tRaw('client.show'),
+          });
+          await shareOrDownload(blob, 'kombrio-qr.png', tRaw('client.show'));
+        };
+      }
+    },
   };
 }
