@@ -13,6 +13,7 @@ import { partnerView, partnerHome } from './views/partner.js';
 import { adminView } from './views/admin.js';
 
 const APP = window.KOMBRIO_APP || 'hub';
+const ICON = new URL('../icon.svg', import.meta.url).href;
 
 // routes : premier mot de l'adresse (#/c/…, #/p/…) → écran. "all" : l'écran reçoit toute l'adresse.
 const APPS = {
@@ -69,7 +70,7 @@ async function render() {
 
   root.innerHTML = `
     <header class="top">
-      <a class="brand" href="#/">Komb<span>rio</span>${APP === 'hub' ? '' : ` <small>${t(`app.${APP}`)}</small>`}</a>
+      <a class="brand" href="#/"><img src="${ICON}" alt="">kombrio<i></i>${APP === 'hub' ? '' : ` <small>${t(`app.${APP}`)}</small>`}</a>
       <select id="lang" aria-label="${t('common.language')}">
         ${langs.map(([code, label]) => `<option value="${code}" ${code === getLang() ? 'selected' : ''}>${label}</option>`).join('')}
       </select>

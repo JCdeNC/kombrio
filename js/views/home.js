@@ -8,7 +8,7 @@ export async function homeView() {
   return {
     html: `
       <section class="hero">
-        <h1>Kombrio</h1>
+        <h1 class="logo-big"><img src="${new URL('../../icon.svg', import.meta.url).href}" alt="">kombrio<i></i></h1>
         <p>${t('home.tagline')}</p>
       </section>
       <div class="cards">
