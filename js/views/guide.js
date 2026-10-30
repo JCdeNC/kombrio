@@ -1,6 +1,6 @@
 // Espace du guide : connexion, séjours, QR, suivi des passages et de ses gains.
 import { t, tRaw, getLang } from '../i18n.js';
-import { esc, money, fmtDay, fmtMoment, todayIn, addDays, stayIsValid, qrSvg, appLink, notify, validCpf, onlyDigits } from '../util.js';
+import { esc, money, cents, locale, fmtDay, fmtMoment, todayIn, addDays, stayIsValid, qrSvg, appLink, notify, validCpf, onlyDigits } from '../util.js';
 import * as store from '../store.js';
 import { validity, statusBadge, guideAmounts, notFound, forgotLink, mountForgot, resetView } from './shared.js';
 import { maskTaxId, qrCardBlob, shareOrDownload } from '../util.js';
@@ -12,6 +12,7 @@ export async function guideView(params, ctx) {
   if (me.status !== 'validated') return pendingView(me);
   const city = await store.getCity(me.cityId);
   if (params[0] === 'sejour') return stayView(me, city, params[1]);
+  if (params[0] === 'releve') return statementView(me, city);
   return dashboardView(me, city);
 }
 
@@ -93,10 +94,15 @@ async function pendingView(me) {
 
 async function dashboardView(me, city) {
   const lang = getLang();
-  const [stays, sum] = await Promise.all([store.listStays(me.id), store.guideSummary(me.id)]);
-  const visits = await store.listVisits({ guideId: me.id });
+  const [stays, visits] = await Promise.all([store.listStays(me.id), store.listVisits({ guideId: me.id })]);
   const today = todayIn(city.timezone);
-  const cur = (n) => money(n, city.currency, lang);
+  const cur = (n) => cents(n, city.currency, lang);
+  const pick = (st, key) => visits.filter((v) => st.includes(v.status)).reduce((s, v) => s + (v[key] || 0), 0);
+  const sum = {
+    expected: pick(['declared', 'verifying'], 'declaredCents'),
+    available: pick(['received', 'payout_pending'], 'guideCents'),
+    paid: pick(['paid'], 'guideCents'),
+  };
 
   const stayItem = (s) => {
     const count = visits.filter((v) => v.stayId === s.id).length;
@@ -110,11 +116,11 @@ async function dashboardView(me, city) {
     html: `
       <div class="spread"><h1>${t('guide.hello', { name: me.name })}</h1>${logoutButton()}</div>
       <div class="stats">
-        <div class="stat"><b>${cur(sum.due)}</b><span>${t('guide.sum.due')}</span></div>
-        <div class="stat"><b>${cur(sum.checking)}</b><span>${t('guide.sum.checking')}</span></div>
+        <div class="stat"><b>${cur(sum.available)}</b><span>${t('guide.sum.available')}</span></div>
         <div class="stat"><b>${cur(sum.paid)}</b><span>${t('guide.sum.paid')}</span></div>
+        <div class="stat"><b>${cur(sum.expected)}</b><span>${t('guide.sum.expected')}</span></div>
       </div>
-      ${sum.toDeclare ? `<div class="notice">${t('guide.sum.todeclare', { n: sum.toDeclare })}</div>` : ''}
+      <p class="hint">${t('guide.sum.note')} <a href="#/releve">${t('guide.statement.open')}</a></p>
 
       <form class="card" id="new-stay">
         <h2>${t('guide.stay.new')}</h2>
@@ -193,5 +199,36 @@ async function stayView(me, city, stayId) {
         try { await navigator.clipboard.writeText(clientLink); e.target.textContent = tRaw('common.copied'); } catch { prompt('', clientLink); }
       };
     },
+  };
+}
+
+// Relevé du guide : chaque transaction, déclaré ≠ encaissé, parts 80/20 seulement sur l'encaissé, reversement.
+async function statementView(me, city) {
+  const lang = getLang();
+  const [visits, partners, payouts] = await Promise.all([
+    store.listVisits({ guideId: me.id }), store.publicPartners(city.id), store.listPayouts(me.id),
+  ]);
+  const cur = (n) => (n == null ? '—' : cents(n, city.currency, lang));
+  const pname = (id) => partners.find((p) => p.id === id)?.name || '?';
+  const payout = (id) => payouts.find((p) => p.id === id);
+  const short = (iso) => new Intl.DateTimeFormat(locale(lang), { dateStyle: 'short', timeZone: city.timezone }).format(new Date(iso));
+  const cashed = (v) => ['received', 'payout_pending', 'paid'].includes(v.status);
+  return {
+    html: `
+      <p><a href="#/">← ${t('guide.back')}</a></p>
+      <div class="card">
+        <h1>${t('guide.statement.title')}</h1>
+        <p class="hint">${t('guide.statement.hint')}</p>
+        ${visits.length ? `<div class="table-wrap"><table>
+          <tr><th>ID</th><th>${t('report.col.date')}</th><th>${t('guide.col.partner')}</th><th>${t('report.col.people')}</th><th>${t('guide.col.declared')}</th><th>${t('guide.col.cashed')}</th><th>Kombrio</th><th>${t('guide.col.share')}</th><th>${t('report.col.status')}</th><th>${t('guide.col.payout')}</th></tr>
+          ${visits.map((v) => {
+            const po = v.payoutId && payout(v.payoutId);
+            return `<tr><td style="white-space:nowrap">${esc(store.txNum(v.num))}</td><td>${short(v.at)}</td><td>${esc(pname(v.partnerId))}</td><td>${v.peopleServed}</td>
+              <td>${cur(v.declaredCents)}</td><td>${cashed(v) ? cur(v.receivedCents) : cur(v.declaredCents == null ? null : 0)}</td>
+              <td>${cashed(v) ? cur(v.kombrioCents) : '—'}</td><td>${cashed(v) ? `<b>${cur(v.guideCents)}</b>` : '—'}</td>
+              <td>${statusBadge(v)}</td><td>${po && po.status === 'paid' ? `${short(po.paidAt || po.at)} · ${esc(po.reference || '')}` : po ? t('status.payout_pending') : '—'}</td></tr>`;
+          }).join('')}
+        </table></div>` : `<p class="hint">${t('guide.stay.visits.none')}</p>`}
+      </div>`,
   };
 }

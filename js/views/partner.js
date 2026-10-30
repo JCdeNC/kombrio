@@ -2,7 +2,7 @@
 // Sans passage en attente, le même QR ouvre son espace (historique, offre, QR à imprimer).
 // Pas de compte : tout passe par le code secret du QR Partenaire, vérifié par la base.
 import { t, tRaw, getLang } from '../i18n.js';
-import { esc, money, fmtMoment, fmtDay, qrSvg, appLink, readFileAsDataUrl, notify, pixPayload, pixKeyOf, photoToJpeg, confirmTwice, fmtTaxId, locale } from '../util.js';
+import { esc, money, cents, parseCents, fmtMoment, fmtDay, qrSvg, appLink, readFileAsDataUrl, notify, pixPayload, pixKeyOf, photoToJpeg, confirmTwice, fmtTaxId, locale } from '../util.js';
 import * as store from '../store.js';
 import { statusBadge, notFound, forgotLink, mountForgot, resetView } from './shared.js';
 import { readPendingStay, clearPendingStay } from './scan.js';
@@ -111,7 +111,7 @@ export async function partnerView([token, action, visitId], ctx) {
       const res = await store.recordVisit(pending, token);
       if (res.ok) {
         // On change d'adresse pour qu'un rechargement n'enregistre pas un second passage.
-        return { html: '', mount: () => ctx.replace(`p/${token}/passage/${res.visitId}`) };
+        return { html: '', mount: () => ctx.replace(`p/${token}/${res.duplicate ? 'deja' : 'passage'}/${res.visitId}`) };
       }
       const view = spaceView(space);
       return { ...view, html: `<div class="notice bad">${t(`visit.err.${res.reason}`)}</div>${view.html}` };
@@ -120,103 +120,88 @@ export async function partnerView([token, action, visitId], ctx) {
   }
 
   // La caisse n'a accès qu'aux passages qu'elle vient d'enregistrer.
-  if (space.role !== 'manager' && action !== 'passage') return spaceView(space);
+  if (space.role !== 'manager' && action !== 'passage' && action !== 'deja') return spaceView(space);
+  if (action === 'declarar') return declareManyView(space);
   if (action === 'pagar') return payView(space);
   if (action === 'relatorio') return reportPage(space, visitId);
   const visit = space.visits.find((v) => v.id === visitId);
   if (!visit) return notFound();
-  return declareView(space, visit, action === 'passage');
+  return scannedView(space, visit, action);
 }
 
-function declareView({ partner, city, key, role }, visit, justScanned) {
+// Après le scan (caisse ou gérant) : passage enregistré, offre à accorder, nombre de personnes réellement accueillies.
+function scannedView({ partner, city, key, role }, visit, action) {
   const lang = getLang();
-  // Rien à afficher si le partenaire ne propose pas d'offre.
+  const fresh = action === 'passage';
   let offer = '';
-  if (justScanned && partner.offer) {
+  if (partner.offer && fresh) {
     offer = visit.offerGiven
       ? `<div class="notice ok"><b>${t('partner.offer.give')}</b><div class="offer">${esc(partner.offer)}</div></div>`
       : `<div class="notice warn">${t('partner.offer.already')}</div>`;
   }
-  const head = `
-    ${justScanned ? `<div class="notice ok"><b>${t('partner.visit.saved')}</b></div>` : ''}
-    ${offer}
-    <div class="card">
-      <h2>${esc(visit.client)}</h2>
-      <p class="hint">${t('scan.people', { n: visit.people })} · ${t('partner.visit.guide', { guide: visit.guideName })} · ${fmtMoment(visit.at, lang, city.timezone)}</p>
-    </div>`;
-
-  if (role !== 'manager') {
-    return { html: `${head}<a class="btn ghost" href="#/p/${encodeURIComponent(key)}">${t('counter.back')}</a>` };
-  }
-  if (visit.status !== 'visited') {
-    return {
-      html: `${head}<div class="notice">${t('partner.declare.done', { amount: money(visit.amount, city.currency, lang) })}</div>
-        <a class="btn ghost" href="#/p/${encodeURIComponent(key)}">${t('partner.space')}</a>`,
-    };
-  }
-
   return {
-    html: `${head}
-      <form class="card" id="declare">
-        <h2>${t('partner.declare.title')}</h2>
-        ${visit.rejected ? `<div class="notice bad">${t('partner.declare.rejected')}</div>` : ''}
-        <p class="hint">${t('partner.declare.hint')}</p>
-        <div class="grid2">
-          <div class="field"><label for="d-amount">${t('partner.declare.amount', { currency: city.currency })}</label>
-            <input id="d-amount" name="amount" type="number" min="1" step="0.01" inputmode="decimal" required></div>
-          <div class="field"><label for="d-method">${t('partner.declare.method')}</label>
-            <select id="d-method" name="method">${city.methods.map((m) => `<option value="${esc(m)}">${t(`method.${m}`)}</option>`).join('')}</select></div>
-        </div>
-        <div class="notice">${t('partner.declare.payto')}<br><b>${city.payTo && !/d[ée]finir/i.test(city.payTo) ? esc(city.payTo) : t('partner.declare.payto.pending')}</b></div>
-        <div class="field"><label for="d-receipt">${t('partner.declare.receipt')}</label>
-          <input id="d-receipt" name="receipt" type="file" accept="image/*,application/pdf" required></div>
-        <button class="btn block">${t('partner.declare.submit')}</button>
-        <p class="hint" style="margin-top:8px">${t('partner.declare.later')} <a href="#/p/${encodeURIComponent(key)}">${t('partner.space')}</a></p>
-      </form>`,
+    html: `
+      <div class="notice ${fresh ? 'ok' : 'warn'}"><b>${t(fresh ? 'partner.visit.saved' : 'partner.visit.duplicate')}</b></div>
+      ${offer}
+      <div class="card">
+        <div class="spread"><h2>${esc(visit.client)}</h2><span class="hint">${esc(store.txNum(visit.num))}</span></div>
+        <p class="hint">${t('partner.visit.guide', { guide: visit.guideName })} · ${fmtMoment(visit.at, lang, city.timezone)}</p>
+        ${visit.status === 'visited' ? `<form id="people" class="row" style="align-items:flex-end;margin-top:8px">
+            <div class="field" style="margin:0;flex:1"><label for="p-n">${t('partner.people.served')}</label>
+              <input id="p-n" name="n" type="number" min="1" max="500" step="1" inputmode="numeric" value="${visit.peopleServed}"></div>
+            <button class="btn secondary">${t('common.save')}</button></form>`
+          : `<p>${t('scan.people', { n: visit.peopleServed })}</p>`}
+      </div>
+      <a class="btn ghost" href="#/p/${encodeURIComponent(key)}">${t(role === 'manager' ? 'partner.space' : 'counter.back')}</a>`,
     mount(root, ctx) {
-      root.querySelector('#declare').onsubmit = async (e) => {
-        e.preventDefault();
-        const form = new FormData(e.target);
-        const file = form.get('receipt');
-        if (!file || !file.size) return;
-        if (file.size > MAX_RECEIPT) { notify(tRaw('partner.declare.toobig')); return; }
-        const button = e.target.querySelector('button');
-        button.disabled = true;
-        const receipt = { name: file.name, type: file.type, data: await readFileAsDataUrl(file) };
-        try {
-          await store.declareVisit(key, visit.id, { amount: Number(form.get('amount')), method: form.get('method'), receipt });
-          ctx.go(`p/${key}`, tRaw('partner.declare.thanks'));
-        } catch {
-          button.disabled = false;
-          notify(tRaw('err.generic'));
-        }
-      };
+      const f = root.querySelector('#people');
+      if (f) {
+        f.onsubmit = async (e) => {
+          e.preventDefault();
+          const n = Number(f.n.value);
+          if (!Number.isInteger(n) || n < 1 || n > 500) { notify(tRaw('partner.people.err')); return; }
+          const ok = await store.setPeopleServed(key, visit.id, n).catch(() => false);
+          if (ok) ctx.refresh(tRaw('common.saved')); else notify(tRaw('err.generic'));
+        };
+      }
     },
   };
 }
 
-function spaceView({ partner, city, visits, key, role, loggedIn }) {
+// Une ligne de transaction dans l'espace du gérant (jamais le partage interne).
+function txLine(v, city, lang) {
+  const c = (n) => cents(n, city.currency, lang);
+  return `<li>
+    <div class="spread"><b>${esc(v.client || '?')}</b>${statusBadge(v, 'partner')}</div>
+    <div class="hint">${esc(store.txNum(v.num))} · ${fmtMoment(v.at, lang, city.timezone)} · ${t('scan.people', { n: v.peopleServed })} · ${t('partner.visit.guide', { guide: v.guideName || '?' })}</div>
+    ${v.declaredCents != null ? `<div>${t('partner.visit.declared', { amount: c(v.declaredCents) })}</div>` : ''}
+    ${v.statusNote && ['disputed', 'cancelled'].includes(v.status) ? `<div class="hint">${esc(v.statusNote)}</div>` : ''}
+  </li>`;
+}
+
+function spaceView({ partner, city, visits, payments, key, role, loggedIn }) {
   if (role !== 'manager') return counterView({ partner, city, visits, key });
   const lang = getLang();
-  const owed = visits.filter((v) => v.status === 'visited').length;
-
-  const item = (v) => `<li>
-    <div class="spread"><b>${esc(v.client || '?')}</b>${statusBadge(v)}</div>
-    <div class="hint">${fmtMoment(v.at, lang, city.timezone)} · ${t('scan.people', { n: v.people })} · ${t('partner.visit.guide', { guide: v.guideName || '?' })}</div>
-    ${v.amount != null && v.status !== 'visited' ? `<div>${t('partner.visit.amount', { amount: money(v.amount, city.currency, lang) })}</div>` : ''}
-    ${v.status === 'visited' ? `<a class="btn small" href="#/p/${encodeURIComponent(key)}/declarer/${encodeURIComponent(v.id)}">${t('partner.declare.button')}</a>` : ''}
-  </li>`;
+  const c = (n) => cents(n, city.currency, lang);
+  const toDeclare = visits.filter((v) => v.status === 'visited').length;
+  const toPay = visits.filter((v) => v.status === 'declared');
+  const toPayCents = toPay.reduce((s, v) => s + v.declaredCents, 0);
 
   return {
     html: `
       <div class="spread"><h1>${esc(partner.name)}</h1>${loggedIn ? `<button class="btn ghost small no-print" id="logout">${t('common.logout')}</button>` : ''}</div>
       <p class="hint">${partner.managerName ? t('pm.hello', { name: partner.managerName }) : t('manager.badge')}</p>
-      ${owed ? `<div class="notice warn">${t('partner.todeclare', { n: owed })}
+      ${toDeclare ? `<div class="notice">${t('partner.nodeclared', { n: toDeclare })}
+        <a class="btn block" style="margin-top:10px" href="#/p/${encodeURIComponent(key)}/declarar">${t('partner.declare.open')}</a></div>` : ''}
+      ${toPay.length ? `<div class="notice warn">${t('partner.topay', { n: toPay.length, amount: c(toPayCents) })}
         <a class="btn block" style="margin-top:10px" href="#/p/${encodeURIComponent(key)}/pagar">${t('partner.pay.button')}</a></div>` : ''}
       <div class="card">
         <h2>${t('partner.visits')}</h2>
-        ${visits.length ? `<ul class="list">${visits.map(item).join('')}</ul>` : `<p class="hint">${t('partner.visits.none')}</p>`}
+        ${visits.length ? `<ul class="list">${visits.map((v) => txLine(v, city, lang)).join('')}</ul>` : `<p class="hint">${t('partner.visits.none')}</p>`}
       </div>
+      ${payments.length ? `<div class="card"><h2>${t('partner.payments')}</h2><ul class="list">${payments.map((y) => `<li>
+          <div class="spread"><b>${t('partner.payment.line', { num: y.num, amount: c(y.cents) })}</b><span class="badge ${y.status === 'verified' ? 'ok' : y.status === 'rejected' ? 'bad' : 'warn'}">${t(`payment.${y.status}`)}</span></div>
+          <div class="hint">${fmtMoment(y.submittedAt, lang, city.timezone)}${y.note ? ` · ${esc(y.note)}` : ''}</div></li>`).join('')}</ul></div>` : ''}
       <div class="card no-print">
         <h2>${t('report.card')}</h2>
         <p class="hint">${t('report.card.hint')}</p>
@@ -254,10 +239,63 @@ function spaceView({ partner, city, visits, key, role, loggedIn }) {
   };
 }
 
-// Déclarer plusieurs passages et les payer en un seul Pix (comprovante unique).
-function payView({ partner, city, visits, key }) {
+// Étape 1 : déclarer librement la commission de chaque passage (0 = aucune commission).
+function declareManyView({ city, visits, key }) {
   const lang = getLang();
   const todo = visits.filter((v) => v.status === 'visited');
+  const back = `#/p/${encodeURIComponent(key)}`;
+  if (!todo.length) return { html: `<div class="notice">${t('partner.declare.nothing')}</div><a class="btn ghost" href="${back}">${t('partner.space')}</a>` };
+  return {
+    html: `
+      <p><a href="${back}">← ${t('partner.space')}</a></p>
+      <form class="card" id="declare">
+        <h1>${t('partner.declare.title')}</h1>
+        <p class="hint">${t('partner.declare.free')}</p>
+        <ul class="list">${todo.map((v) => `<li>
+          <div class="spread" style="align-items:center">
+            <span><b>${esc(v.client || '?')}</b><br><span class="hint">${esc(store.txNum(v.num))} · ${fmtDay(v.at.slice(0, 10), lang)} · ${t('scan.people', { n: v.peopleServed })} · ${t('partner.visit.guide', { guide: v.guideName || '?' })}</span></span>
+            <span class="row" style="gap:6px;align-items:center">
+              <input name="a-${esc(v.id)}" inputmode="decimal" placeholder="${esc(city.currency)}" style="width:110px" aria-label="${t('partner.declare.amount', { currency: city.currency })}">
+              <label style="font-weight:400;margin:0;white-space:nowrap"><input type="checkbox" name="z-${esc(v.id)}" style="width:auto"> ${t('partner.declare.zero')}</label>
+            </span>
+          </div></li>`).join('')}</ul>
+        <p class="hint">${t('partner.declare.engage')}</p>
+        <button class="btn block">${t('partner.declare.confirm')}</button>
+      </form>`,
+    mount(root, ctx) {
+      const form = root.querySelector('#declare');
+      form.onsubmit = async (e) => {
+        e.preventDefault();
+        const items = [];
+        for (const v of todo) {
+          const zero = form[`z-${v.id}`].checked;
+          const raw = form[`a-${v.id}`].value;
+          if (zero) { items.push({ visit: v.id, cents: 0 }); continue; }
+          if (raw.trim() === '') continue;
+          const cts = parseCents(raw);
+          if (cts == null) { notify(tRaw('partner.declare.badamount', { num: store.txNum(v.num) })); return; }
+          items.push({ visit: v.id, cents: cts });
+        }
+        if (!items.length) { notify(tRaw('partner.declare.none')); return; }
+        const button = form.querySelector('button.block');
+        button.disabled = true;
+        try {
+          const n = await store.declareCommissions(key, items);
+          ctx.go(`p/${key}`, tRaw('partner.declare.saved', { n }));
+        } catch {
+          button.disabled = false;
+          notify(tRaw('err.generic'));
+        }
+      };
+    },
+  };
+}
+
+// Étape 2 : payer les commissions déclarées (un Pix peut en couvrir plusieurs), avec le comprovante.
+function payView({ partner, city, visits, key }) {
+  const lang = getLang();
+  const c = (n) => cents(n, city.currency, lang);
+  const todo = visits.filter((v) => v.status === 'declared');
   const pixKey = pixKeyOf(city);
   const back = `#/p/${encodeURIComponent(key)}`;
   if (!todo.length) return { html: `<div class="notice">${t('partner.pay.nothing')}</div><a class="btn ghost" href="${back}">${t('partner.space')}</a>` };
@@ -270,10 +308,10 @@ function payView({ partner, city, visits, key }) {
         <ul class="list">${todo.map((v) => `<li>
           <label class="spread" style="font-weight:400;align-items:center">
             <span><input type="checkbox" name="sel" value="${esc(v.id)}" checked style="width:auto;margin-right:8px"><b>${esc(v.client || '?')}</b>
-              <span class="hint"> · ${fmtDay(v.at.slice(0, 10), lang)} · ${t('partner.visit.guide', { guide: v.guideName || '?' })}</span></span>
-            <input name="a-${esc(v.id)}" type="number" min="0" step="0.01" inputmode="decimal" placeholder="${esc(city.currency)}" style="width:120px">
+              <span class="hint"> · ${esc(store.txNum(v.num))} · ${fmtDay(v.at.slice(0, 10), lang)}</span></span>
+            <b>${c(v.declaredCents)}</b>
           </label></li>`).join('')}</ul>
-        <div class="stat" style="margin:12px 0"><span>${t('partner.pay.total')}</span><b id="total">${money(0, city.currency, lang)}</b></div>
+        <div class="stat" style="margin:12px 0"><span>${t('partner.pay.total')}</span><b id="total">${c(0)}</b></div>
         ${pixKey ? `<div style="text-align:center">
             <div class="qr" id="pixqr"></div>
             <p class="hint">${t('partner.pay.pixhint')}</p>
@@ -282,20 +320,21 @@ function payView({ partner, city, visits, key }) {
           : `<div class="notice">${t('partner.declare.payto')}<br><b>${t('partner.declare.payto.pending')}</b></div>`}
         <div class="field" style="margin-top:12px"><label for="p-method">${t('partner.declare.method')}</label>
           <select id="p-method" name="method">${city.methods.map((m) => `<option value="${esc(m)}">${t(`method.${m}`)}</option>`).join('')}</select></div>
+        <div class="field"><label for="p-ref">${t('partner.pay.ref')}</label>
+          <input id="p-ref" name="pixref" maxlength="64" placeholder="E2E…" autocapitalize="characters"></div>
         <div class="field"><label for="p-receipt">${t('partner.declare.receipt')}</label>
           <input id="p-receipt" name="receipt" type="file" accept="image/*,application/pdf" required></div>
-        <button class="btn block">${t('partner.declare.submit')}</button>
+        <button class="btn block">${t('partner.pay.submit')}</button>
       </form>`,
     mount(root, ctx) {
       const form = root.querySelector('#pay');
-      const chosen = () => todo.map((v) => ({ v, on: form.querySelector(`[value="${v.id}"]`).checked, amount: Number(form[`a-${v.id}`].value) || 0 }))
-        .filter((x) => x.on && x.amount > 0);
+      const chosen = () => todo.filter((v) => form.querySelector(`[value="${v.id}"]`).checked);
       let payload = '';
       const update = () => {
-        const total = Math.round(chosen().reduce((s, x) => s + x.amount, 0) * 100) / 100;
-        root.querySelector('#total').textContent = money(total, city.currency, lang);
+        const total = chosen().reduce((s, v) => s + v.declaredCents, 0);
+        root.querySelector('#total').textContent = c(total);
         if (pixKey) {
-          payload = pixPayload({ key: pixKey, amount: total, txid: `KBR${partner.id.replace(/-/g, '').slice(0, 10)}` });
+          payload = pixPayload({ key: pixKey, amount: total / 100, txid: `KBR${partner.id.replace(/-/g, '').slice(0, 10)}` });
           root.querySelector('#pixqr').innerHTML = total > 0 ? qrSvg(payload) : '';
         }
       };
@@ -322,13 +361,9 @@ function payView({ partner, city, visits, key }) {
             if (file.size > MAX_RECEIPT) { notify(tRaw('partner.declare.toobig')); button.disabled = false; return; }
             receipt = { name: file.name, type: file.type, data: await readFileAsDataUrl(file) };
           }
-          const method = form.method.value;
-          const [first, ...rest] = list;
-          await store.declareVisit(key, first.v.id, { amount: first.amount, method, receipt });
-          for (const x of rest) {
-            await store.declareVisit(key, x.v.id, { amount: x.amount, method, receipt: { name: receipt.name, type: 'same', ref: first.v.id } });
-          }
-          ctx.go(`p/${key}`, tRaw('partner.declare.thanks'));
+          const r = await store.submitPayment(key, { visitIds: list.map((v) => v.id), method: form.method.value, pixRef: form.pixref.value.trim(), receipt });
+          if (!r.ok) { button.disabled = false; notify(tRaw(`partner.pay.err.${r.reason}`)); return; }
+          ctx.go(`p/${key}`, tRaw('partner.pay.sent', { num: r.num }));
         } catch {
           button.disabled = false;
           notify(tRaw('err.generic'));
@@ -341,7 +376,7 @@ function payView({ partner, city, visits, key }) {
 /* ---------- Relevé mensuel (partenaire et comptable) ---------- */
 const monthOf = (iso, tz) => new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit' }).format(new Date(iso));
 const monthLabel = (m, lang) => new Intl.DateTimeFormat(locale(lang), { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${m}-15T12:00:00Z`));
-const PAID = ['received', 'paid'];
+const PAID = ['received', 'payout_pending', 'paid'];
 const shortMoment = (iso, lang, tz) => new Intl.DateTimeFormat(locale(lang), { dateStyle: 'short', timeStyle: 'short', timeZone: tz }).format(new Date(iso));
 
 function reportBlock({ partner, city, visits }, month, base) {
@@ -349,10 +384,12 @@ function reportBlock({ partner, city, visits }, month, base) {
   const months = [...new Set([monthOf(new Date().toISOString(), city.timezone), ...visits.map((v) => monthOf(v.at, city.timezone))])].sort().reverse();
   const m = months.includes(month) ? month : months[0];
   const rows = visits.filter((v) => monthOf(v.at, city.timezone) === m).sort((a, b) => a.at.localeCompare(b.at));
-  const cur = (n) => money(n, city.currency, lang);
-  const declared = rows.filter((v) => v.status !== 'visited').reduce((s, v) => s + (v.amount || 0), 0);
-  const paid = rows.filter((v) => PAID.includes(v.status)).reduce((s, v) => s + (v.amount || 0), 0);
-  const todo = rows.filter((v) => v.status === 'visited').length;
+  const cur = (n) => cents(n, city.currency, lang);
+  const counted = rows.filter((v) => v.status !== 'cancelled');
+  const declared = counted.filter((v) => v.declaredCents != null).reduce((s, v) => s + v.declaredCents, 0);
+  const paid = counted.filter((v) => PAID.includes(v.status)).reduce((s, v) => s + v.declaredCents, 0);
+  const todo = counted.filter((v) => v.status === 'visited').length;
+  const pLabel = (v) => tRaw(`pstatus.${{ received: 'paid', payout_pending: 'paid' }[v.status] || v.status}`);
   const html = `
     <div class="card">
       <div class="spread">
@@ -362,16 +399,16 @@ function reportBlock({ partner, city, visits }, month, base) {
       </div>
       <p class="print-only"><b>${esc(monthLabel(m, lang))}</b></p>
       <div class="stats" style="margin-top:12px">
-        <div class="stat"><b>${rows.length}</b><span>${t('report.visits')}</span></div>
+        <div class="stat"><b>${counted.length}</b><span>${t('report.visits')}</span></div>
         <div class="stat"><b>${cur(declared)}</b><span>${t('report.declared')}</span></div>
         <div class="stat"><b>${cur(paid)}</b><span>${t('report.paid')}</span></div>
       </div>
-      ${todo ? `<div class="notice warn">${t('partner.todeclare', { n: todo })}</div>` : ''}
+      ${todo ? `<div class="notice">${t('partner.nodeclared', { n: todo })}</div>` : ''}
       ${rows.length ? `<div class="table-wrap"><table>
-        <tr><th>${t('report.col.date')}</th><th>${t('report.col.client')}</th><th>${t('report.col.guide')}</th><th>${t('report.col.people')}</th><th>${t('report.col.amount')}</th><th>${t('report.col.method')}</th><th>${t('report.col.status')}</th></tr>
-        ${rows.map((v) => `<tr><td style="white-space:nowrap">${shortMoment(v.at, lang, city.timezone)}</td><td>${esc(v.client || '')}</td><td>${esc(v.guideName || '')}</td><td>${v.people}</td>
-          <td>${v.amount != null && v.status !== 'visited' ? cur(v.amount) : '—'}</td><td>${v.method && v.status !== 'visited' ? t(`method.${v.method}`) : '—'}</td><td>${statusBadge(v)}</td></tr>`).join('')}
-        <tr><td colspan="4"><b>${t('report.total')}</b></td><td><b>${cur(declared)}</b></td><td colspan="2"></td></tr>
+        <tr><th>${t('report.col.id')}</th><th>${t('report.col.date')}</th><th>${t('report.col.client')}</th><th>${t('report.col.guide')}</th><th>${t('report.col.people')}</th><th>${t('report.col.amount')}</th><th>${t('report.col.status')}</th></tr>
+        ${rows.map((v) => `<tr><td style="white-space:nowrap">${esc(store.txNum(v.num))}</td><td style="white-space:nowrap">${shortMoment(v.at, lang, city.timezone)}</td><td>${esc(v.client || '')}</td><td>${esc(v.guideName || '')}</td><td>${v.peopleServed}</td>
+          <td>${v.declaredCents != null ? cur(v.declaredCents) : '—'}</td><td>${statusBadge(v, 'partner')}</td></tr>`).join('')}
+        <tr><td colspan="5"><b>${t('report.total')}</b></td><td><b>${cur(declared)}</b></td><td></td></tr>
       </table></div>` : `<p class="hint">${t('report.none')}</p>`}
       <div class="row no-print" style="margin-top:12px">
         <button type="button" class="btn secondary" id="csv">${t('report.excel')}</button>
@@ -383,13 +420,12 @@ function reportBlock({ partner, city, visits }, month, base) {
     root.querySelector('#month').onchange = (e) => ctx.go(`${base}/${e.target.value}`);
     root.querySelector('#pdf').onclick = () => window.print();
     root.querySelector('#csv').onclick = () => {
-      const num = (n) => (n == null ? '' : String(n.toFixed(2)).replace('.', ','));
+      const num = (n) => (n == null ? '' : (n / 100).toFixed(2).replace('.', ','));
       const cell = (x) => `"${String(x ?? '').replace(/"/g, '""')}"`;
-      const head = ['report.col.date', 'report.col.client', 'report.col.guide', 'report.col.people', 'report.col.amount', 'report.col.method', 'report.col.status'].map((k) => cell(tRaw(k)));
-      const lines = rows.map((v) => [shortMoment(v.at, lang, city.timezone), v.client, v.guideName, v.people,
-        v.status !== 'visited' ? num(v.amount) : '', v.method && v.status !== 'visited' ? tRaw(`method.${v.method}`) : '',
-        tRaw(v.status === 'visited' && v.rejected ? 'status.rejected' : `status.${v.status}`)].map(cell));
-      lines.push([cell(tRaw('report.total')), '', '', '', cell(num(declared)), '', '']);
+      const head = ['report.col.id', 'report.col.date', 'report.col.client', 'report.col.guide', 'report.col.people', 'report.col.amount', 'report.col.status'].map((k) => cell(tRaw(k)));
+      const lines = rows.map((v) => [store.txNum(v.num), shortMoment(v.at, lang, city.timezone), v.client, v.guideName, v.peopleServed,
+        num(v.declaredCents), pLabel(v)].map(cell));
+      lines.push([cell(tRaw('report.total')), '', '', '', '', cell(num(declared)), '']);
       const csv = '﻿' + [head, ...lines].map((r) => r.join(';')).join('\r\n');
       const a = document.createElement('a');
       a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
@@ -454,7 +490,7 @@ function counterView({ partner, city, visits, key }) {
       <div class="card">
         <h2>${t('counter.today')}</h2>
         ${visits.length ? `<ul class="list">${visits.map((v) => `<li><div class="spread"><b>${esc(v.client || '?')}</b><span class="hint">${fmtMoment(v.at, lang, city.timezone)}</span></div>
-          <div class="hint">${t('scan.people', { n: v.people })} · ${t('partner.visit.guide', { guide: v.guideName || '?' })}</div></li>`).join('')}</ul>`
+          <div class="hint">${esc(store.txNum(v.num))} · ${t('scan.people', { n: v.peopleServed })} · ${t('partner.visit.guide', { guide: v.guideName || '?' })}</div></li>`).join('')}</ul>`
           : `<p class="hint">${t('partner.visits.none')}</p>`}
       </div>
       <p class="hint">${t('counter.manager')}</p>

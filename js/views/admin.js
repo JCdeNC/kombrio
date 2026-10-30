@@ -1,12 +1,12 @@
 // Administration (français, passable en portugais) : validations, paiements, reversements, partenaires, villes.
 // Accès réservé au compte qui a le rôle « admin » dans la base (le tout premier créé ici).
 import { t, tRaw, getLang } from '../i18n.js';
-import { esc, money, fmtMoment, qrSvg, appLink, notify, confirmTwice, validTaxId, fmtTaxId, onlyDigits } from '../util.js';
+import { esc, money, cents, parseCents, fmtMoment, qrSvg, appLink, notify, confirmTwice, validTaxId, fmtTaxId, onlyDigits } from '../util.js';
 import * as store from '../store.js';
-import { forgotLink, mountForgot, resetView } from './shared.js';
+import { forgotLink, mountForgot, resetView, statusBadge } from './shared.js';
 import { maskTaxId, photoToJpeg } from '../util.js';
 
-const TABS = ['dashboard', 'validations', 'payments', 'payouts', 'partners', 'cities'];
+const TABS = ['dashboard', 'validations', 'payments', 'payouts', 'transactions', 'partners', 'cities', 'journal'];
 
 export async function adminView([tab = 'dashboard']) {
   const me = await store.currentAdmin();
@@ -22,7 +22,7 @@ export async function adminView([tab = 'dashboard']) {
   if (!TABS.includes(tab)) tab = 'dashboard';
   const nav = `<nav class="tabs">${TABS.map((k) => `<a href="#/${k}" class="${k === tab ? 'on' : ''}">${t(`admin.tab.${k}`)}</a>`).join('')}</nav>`;
   const data = await loadAll();
-  const view = await ({ dashboard, validations, payments, payouts, partners, cities })[tab](data);
+  const view = await ({ dashboard, validations, payments, payouts, transactions, partners, cities, journal })[tab](data);
   return {
     html: `<div class="spread"><h1>${t('admin.title')}</h1>
         <span class="hint">${esc(me.email)} <button class="btn ghost small" id="logout">${t('common.logout')}</button></span></div>
@@ -78,31 +78,40 @@ function loginView() {
 const plural = (key, n) => tRaw(`${key}.${n === 1 ? 'one' : 'other'}`, { n });
 
 async function loadAll() {
-  const [cityList, guides, partnerList, visits, payoutList] = await Promise.all([
-    store.listCities(), store.listGuides(), store.listPartners(), store.listVisits(), store.listPayouts(),
+  const [cityList, guides, partnerList, visits, payoutList, paymentList] = await Promise.all([
+    store.listCities(), store.listGuides(), store.listPartners(), store.listVisits(), store.listPayouts(), store.listPayments(),
   ]);
   const city = (id) => cityList.find((c) => c.id === id);
   const guide = (id) => guides.find((g) => g.id === id);
   const partner = (id) => partnerList.find((p) => p.id === id);
-  const cur = (n, cityId) => money(n, city(cityId)?.currency || 'BRL', getLang());
-  return { cityList, guides, partnerList, visits, payoutList, city, guide, partner, cur };
+  const cur = (n, cityId) => cents(n, city(cityId)?.currency || 'BRL', getLang());
+  return { cityList, guides, partnerList, visits, payoutList, paymentList, city, guide, partner, cur };
 }
+
+const sumOf = (list, key) => list.reduce((s, v) => s + (v[key] || 0), 0);
+const IN = (v, ...st) => st.includes(v.status);
 
 async function dashboard({ guides, partnerList, visits, cur, cityList }) {
   const cityId = cityList[0]?.id;
-  const sum = (status) => visits.filter((v) => status.includes(v.status)).reduce((s, v) => s + (v.amount || 0), 0);
-  const received = sum(['received', 'paid']);
+  const live = visits.filter((v) => v.status !== 'cancelled');
+  const declared = live.filter((v) => IN(v, 'declared', 'verifying', 'received', 'payout_pending', 'paid'));
+  const cashed = live.filter((v) => IN(v, 'received', 'payout_pending', 'paid'));
   return {
     html: `
       <div class="stats">
-        <div class="stat"><b>${visits.length}</b><span>${t('admin.stat.visits')}</span></div>
-        <div class="stat"><b>${visits.filter((v) => v.status === 'visited').length}</b><span>${t('admin.stat.todeclare')}</span></div>
-        <div class="stat"><b>${visits.filter((v) => v.status === 'declared').length}</b><span>${t('admin.stat.tocheck')}</span></div>
+        <div class="stat"><b>${live.length}</b><span>${t('admin.stat.visits')}</span></div>
+        <div class="stat"><b>${live.filter((v) => IN(v, 'zero')).length}</b><span>${t('admin.stat.zero')}</span></div>
+        <div class="stat"><b>${live.filter((v) => IN(v, 'disputed')).length}</b><span>${t('admin.stat.disputed')}</span></div>
       </div>
       <div class="stats">
-        <div class="stat"><b>${cur(received, cityId)}</b><span>${t('admin.stat.received')}</span></div>
-        <div class="stat"><b>${cur(store.platformShare(received), cityId)}</b><span>${t('admin.stat.platform')}</span></div>
-        <div class="stat"><b>${cur(store.guideShare(sum(['received'])), cityId)}</b><span>${t('admin.stat.topay')}</span></div>
+        <div class="stat"><b>${cur(sumOf(declared, 'declaredCents'), cityId)}</b><span>${t('admin.stat.declared')}</span></div>
+        <div class="stat"><b>${cur(sumOf(cashed, 'receivedCents'), cityId)}</b><span>${t('admin.stat.cashed')}</span></div>
+        <div class="stat"><b>${cur(sumOf(live.filter((v) => IN(v, 'declared', 'verifying')), 'declaredCents'), cityId)}</b><span>${t('admin.stat.awaiting')}</span></div>
+      </div>
+      <div class="stats">
+        <div class="stat"><b>${cur(sumOf(cashed, 'kombrioCents'), cityId)}</b><span>${t('admin.stat.platform')}</span></div>
+        <div class="stat"><b>${cur(sumOf(live.filter((v) => IN(v, 'received')), 'guideCents'), cityId)}</b><span>${t('admin.stat.topay')}</span></div>
+        <div class="stat"><b>${cur(sumOf(live.filter((v) => IN(v, 'paid')), 'guideCents'), cityId)}</b><span>${t('admin.stat.guidepaid')}</span></div>
       </div>
       <div class="card">
         <p>${t('admin.stat.people', { guides: plural('admin.stat.guides', guides.filter((g) => g.status === 'validated').length), pending: guides.filter((g) => g.status === 'pending').length, partners: plural('admin.stat.partners', partnerList.length) })}</p>
@@ -132,40 +141,71 @@ async function validations({ guides, city }) {
   };
 }
 
-function receiptCell(v, all = []) {
-  if (!v.receipt) return `<span class="hint">${t('admin.pay.noreceipt')}</span>`;
-  if (v.receipt.type === 'same') return `<span class="hint">${t('admin.pay.samereceipt', { client: all.find((x) => x.id === v.receipt.ref)?.client || '?' })}</span>`;
-  if (v.receipt.type?.startsWith('image/')) return `<a href="#" data-receipt="${esc(v.id)}" class="receipt"><img src="${v.receipt.data}" alt="${esc(v.receipt.name)}"></a>`;
-  return `<a href="#" data-receipt="${esc(v.id)}">${esc(v.receipt.name)}</a>`;
+function receiptCell(pay) {
+  const r = pay.receipt;
+  if (!r || !r.data) return `<span class="hint">${t('admin.pay.noreceipt')}</span>`;
+  if (r.type?.startsWith('image/')) return `<a href="#" data-receipt="${esc(pay.id)}" class="receipt"><img src="${r.data}" alt="${esc(r.name)}"></a>`;
+  return `<a href="#" data-receipt="${esc(pay.id)}">${esc(r.name)}</a>`;
 }
 
-async function payments({ visits, guide, partner, cur, city }) {
+// Paiements reçus des partenaires : l'admin saisit le montant réellement reçu (doit être égal au total déclaré).
+async function payments({ paymentList, visits, partner, cur, city }) {
   const lang = getLang();
-  const list = visits.filter((v) => v.status === 'declared');
+  const open = paymentList.filter((y) => y.status === 'submitted');
+  const done = paymentList.filter((y) => y.status !== 'submitted').slice(0, 30);
+  const covered = (y) => visits.filter((v) => v.paymentId === y.id);
   return {
     html: `<div class="card">
       <h2>${t('admin.pay.title')}</h2>
-      <p class="hint">${t('admin.pay.hint')}</p>
-      ${list.length ? `<ul class="list">${list.map((v) => {
-        const p = partner(v.partnerId);
+      <p class="hint">${t('admin.pay.hint2')}</p>
+      ${open.length ? `<ul class="list">${open.map((y) => {
+        const p = partner(y.partnerId);
         return `<li>
-        <div class="spread"><b>${esc(p?.name)} → ${cur(v.amount, p?.cityId)}</b><span class="badge">${t(`method.${v.method}`)}</span></div>
-        <div class="hint">${t('admin.pay.line', { guide: guide(v.guideId)?.name, date: fmtMoment(v.declaredAt, lang, city(p?.cityId)?.timezone) })}</div>
-        <div style="margin:8px 0">${receiptCell(v, visits)}</div>
-        <div class="row">
-          <button class="btn small" data-ok="${esc(v.id)}">${t('admin.pay.confirm')}</button>
-          <button class="btn ghost small" data-no="${esc(v.id)}">${t('admin.pay.reject')}</button>
-        </div></li>`;
+        <div class="spread"><b>${t('admin.pay.num', { num: y.num })} · ${esc(p?.name)} → ${cur(y.cents, p?.cityId)}</b><span class="badge">${t(`method.${y.method}`)}</span></div>
+        <div class="hint">${fmtMoment(y.submittedAt, lang, city(p?.cityId)?.timezone)}${y.pixRef ? ` · Pix ${esc(y.pixRef)}` : ''}</div>
+        <div class="hint">${covered(y).map((v) => `${esc(store.txNum(v.num))} (${cur(v.declaredCents, p?.cityId)})`).join(' · ')}</div>
+        <div style="margin:8px 0">${receiptCell(y)}</div>
+        <form class="verify row" data-id="${esc(y.id)}" style="align-items:flex-end">
+          <div class="field" style="margin:0"><label>${t('admin.pay.received')}</label><input name="cents" inputmode="decimal" style="width:130px" placeholder="${(y.cents / 100).toFixed(2).replace('.', ',')}"></div>
+          <div class="field" style="margin:0;flex:1"><label>${t('admin.pay.pixref')}</label><input name="ref" value="${esc(y.pixRef || '')}"></div>
+          <button class="btn small">${t('admin.pay.confirm')}</button>
+        </form>
+        <form class="reject row" data-id="${esc(y.id)}" style="align-items:flex-end;margin-top:6px">
+          <div class="field" style="margin:0;flex:1"><input name="reason" placeholder="${t('admin.pay.reason')}"></div>
+          <button class="btn ghost small">${t('admin.pay.reject')}</button>
+        </form></li>`;
       }).join('')}</ul>` : `<p class="hint">${t('admin.pay.none')}</p>`}
-    </div>`,
+    </div>
+    ${done.length ? `<div class="card"><h2>${t('admin.pay.history')}</h2><div class="table-wrap"><table>
+      <tr><th>N°</th><th>${t('admin.part.title')}</th><th>${t('common.amount')}</th><th>${t('admin.col.status')}</th><th>Pix</th></tr>
+      ${done.map((y) => `<tr><td>${y.num}</td><td>${esc(partner(y.partnerId)?.name)}</td><td>${cur(y.receivedCents ?? y.cents, partner(y.partnerId)?.cityId)}</td><td>${t(`payment.${y.status}`)}${y.note ? ` · ${esc(y.note)}` : ''}</td><td>${esc(y.pixRef || '')}</td></tr>`).join('')}
+    </table></div></div>` : ''}`,
     mount(root, ctx) {
-      root.querySelectorAll('[data-ok]').forEach((b) => { b.onclick = async () => { await store.confirmVisit(b.dataset.ok); ctx.refresh(tRaw('admin.pay.confirmed')); }; });
-      root.querySelectorAll('[data-no]').forEach((b) => { b.onclick = async () => { await store.rejectVisit(b.dataset.no); ctx.refresh(tRaw('admin.pay.rejected')); }; });
+      root.querySelectorAll('form.verify').forEach((f) => {
+        f.onsubmit = async (e) => {
+          e.preventDefault();
+          const y = open.find((x) => x.id === f.dataset.id);
+          const got = f.cents.value.trim() === '' ? y.cents : parseCents(f.cents.value);
+          if (got == null) { notify(tRaw('admin.err.amount')); return; }
+          const r = await store.verifyPayment(y.id, got, f.ref.value.trim()).catch(() => null);
+          if (!r) { notify(tRaw('err.generic')); return; }
+          if (!r.ok) { notify(tRaw(`admin.pay.err.${r.reason}`, { expected: cur(r.expected) })); return; }
+          ctx.refresh(tRaw('admin.pay.confirmed'));
+        };
+      });
+      root.querySelectorAll('form.reject').forEach((f) => {
+        f.onsubmit = async (e) => {
+          e.preventDefault();
+          if (!f.reason.value.trim()) { notify(tRaw('admin.err.reason')); return; }
+          const ok = await store.rejectPayment(f.dataset.id, f.reason.value.trim()).catch(() => false);
+          if (ok) ctx.refresh(tRaw('admin.pay.rejected')); else notify(tRaw('err.generic'));
+        };
+      });
       root.querySelectorAll('[data-receipt]').forEach((a) => {
         a.onclick = async (e) => {
           e.preventDefault();
-          const v = list.find((x) => x.id === a.dataset.receipt);
-          const blob = await (await fetch(v.receipt.data)).blob();
+          const y = open.find((x) => x.id === a.dataset.receipt);
+          const blob = await (await fetch(y.receipt.data)).blob();
           window.open(URL.createObjectURL(blob), '_blank');
         };
       });
@@ -173,35 +213,137 @@ async function payments({ visits, guide, partner, cur, city }) {
   };
 }
 
+// Reversements : « lancer » (montant figé, statut en cours), puis « confirmer » avec la référence du virement.
 async function payouts({ guides, visits, payoutList, cur, guide }) {
   const lang = getLang();
   const due = guides.map((g) => {
     const items = visits.filter((v) => v.guideId === g.id && v.status === 'received');
-    return { g, items, total: items.reduce((s, v) => s + store.guideShare(v.amount), 0) };
+    return { g, items, total: sumOf(items, 'guideCents') };
   }).filter((x) => x.items.length);
+  const running = payoutList.filter((p) => p.status === 'in_progress');
+  const paid = payoutList.filter((p) => p.status === 'paid');
   return {
     html: `<div class="card">
       <h2>${t('admin.out.title')}</h2>
-      <p class="hint">${t('admin.out.hint')}</p>
+      <p class="hint">${t('admin.out.hint2')}</p>
       ${due.length ? `<ul class="list">${due.map(({ g, items, total }) => `<li>
         <div class="spread"><b>${esc(g.name)}</b><b>${cur(total, g.cityId)}</b></div>
         <div class="hint">${t('admin.out.line', { n: items.length, pix: g.pixKey || tRaw('admin.missing'), cpf: g.cpf ? fmtTaxId(g.cpf) : tRaw('admin.missing') })}</div>
-        <button class="btn small" style="margin-top:8px" data-pay="${esc(g.id)}">${t('admin.out.pay')}</button>
+        <div class="hint">${items.map((v) => esc(store.txNum(v.num))).join(' · ')}</div>
+        <button class="btn small" style="margin-top:8px" data-start="${esc(g.id)}">${t('admin.out.start')}</button>
       </li>`).join('')}</ul>` : `<p class="hint">${t('admin.out.none')}</p>`}
     </div>
+    ${running.length ? `<div class="card"><h2>${t('admin.out.running')}</h2><ul class="list">${running.map((p) => `<li>
+        <div class="spread"><b>${t('admin.out.num', { num: p.num })} · ${esc(guide(p.guideId)?.name)}</b><b>${cur(p.cents, guide(p.guideId)?.cityId)}</b></div>
+        <div class="hint">Pix : ${esc(guide(p.guideId)?.pixKey || tRaw('admin.missing'))}</div>
+        <form class="confirm row" data-id="${esc(p.id)}" style="align-items:flex-end;margin-top:6px">
+          <div class="field" style="margin:0;flex:1"><label>${t('admin.out.ref')}</label><input name="ref" placeholder="E2E… / n° de virement"></div>
+          <button class="btn small">${t('admin.out.confirm2')}</button>
+        </form></li>`).join('')}</ul></div>` : ''}
     <div class="card">
       <h2>${t('admin.out.history')}</h2>
-      ${payoutList.length ? `<div class="table-wrap"><table>
-        <tr><th>${t('common.date')}</th><th>${t('common.guide')}</th><th>${t('common.amount')}</th></tr>
-        ${payoutList.map((p) => `<tr><td>${fmtMoment(p.at, lang)}</td><td>${esc(guide(p.guideId)?.name)}</td><td>${cur(p.amount, guide(p.guideId)?.cityId)}</td></tr>`).join('')}
+      ${paid.length ? `<div class="table-wrap"><table>
+        <tr><th>N°</th><th>${t('common.date')}</th><th>${t('common.guide')}</th><th>${t('common.amount')}</th><th>${t('admin.out.ref')}</th></tr>
+        ${paid.map((p) => `<tr><td>${p.num}</td><td>${fmtMoment(p.paidAt || p.at, lang)}</td><td>${esc(guide(p.guideId)?.name)}</td><td>${cur(p.cents, guide(p.guideId)?.cityId)}</td><td>${esc(p.reference || '')}</td></tr>`).join('')}
       </table></div>` : `<p class="hint">${t('admin.out.history.none')}</p>`}
     </div>`,
     mount(root, ctx) {
-      root.querySelectorAll('[data-pay]').forEach((b) => confirmTwice(b, tRaw('admin.out.confirm'), async () => {
-        await store.payGuide(b.dataset.pay);
-        ctx.refresh(tRaw('admin.out.done'));
+      root.querySelectorAll('[data-start]').forEach((b) => confirmTwice(b, tRaw('admin.out.start.confirm'), async () => {
+        await store.startPayout(b.dataset.start);
+        ctx.refresh(tRaw('admin.out.started'));
       }, tRaw('err.generic')));
+      root.querySelectorAll('form.confirm').forEach((f) => {
+        f.onsubmit = async (e) => {
+          e.preventDefault();
+          if (!f.ref.value.trim()) { notify(tRaw('admin.err.ref')); return; }
+          const ok = await store.confirmPayout(f.dataset.id, f.ref.value.trim()).catch(() => false);
+          if (ok) ctx.refresh(tRaw('admin.out.done')); else notify(tRaw('err.generic'));
+        };
+      });
     },
+  };
+}
+
+// Toutes les transactions : déclaré / encaissé / parts, corrections tracées (motif obligatoire).
+async function transactions({ visits, guide, partner, cur, city }) {
+  const lang = getLang();
+  const rows = visits.slice(0, 300);
+  const actions = (v) => {
+    const a = [];
+    if (IN(v, 'zero', 'declared')) a.push('correct');
+    if (!IN(v, 'paid', 'cancelled', 'disputed')) a.push('dispute');
+    if (IN(v, 'disputed')) a.push('resolve');
+    if (IN(v, 'visited', 'zero', 'declared') || (IN(v, 'disputed') && ['visited', 'zero', 'declared'].includes(v.prevStatus || 'visited'))) a.push('cancel');
+    return a;
+  };
+  return {
+    html: `<div class="card">
+      <h2>${t('admin.tx.title')}</h2>
+      <p class="hint">${t('admin.tx.hint')}</p>
+      ${rows.length ? `<div class="table-wrap"><table>
+        <tr><th>ID</th><th>${t('common.date')}</th><th>${t('admin.part.title')}</th><th>${t('common.guide')}</th><th>${t('admin.tx.people')}</th><th>${t('admin.tx.declared')}</th><th>${t('admin.tx.received')}</th><th>Kombrio</th><th>${t('common.guide')}</th><th>${t('admin.col.status')}</th></tr>
+        ${rows.map((v) => {
+          const p = partner(v.partnerId);
+          const c = (n) => (n == null ? '—' : cur(n, p?.cityId));
+          const acts = actions(v);
+          return `<tr><td style="white-space:nowrap">${esc(store.txNum(v.num))}</td><td style="white-space:nowrap">${fmtMoment(v.at, lang, city(p?.cityId)?.timezone)}</td>
+            <td>${esc(p?.name || '?')}</td><td>${esc(guide(v.guideId)?.name || '?')}</td><td>${v.peopleServed}</td>
+            <td>${c(v.declaredCents)}</td><td>${c(v.receivedCents)}</td><td>${c(v.kombrioCents)}</td><td>${c(v.guideCents)}</td>
+            <td>${statusBadge(v)}${v.statusNote ? `<div class="hint">${esc(v.statusNote)}</div>` : ''}
+              ${acts.length ? `<details><summary class="hint">${t('admin.tx.act')}</summary>
+                <form class="txact" data-id="${esc(v.id)}" style="margin-top:6px;min-width:220px">
+                  <select name="act">${acts.map((k) => `<option value="${k}">${t(`admin.tx.${k}`)}</option>`).join('')}</select>
+                  <input name="cents" inputmode="decimal" placeholder="${t('admin.tx.newamount')}" style="margin-top:4px">
+                  <input name="reason" placeholder="${t('admin.tx.reason')}" style="margin-top:4px" required>
+                  <button class="btn small" style="margin-top:4px">${t('common.save')}</button>
+                </form></details>` : ''}</td></tr>`;
+        }).join('')}
+      </table></div>` : `<p class="hint">${t('admin.tx.none')}</p>`}
+    </div>`,
+    mount(root, ctx) {
+      root.querySelectorAll('form.txact').forEach((f) => {
+        f.onsubmit = async (e) => {
+          e.preventDefault();
+          const id = f.dataset.id;
+          const reason = f.reason.value.trim();
+          if (!reason) { notify(tRaw('admin.err.reason')); return; }
+          let ok = false;
+          try {
+            if (f.act.value === 'correct') {
+              const cts = parseCents(f.cents.value);
+              if (cts == null) { notify(tRaw('admin.err.amount')); return; }
+              ok = await store.correctCommission(id, cts, reason);
+            } else if (f.act.value === 'dispute') ok = await store.disputeVisit(id, reason);
+            else if (f.act.value === 'resolve') ok = await store.resolveDispute(id, reason);
+            else if (f.act.value === 'cancel') ok = await store.cancelVisit(id, reason);
+          } catch { ok = false; }
+          if (ok) ctx.refresh(tRaw('common.saved')); else notify(tRaw('err.generic'));
+        };
+      });
+    },
+  };
+}
+
+// Journal non modifiable des opérations.
+async function journal({ visits, paymentList, payoutList }) {
+  const lang = getLang();
+  const rows = await store.listLedger(300);
+  const ref = (r) => {
+    if (r.visit_id) return store.txNum(visits.find((v) => v.id === r.visit_id)?.num) || '';
+    if (r.payment_id) return t('admin.pay.num', { num: paymentList.find((y) => y.id === r.payment_id)?.num ?? '?' });
+    if (r.payout_id) return t('admin.out.num', { num: payoutList.find((p) => p.id === r.payout_id)?.num ?? '?' });
+    return '';
+  };
+  const detail = (d) => Object.entries(d || {}).filter(([k]) => k !== 'visits').map(([k, v]) => `${esc(k)}: ${esc(typeof v === 'object' ? JSON.stringify(v) : v)}`).join(' · ');
+  return {
+    html: `<div class="card">
+      <h2>${t('admin.log.title')}</h2>
+      <p class="hint">${t('admin.log.hint')}</p>
+      ${rows.length ? `<div class="table-wrap"><table>
+        <tr><th>${t('common.date')}</th><th>${t('admin.log.who')}</th><th>${t('admin.log.event')}</th><th>${t('admin.log.ref')}</th><th>${t('admin.log.detail')}</th></tr>
+        ${rows.map((r) => `<tr><td style="white-space:nowrap">${fmtMoment(r.at, lang)}</td><td>${esc(r.actor_kind)}</td><td>${esc(tRaw(`log.${r.event}`))}</td><td>${esc(ref(r))}</td><td class="hint">${detail(r.data)}</td></tr>`).join('')}
+      </table></div>` : `<p class="hint">${t('admin.log.none')}</p>`}
+    </div>`,
   };
 }
 

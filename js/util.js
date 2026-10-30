@@ -13,6 +13,18 @@ export function money(amount, currency, lang) {
   return new Intl.NumberFormat(locale(lang), { style: 'currency', currency }).format(amount || 0);
 }
 
+// Montant en centavos (entier) affiché dans la devise de la ville.
+export function cents(n, currency, lang) {
+  return money((n || 0) / 100, currency, lang);
+}
+// Saisie « 12,50 » ou « 12.50 » → 1250 centavos. null si la saisie n'est pas un montant.
+export function parseCents(text) {
+  const t = String(text ?? '').trim().replace(/\s/g, '').replace(',', '.');
+  if (t === '' || !/^\d+(\.\d{0,2})?$/.test(t)) return null;
+  const [i, d = ''] = t.split('.');
+  return Number(i) * 100 + Number((d + '00').slice(0, 2));
+}
+
 // Une date "AAAA-MM-JJ" affichée sans décalage de fuseau.
 export function fmtDay(day, lang) {
   if (!day) return '';

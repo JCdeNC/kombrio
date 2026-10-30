@@ -43,17 +43,25 @@ const toStay = (r) => r && ({
   id: r.id, guideId: r.guide_id, client: r.client, people: r.people, start: r.start_day, end: r.end_day,
   token: r.token, createdAt: r.created_at,
 });
-function toReceipt(text) {
-  if (!text) return null;
-  try { return JSON.parse(text); } catch { return null; }
-}
+const num = (x) => (x == null ? null : Number(x));
+// Une transaction (passage) : montants en centavos, jamais en nombres à virgule.
 const toVisit = (r) => r && ({
-  id: r.id, stayId: r.stay_id, partnerId: r.partner_id, guideId: r.guide_id, at: r.at, people: r.people,
-  offerGiven: r.offer_given, status: r.status, amount: r.amount == null ? null : Number(r.amount), method: r.method,
-  receipt: toReceipt(r.receipt), rejected: r.rejected, declaredAt: r.declared_at, receivedAt: r.received_at,
-  payoutId: r.payout_id, client: r.client, guideName: r.guide_name,
+  id: r.id, num: num(r.num), stayId: r.stay_id, partnerId: r.partner_id, guideId: r.guide_id, at: r.at,
+  people: r.people, peopleServed: r.people_served ?? r.people, offerGiven: r.offer_given, status: r.status,
+  declaredCents: num(r.declared_cents), receivedCents: num(r.received_cents), guideCents: num(r.guide_cents),
+  kombrioCents: num(r.kombrio_cents), paymentId: r.payment_id, payoutId: r.payout_id, prevStatus: r.prev_status,
+  statusNote: r.status_note, declaredAt: r.declared_at, receivedAt: r.received_at, client: r.client, guideName: r.guide_name,
 });
-const toPayout = (r) => r && ({ id: r.id, guideId: r.guide_id, amount: Number(r.amount), at: r.at });
+const toPayout = (r) => r && ({
+  id: r.id, num: num(r.num), guideId: r.guide_id, cents: num(r.amount_cents), status: r.status, reference: r.reference,
+  at: r.at, paidAt: r.paid_at,
+});
+const toPayment = (r) => r && ({
+  id: r.id, num: num(r.num), partnerId: r.partner_id, cents: num(r.amount_cents), method: r.method, pixRef: r.pix_ref,
+  receipt: r.receipt || null, status: r.status, receivedCents: num(r.received_cents), note: r.note,
+  submittedAt: r.submitted_at, verifiedAt: r.verified_at,
+});
+export const txNum = (n) => (n == null ? '' : `KB-${String(n).padStart(6, '0')}`);
 
 /* ---------- Villes ---------- */
 export async function listCities() {
@@ -199,13 +207,13 @@ export async function renewPartnerToken(partnerId) {
 export async function partnerSpace(token) {
   const d = check(await sb.rpc('partner_space', { p_token: token }));
   if (!d) return null;
-  return { role: d.role, partner: toPartner(d.partner), city: toCity(d.city), visits: (d.visits || []).map(toVisit) };
+  return { role: d.role, partner: toPartner(d.partner), city: toCity(d.city), visits: (d.visits || []).map(toVisit), payments: (d.payments || []).map(toPayment) };
 }
 // Relevé du comptable (lecture seule), à partir de son lien. null si le lien n'est pas reconnu.
 export async function partnerReport(reportToken) {
   const d = check(await sb.rpc('partner_report', { p_token: reportToken }));
   if (!d) return null;
-  return { partner: toPartner(d.partner), city: toCity(d.city), visits: (d.visits || []).map(toVisit) };
+  return { partner: toPartner(d.partner), city: toCity(d.city), visits: (d.visits || []).map(toVisit), payments: (d.payments || []).map(toPayment) };
 }
 export async function renewReportToken(partnerToken) {
   return check(await sb.rpc('renew_report_token', { p_partner_token: partnerToken }));
@@ -244,40 +252,57 @@ export async function listVisits(filter = {}) {
 
 export async function recordVisit(stayToken, partnerToken) {
   const r = check(await sb.rpc('record_visit', { p_stay_token: stayToken, p_partner_token: partnerToken }));
-  return r.ok ? { ok: true, visitId: r.visit_id } : { ok: false, reason: r.reason };
+  return r.ok ? { ok: true, visitId: r.visit_id, duplicate: r.duplicate } : { ok: false, reason: r.reason };
+}
+export async function setPeopleServed(partnerToken, visitId, people) {
+  return check(await sb.rpc('set_people_served', { p_partner_token: partnerToken, p_visit: visitId, p_people: people }));
 }
 
-export async function declareVisit(partnerToken, visitId, { amount, method, receipt }) {
-  const ok = check(await sb.rpc('declare_visit', {
-    p_partner_token: partnerToken, p_visit: visitId, p_amount: amount, p_method: method,
-    p_receipt: receipt ? JSON.stringify(receipt) : null,
+// Gérant : déclarer (montant libre, zéro possible), puis payer séparément.
+export async function declareCommissions(managerToken, items) {
+  return check(await sb.rpc('declare_commissions', { p_manager_token: managerToken, p_items: items }));
+}
+export async function submitPayment(managerToken, { visitIds, method, pixRef, receipt }) {
+  return check(await sb.rpc('submit_payment', {
+    p_manager_token: managerToken, p_visits: visitIds, p_method: method, p_pix_ref: pixRef || null, p_receipt: receipt,
   }));
-  if (!ok) throw new Error('declare');
 }
 
-export async function confirmVisit(visitId) {
-  check(await sb.from('visits').update({ status: 'received', received_at: new Date().toISOString() }).eq('id', visitId));
+// Administrateur
+export async function listPayments() {
+  return check(await sb.from('payments').select('*').order('submitted_at', { ascending: false })).map(toPayment);
 }
-export async function rejectVisit(visitId) {
-  check(await sb.from('visits').update({ status: 'visited', rejected: true }).eq('id', visitId));
+export async function verifyPayment(paymentId, receivedCents, pixRef) {
+  return check(await sb.rpc('verify_payment', { p_payment: paymentId, p_received_cents: receivedCents, p_pix_ref: pixRef || null }));
 }
-
+export async function rejectPayment(paymentId, reason) {
+  return check(await sb.rpc('reject_payment', { p_payment: paymentId, p_reason: reason }));
+}
 export async function listPayouts(guideId) {
   let q = sb.from('payouts').select('*').order('at', { ascending: false });
   if (guideId) q = q.eq('guide_id', guideId);
   return check(await q).map(toPayout);
 }
-export async function payGuide(guideId) {
-  return check(await sb.rpc('pay_guide', { p_guide: guideId }));
+export async function startPayout(guideId) {
+  return check(await sb.rpc('start_payout', { p_guide: guideId }));
 }
-
-export async function guideSummary(guideId) {
-  const visits = await listVisits({ guideId });
-  const sum = (status) => round(visits.filter((v) => v.status === status).reduce((s, v) => s + guideShare(v.amount), 0));
-  return {
-    toDeclare: visits.filter((v) => v.status === 'visited').length,
-    checking: sum('declared'), due: sum('received'), paid: sum('paid'),
-  };
+export async function confirmPayout(payoutId, reference) {
+  return check(await sb.rpc('confirm_payout', { p_payout: payoutId, p_reference: reference }));
+}
+export async function correctCommission(visitId, cents, reason) {
+  return check(await sb.rpc('correct_commission', { p_visit: visitId, p_cents: cents, p_reason: reason }));
+}
+export async function disputeVisit(visitId, reason) {
+  return check(await sb.rpc('dispute_visit', { p_visit: visitId, p_reason: reason }));
+}
+export async function resolveDispute(visitId, note) {
+  return check(await sb.rpc('resolve_dispute', { p_visit: visitId, p_note: note }));
+}
+export async function cancelVisit(visitId, reason) {
+  return check(await sb.rpc('cancel_visit', { p_visit: visitId, p_reason: reason }));
+}
+export async function listLedger(limit = 200) {
+  return check(await sb.from('ledger').select('*').order('id', { ascending: false }).limit(limit));
 }
 
 export async function resetDemo() { /* plus de mode démo */ }

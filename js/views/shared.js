@@ -1,9 +1,8 @@
 // Morceaux d'écran communs à plusieurs pages.
 import { t, tRaw } from '../i18n.js';
-import { esc, initials, fmtDay, money, notify, mapsLink } from '../util.js';
+import { esc, initials, fmtDay, money, cents, notify, mapsLink } from '../util.js';
 import * as store from '../store.js';
 
-const { guideShare } = store;
 
 export function guideCard(guide, city) {
   const photo = guide.photo ? `<img src="${esc(guide.photo)}" alt="">` : esc(initials(guide.name));
@@ -24,20 +23,27 @@ export function validity(stay, valid, lang) {
     : `<span class="badge bad">${t('stay.expired', { day: fmtDay(stay.end, lang) })}</span>`;
 }
 
-const STATUS_CLASS = { visited: 'warn', declared: '', received: 'ok', paid: 'ok' };
+const STATUS_CLASS = {
+  visited: '', zero: '', declared: 'warn', verifying: 'warn', received: 'ok', payout_pending: 'ok', paid: 'ok', disputed: 'bad', cancelled: 'bad',
+};
+// Le partenaire ne voit pas le reversement au guide : pour lui, tout ce qui est encaissé est « payé ».
+const PARTNER_STATUS = { received: 'paid', payout_pending: 'paid' };
 
-export function statusBadge(visit) {
-  const key = visit.status === 'visited' && visit.rejected ? 'status.rejected' : `status.${visit.status}`;
-  return `<span class="badge ${visit.rejected && visit.status === 'visited' ? 'bad' : STATUS_CLASS[visit.status]}">${t(key)}</span>`;
+export function statusBadge(visit, audience = 'all') {
+  const st = audience === 'partner' ? (PARTNER_STATUS[visit.status] || visit.status) : visit.status;
+  const key = audience === 'partner' ? `pstatus.${st}` : `status.${st}`;
+  return `<span class="badge ${STATUS_CLASS[visit.status] ?? ''}">${t(key)}</span>`;
 }
 
-// Ligne de montant vue par le guide : ce que le partenaire a déclaré et ce qui lui revient.
+// Ligne de montants vue par le guide : jamais « gagné » tant que Kombrio n'a pas encaissé.
 export function guideAmounts(visit, city, lang) {
-  if (visit.amount == null || visit.status === 'visited') return '';
-  return t('visit.amounts', {
-    amount: money(visit.amount, city.currency, lang),
-    share: money(guideShare(visit.amount), city.currency, lang),
-  });
+  const c = (n) => cents(n, city.currency, lang);
+  if (visit.status === 'zero') return t('visit.g.zero');
+  if (visit.declaredCents == null) return '';
+  if (['received', 'payout_pending', 'paid'].includes(visit.status)) {
+    return t('visit.g.received', { declared: c(visit.declaredCents), share: c(visit.guideCents) });
+  }
+  return t('visit.g.expected', { declared: c(visit.declaredCents) });
 }
 
 export function notFound(key = 'err.notfound') {
