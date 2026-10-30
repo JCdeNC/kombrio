@@ -132,8 +132,9 @@ async function validations({ guides, city }) {
   };
 }
 
-function receiptCell(v) {
+function receiptCell(v, all = []) {
   if (!v.receipt) return `<span class="hint">${t('admin.pay.noreceipt')}</span>`;
+  if (v.receipt.type === 'same') return `<span class="hint">${t('admin.pay.samereceipt', { client: all.find((x) => x.id === v.receipt.ref)?.client || '?' })}</span>`;
   if (v.receipt.type?.startsWith('image/')) return `<a href="#" data-receipt="${esc(v.id)}" class="receipt"><img src="${v.receipt.data}" alt="${esc(v.receipt.name)}"></a>`;
   return `<a href="#" data-receipt="${esc(v.id)}">${esc(v.receipt.name)}</a>`;
 }
@@ -150,7 +151,7 @@ async function payments({ visits, guide, partner, cur, city }) {
         return `<li>
         <div class="spread"><b>${esc(p?.name)} → ${cur(v.amount, p?.cityId)}</b><span class="badge">${t(`method.${v.method}`)}</span></div>
         <div class="hint">${t('admin.pay.line', { guide: guide(v.guideId)?.name, date: fmtMoment(v.declaredAt, lang, city(p?.cityId)?.timezone) })}</div>
-        <div style="margin:8px 0">${receiptCell(v)}</div>
+        <div style="margin:8px 0">${receiptCell(v, visits)}</div>
         <div class="row">
           <button class="btn small" data-ok="${esc(v.id)}">${t('admin.pay.confirm')}</button>
           <button class="btn ghost small" data-no="${esc(v.id)}">${t('admin.pay.reject')}</button>
@@ -283,6 +284,9 @@ async function cities({ cityList }) {
         <tr><th>${t('admin.city.name')}</th><th>${t('admin.city.currency')}</th><th>${t('admin.city.tz')}</th><th>${t('admin.city.methods')}</th><th>${t('admin.city.license')}</th></tr>
         ${cityList.map((c) => `<tr><td>${esc(c.name)} (${esc(c.country)})</td><td>${esc(c.currency)}</td><td>${esc(c.timezone)}</td><td>${c.methods.map((m) => t(`method.${m}`)).join(', ')}</td><td>${esc(c.licenseLabel)}</td></tr>`).join('')}
       </table></div>
+      ${cityList.map((c) => `<form class="payto row" data-city="${esc(c.id)}" style="margin-top:12px;align-items:flex-end">
+        <div class="field" style="flex:1;margin:0"><label>${t('admin.city.payto')} · ${esc(c.name)}</label><input name="payTo" value="${esc(c.payTo)}"></div>
+        <button class="btn small">${t('common.save')}</button></form>`).join('')}
     </div>
     <form class="card" id="add-city">
       <h2>${t('admin.city.add')}</h2>
@@ -298,6 +302,12 @@ async function cities({ cityList }) {
       <button class="btn block">${t('admin.city.create')}</button>
     </form>`,
     mount(root, ctx) {
+      root.querySelectorAll('.payto').forEach((f) => {
+        f.onsubmit = async (e) => {
+          e.preventDefault();
+          try { await store.setCityPayTo(f.dataset.city, f.payTo.value.trim()); ctx.refresh(tRaw('common.saved')); } catch { notify(tRaw('err.generic')); }
+        };
+      });
       root.querySelector('#add-city').onsubmit = async (e) => {
         e.preventDefault();
         const f = Object.fromEntries(new FormData(e.target));

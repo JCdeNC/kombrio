@@ -95,7 +95,7 @@ export default {
 
   'scan.people': '{n} personne(s)',
   'scan.next': 'Scannez maintenant le QR Partenaire de la caisse.',
-  'scan.next.hint': 'Avec ce même téléphone, juste après.',
+  'scan.next.hint': 'Avec ce même téléphone, juste après. La première fois seulement : ensuite, ce téléphone se souvient de votre établissement.',
   'scan.invalid': 'Ce QR n\'est plus valable : aucune commission ne sera due.',
 
   'partner.visit.saved': 'Passage enregistré. Merci !',
@@ -257,4 +257,17 @@ export default {
   'admin.part.address.ph': 'Rue, numéro, quartier',
   'admin.part.save': 'Enregistrer la fiche',
   'admin.part.saved': 'Fiche enregistrée.',
+  'partner.linked': 'Ce téléphone est relié à {name} : un seul scan par client.',
+  'partner.unlink': 'Délier',
+  'partner.unlinked': 'Téléphone délié.',
+  'partner.pay.button': 'Déclarer et payer',
+  'partner.pay.title': 'Déclarer et payer en une fois',
+  'partner.pay.hint': 'Cochez les passages, indiquez la commission de chacun et payez le total en un seul Pix.',
+  'partner.pay.total': 'Total à payer',
+  'partner.pay.copy': 'Copier le code Pix',
+  'partner.pay.copied': 'Code Pix copié',
+  'partner.pay.pixhint': 'Dans l\'app de votre banque : Pix › Pix copia e cola, ou scannez ce QR.',
+  'partner.pay.none': 'Cochez au moins un passage avec un montant.',
+  'admin.pay.samereceipt': 'Même comprovante que « {client} » (paiement groupé)',
+  'partner.pay.nothing': 'Aucun passage à déclarer.',
 };

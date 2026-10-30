@@ -68,6 +68,10 @@ export async function addCity(c) {
   }));
 }
 
+export async function setCityPayTo(cityId, payTo) {
+  check(await sb.from('cities').update({ pay_to: payTo }).eq('id', cityId));
+}
+
 /* ---------- Comptes (guide et administrateur) ---------- */
 async function currentUser() {
   const { data } = await sb.auth.getSession();

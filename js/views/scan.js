@@ -19,7 +19,7 @@ export function clearPendingStay() {
   try { localStorage.removeItem(PENDING_KEY); } catch { /* rien */ }
 }
 
-export async function scanView([token]) {
+export async function scanView([token], ctx) {
   const data = token && await store.stayPublic(token);
   if (!data) return notFound('err.qr');
   const { stay, guide, city } = data;
@@ -27,6 +27,10 @@ export async function scanView([token]) {
   const valid = stayIsValid(stay, city) && guide.status === 'validated';
   if (valid) {
     try { localStorage.setItem(PENDING_KEY, JSON.stringify({ token: stay.token, at: Date.now() })); } catch { /* rien */ }
+    // Téléphone déjà relié à un établissement : le passage s'enregistre tout de suite (un seul scan).
+    let me = null;
+    try { me = localStorage.getItem('kombrio-partner'); } catch { /* rien */ }
+    if (me) return { html: '', mount: () => ctx.replace(`p/${me}`) };
   }
 
   return {

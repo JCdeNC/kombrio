@@ -125,6 +125,30 @@ export async function shareOrDownload(blob, filename, text) {
   setTimeout(() => URL.revokeObjectURL(a.href), 5000);
 }
 
+/* ---------- Pix « copia e cola » (BR Code statique, avec montant) ---------- */
+const emv = (id, v) => `${id}${String(v.length).padStart(2, '0')}${v}`;
+function crc16(s) {
+  let c = 0xFFFF;
+  for (let i = 0; i < s.length; i += 1) {
+    c ^= s.charCodeAt(i) << 8;
+    for (let b = 0; b < 8; b += 1) c = ((c & 0x8000) ? ((c << 1) ^ 0x1021) : (c << 1)) & 0xFFFF;
+  }
+  return c.toString(16).toUpperCase().padStart(4, '0');
+}
+const ascii = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase();
+export function pixPayload({ key, amount, name = 'KOMBRIO', city = 'RIO DE JANEIRO', txid = '' }) {
+  const ref = txid.replace(/[^A-Za-z0-9]/g, '').slice(0, 25) || '***';
+  const p = emv('00', '01')
+    + emv('26', emv('00', 'br.gov.bcb.pix') + emv('01', key.trim()))
+    + emv('52', '0000') + emv('53', '986')
+    + (amount > 0 ? emv('54', amount.toFixed(2)) : '')
+    + emv('58', 'BR') + emv('59', ascii(name).slice(0, 25)) + emv('60', ascii(city).slice(0, 15))
+    + emv('62', emv('05', ref)) + '6304';
+  return p + crc16(p);
+}
+// La clé Pix de Kombrio pour une ville (vide tant qu'elle n'est pas définie).
+export const pixKeyOf = (city) => (city?.payTo && !/d[ée]finir/i.test(city.payTo) && (city.methods || []).includes('pix') ? city.payTo.trim() : '');
+
 export function readFileAsDataUrl(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();

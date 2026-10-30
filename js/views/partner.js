@@ -2,7 +2,7 @@
 // Sans passage en attente, le même QR ouvre son espace (historique, offre, QR à imprimer).
 // Pas de compte : tout passe par le code secret du QR Partenaire, vérifié par la base.
 import { t, tRaw, getLang } from '../i18n.js';
-import { esc, money, fmtMoment, qrSvg, appLink, readFileAsDataUrl, notify } from '../util.js';
+import { esc, money, fmtMoment, fmtDay, qrSvg, appLink, readFileAsDataUrl, notify, pixPayload, pixKeyOf, photoToJpeg } from '../util.js';
 import * as store from '../store.js';
 import { statusBadge, notFound } from './shared.js';
 import { readPendingStay, clearPendingStay } from './scan.js';
@@ -41,6 +41,7 @@ export async function partnerView([token, action, visitId], ctx) {
     return spaceView(space);
   }
 
+  if (action === 'pagar') return payView(space);
   const visit = space.visits.find((v) => v.id === visitId);
   if (!visit) return notFound();
   return declareView(space, visit, action === 'passage');
@@ -124,7 +125,8 @@ function spaceView({ partner, city, visits }) {
   return {
     html: `
       <h1>${esc(partner.name)}</h1>
-      ${owed ? `<div class="notice warn">${t('partner.todeclare', { n: owed })}</div>` : ''}
+      ${owed ? `<div class="notice warn">${t('partner.todeclare', { n: owed })}
+        <a class="btn block" style="margin-top:10px" href="#/p/${encodeURIComponent(partner.token)}/pagar">${t('partner.pay.button')}</a></div>` : ''}
       <div class="card">
         <h2>${t('partner.visits')}</h2>
         ${visits.length ? `<ul class="list">${visits.map(item).join('')}</ul>` : `<p class="hint">${t('partner.visits.none')}</p>`}
@@ -140,7 +142,8 @@ function spaceView({ partner, city, visits }) {
         <p class="hint">${t('partner.qr.hint')}</p>
         <div class="qr">${qrSvg(appLink('partner', `p/${partner.token}`))}</div>
         <button class="btn ghost no-print" id="print">${t('partner.qr.print')}</button>
-      </div>`,
+      </div>
+      <p class="hint no-print">${t('partner.linked', { name: partner.name })} <a href="#" id="unlink">${t('partner.unlink')}</a></p>`,
     mount(root, ctx) {
       root.querySelector('#offer').onsubmit = async (e) => {
         e.preventDefault();
@@ -148,6 +151,96 @@ function spaceView({ partner, city, visits }) {
         ctx.refresh(tRaw('common.saved'));
       };
       root.querySelector('#print').onclick = () => window.print();
+      root.querySelector('#unlink').onclick = (e) => {
+        e.preventDefault();
+        try { localStorage.removeItem(ME_KEY); } catch { /* rien */ }
+        location.hash = '';
+        notify(tRaw('partner.unlinked'));
+      };
+    },
+  };
+}
+
+// Déclarer plusieurs passages et les payer en un seul Pix (comprovante unique).
+function payView({ partner, city, visits }) {
+  const lang = getLang();
+  const todo = visits.filter((v) => v.status === 'visited');
+  const key = pixKeyOf(city);
+  const back = `#/p/${encodeURIComponent(partner.token)}`;
+  if (!todo.length) return { html: `<div class="notice">${t('partner.pay.nothing')}</div><a class="btn ghost" href="${back}">${t('partner.space')}</a>` };
+  return {
+    html: `
+      <p><a href="${back}">← ${t('partner.space')}</a></p>
+      <form class="card" id="pay">
+        <h1>${t('partner.pay.title')}</h1>
+        <p class="hint">${t('partner.pay.hint')}</p>
+        <ul class="list">${todo.map((v) => `<li>
+          <label class="spread" style="font-weight:400;align-items:center">
+            <span><input type="checkbox" name="sel" value="${esc(v.id)}" checked style="width:auto;margin-right:8px"><b>${esc(v.client || '?')}</b>
+              <span class="hint"> · ${fmtDay(v.at.slice(0, 10), lang)} · ${t('partner.visit.guide', { guide: v.guideName || '?' })}</span></span>
+            <input name="a-${esc(v.id)}" type="number" min="0" step="0.01" inputmode="decimal" placeholder="${esc(city.currency)}" style="width:120px">
+          </label></li>`).join('')}</ul>
+        <div class="stat" style="margin:12px 0"><span>${t('partner.pay.total')}</span><b id="total">${money(0, city.currency, lang)}</b></div>
+        ${key ? `<div style="text-align:center">
+            <div class="qr" id="pixqr"></div>
+            <p class="hint">${t('partner.pay.pixhint')}</p>
+            <button type="button" class="btn secondary" id="copypix">${t('partner.pay.copy')}</button>
+          </div>`
+          : `<div class="notice">${t('partner.declare.payto')}<br><b>${t('partner.declare.payto.pending')}</b></div>`}
+        <div class="field" style="margin-top:12px"><label for="p-method">${t('partner.declare.method')}</label>
+          <select id="p-method" name="method">${city.methods.map((m) => `<option value="${esc(m)}">${t(`method.${m}`)}</option>`).join('')}</select></div>
+        <div class="field"><label for="p-receipt">${t('partner.declare.receipt')}</label>
+          <input id="p-receipt" name="receipt" type="file" accept="image/*,application/pdf" required></div>
+        <button class="btn block">${t('partner.declare.submit')}</button>
+      </form>`,
+    mount(root, ctx) {
+      const form = root.querySelector('#pay');
+      const chosen = () => todo.map((v) => ({ v, on: form.querySelector(`[value="${v.id}"]`).checked, amount: Number(form[`a-${v.id}`].value) || 0 }))
+        .filter((x) => x.on && x.amount > 0);
+      let payload = '';
+      const update = () => {
+        const total = Math.round(chosen().reduce((s, x) => s + x.amount, 0) * 100) / 100;
+        root.querySelector('#total').textContent = money(total, city.currency, lang);
+        if (key) {
+          payload = pixPayload({ key, amount: total, txid: `KBR${partner.id.replace(/-/g, '').slice(0, 10)}` });
+          root.querySelector('#pixqr').innerHTML = total > 0 ? qrSvg(payload) : '';
+        }
+      };
+      form.oninput = update;
+      update();
+      const copy = root.querySelector('#copypix');
+      if (copy) {
+        copy.onclick = async () => {
+          try { await navigator.clipboard.writeText(payload); copy.textContent = tRaw('partner.pay.copied'); } catch { prompt('', payload); }
+        };
+      }
+      form.onsubmit = async (e) => {
+        e.preventDefault();
+        const list = chosen();
+        if (!list.length) { notify(tRaw('partner.pay.none')); return; }
+        const file = form.receipt.files[0];
+        if (!file) return;
+        const button = form.querySelector('button.block');
+        button.disabled = true;
+        try {
+          let receipt;
+          if (file.type.startsWith('image/')) receipt = { name: file.name, type: 'image/jpeg', data: await photoToJpeg(file, 1400, 0.78) };
+          else {
+            if (file.size > MAX_RECEIPT) { notify(tRaw('partner.declare.toobig')); button.disabled = false; return; }
+            receipt = { name: file.name, type: file.type, data: await readFileAsDataUrl(file) };
+          }
+          const method = form.method.value;
+          const [first, ...rest] = list;
+          await store.declareVisit(partner.token, first.v.id, { amount: first.amount, method, receipt });
+          for (const x of rest) {
+            await store.declareVisit(partner.token, x.v.id, { amount: x.amount, method, receipt: { name: receipt.name, type: 'same', ref: first.v.id } });
+          }
+          ctx.go(`p/${partner.token}`, tRaw('partner.declare.thanks'));
+        } catch {
+          button.disabled = false;
+          notify(tRaw('err.generic'));
+        }
+      };
     },
   };
 }

@@ -95,7 +95,7 @@ export default {
 
   'scan.people': '{n} pessoa(s)',
   'scan.next': 'Agora escaneie o QR Parceiro do caixa.',
-  'scan.next.hint': 'Com este mesmo celular, logo em seguida.',
+  'scan.next.hint': 'Com este mesmo celular, logo em seguida. Só na primeira vez: depois, este celular lembra do seu estabelecimento.',
   'scan.invalid': 'Este QR não é mais válido: nenhuma comissão será devida.',
 
   'partner.visit.saved': 'Visita registrada. Obrigado!',
@@ -257,4 +257,17 @@ export default {
   'admin.part.address.ph': 'Rua, número, bairro',
   'admin.part.save': 'Salvar a ficha',
   'admin.part.saved': 'Ficha salva.',
+  'partner.linked': 'Este celular está ligado a {name}: um só scan por cliente.',
+  'partner.unlink': 'Desligar',
+  'partner.unlinked': 'Celular desligado.',
+  'partner.pay.button': 'Declarar e pagar',
+  'partner.pay.title': 'Declarar e pagar de uma vez',
+  'partner.pay.hint': 'Marque as visitas, informe a comissão de cada uma e pague o total com um só Pix.',
+  'partner.pay.total': 'Total a pagar',
+  'partner.pay.copy': 'Copiar o código Pix',
+  'partner.pay.copied': 'Código Pix copiado',
+  'partner.pay.pixhint': 'No app do seu banco: Pix › Pix copia e cola, ou escaneie este QR.',
+  'partner.pay.none': 'Marque pelo menos uma visita com um valor.',
+  'admin.pay.samereceipt': 'Mesmo comprovante que « {client} » (pagamento agrupado)',
+  'partner.pay.nothing': 'Nenhuma visita a declarar.',
 };
