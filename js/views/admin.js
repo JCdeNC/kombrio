@@ -223,10 +223,19 @@ async function partners({ partnerList, cityList, city }) {
             <button class="btn small">${t('admin.part.save')}</button>
           </form>
         </details>
+        <details style="margin-top:8px"><summary>${t('admin.part.manager')}</summary>
+          <p class="hint" style="margin-top:8px">${t('admin.part.manager.hint')}</p>
+          ${p.managerToken ? `<input readonly value="${esc(appLink('partner', `p/${p.managerToken}`))}" style="margin-bottom:8px">
+          <div class="row">
+            <button type="button" class="btn small" data-copy="${esc(appLink('partner', `p/${p.managerToken}`))}">${t('report.share.copy')}</button>
+            <a class="btn secondary small" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent(tRaw('admin.part.manager.text', { name: p.name, link: appLink('partner', `p/${p.managerToken}`) }))}">WhatsApp</a>
+            <a class="btn ghost small" target="_blank" rel="noopener" href="${esc(appLink('partner', `p/${p.managerToken}`))}">${t('admin.part.open')}</a>
+          </div>` : ''}
+          <div class="row" style="margin-top:8px"><button type="button" class="btn ghost small" data-renewm="${esc(p.id)}">${t('admin.part.manager.renew')}</button></div>
+        </details>
         <details style="margin-top:8px"><summary>${t('admin.part.qr')}</summary>
           <div class="qr">${qrSvg(appLink('partner', `p/${p.token}`))}</div>
           <div class="row">
-            <a class="btn ghost small" target="_blank" rel="noopener" href="${esc(appLink('partner', `p/${p.token}`))}">${t('admin.part.open')}</a>
             <button class="btn ghost small" data-renew="${esc(p.id)}">${t('admin.part.renew')}</button>
           </div>
         </details></li>`).join('')}</ul>
@@ -267,6 +276,13 @@ async function partners({ partnerList, cityList, city }) {
           ctx.refresh(tRaw('admin.part.created'));
         } catch { notify(tRaw('err.generic')); }
       };
+      root.querySelectorAll('[data-copy]').forEach((b) => {
+        b.onclick = async () => { try { await navigator.clipboard.writeText(b.dataset.copy); b.textContent = tRaw('common.copied'); } catch { prompt('', b.dataset.copy); } };
+      });
+      root.querySelectorAll('[data-renewm]').forEach((b) => confirmTwice(b, tRaw('admin.part.manager.confirm'), async () => {
+        await store.renewManagerToken(b.dataset.renewm);
+        ctx.refresh(tRaw('admin.part.manager.renewed'));
+      }, tRaw('err.generic')));
       root.querySelectorAll('[data-renew]').forEach((b) => confirmTwice(b, tRaw('admin.part.renew.confirm'), async () => {
         await store.renewPartnerToken(b.dataset.renew);
         ctx.refresh(tRaw('admin.part.renewed'));

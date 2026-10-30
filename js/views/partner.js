@@ -25,6 +25,7 @@ export async function partnerView([token, action, visitId], ctx) {
     return notFound('err.partner');
   }
   try { localStorage.setItem(ME_KEY, token); } catch { /* rien */ }
+  space.key = token;
 
   if (!action) {
     const pending = readPendingStay();
@@ -41,6 +42,8 @@ export async function partnerView([token, action, visitId], ctx) {
     return spaceView(space);
   }
 
+  // La caisse n'a accès qu'aux passages qu'elle vient d'enregistrer.
+  if (space.role !== 'manager' && action !== 'passage') return spaceView(space);
   if (action === 'pagar') return payView(space);
   if (action === 'relatorio') return reportPage(space, visitId);
   const visit = space.visits.find((v) => v.id === visitId);
@@ -48,7 +51,7 @@ export async function partnerView([token, action, visitId], ctx) {
   return declareView(space, visit, action === 'passage');
 }
 
-function declareView({ partner, city }, visit, justScanned) {
+function declareView({ partner, city, key, role }, visit, justScanned) {
   const lang = getLang();
   // Rien à afficher si le partenaire ne propose pas d'offre.
   let offer = '';
@@ -65,10 +68,13 @@ function declareView({ partner, city }, visit, justScanned) {
       <p class="hint">${t('scan.people', { n: visit.people })} · ${t('partner.visit.guide', { guide: visit.guideName })} · ${fmtMoment(visit.at, lang, city.timezone)}</p>
     </div>`;
 
+  if (role !== 'manager') {
+    return { html: `${head}<a class="btn ghost" href="#/p/${encodeURIComponent(key)}">${t('counter.back')}</a>` };
+  }
   if (visit.status !== 'visited') {
     return {
       html: `${head}<div class="notice">${t('partner.declare.done', { amount: money(visit.amount, city.currency, lang) })}</div>
-        <a class="btn ghost" href="#/p/${encodeURIComponent(partner.token)}">${t('partner.space')}</a>`,
+        <a class="btn ghost" href="#/p/${encodeURIComponent(key)}">${t('partner.space')}</a>`,
     };
   }
 
@@ -88,7 +94,7 @@ function declareView({ partner, city }, visit, justScanned) {
         <div class="field"><label for="d-receipt">${t('partner.declare.receipt')}</label>
           <input id="d-receipt" name="receipt" type="file" accept="image/*,application/pdf" required></div>
         <button class="btn block">${t('partner.declare.submit')}</button>
-        <p class="hint" style="margin-top:8px">${t('partner.declare.later')} <a href="#/p/${encodeURIComponent(partner.token)}">${t('partner.space')}</a></p>
+        <p class="hint" style="margin-top:8px">${t('partner.declare.later')} <a href="#/p/${encodeURIComponent(key)}">${t('partner.space')}</a></p>
       </form>`,
     mount(root, ctx) {
       root.querySelector('#declare').onsubmit = async (e) => {
@@ -101,8 +107,8 @@ function declareView({ partner, city }, visit, justScanned) {
         button.disabled = true;
         const receipt = { name: file.name, type: file.type, data: await readFileAsDataUrl(file) };
         try {
-          await store.declareVisit(partner.token, visit.id, { amount: Number(form.get('amount')), method: form.get('method'), receipt });
-          ctx.go(`p/${partner.token}`, tRaw('partner.declare.thanks'));
+          await store.declareVisit(key, visit.id, { amount: Number(form.get('amount')), method: form.get('method'), receipt });
+          ctx.go(`p/${key}`, tRaw('partner.declare.thanks'));
         } catch {
           button.disabled = false;
           notify(tRaw('err.generic'));
@@ -112,7 +118,8 @@ function declareView({ partner, city }, visit, justScanned) {
   };
 }
 
-function spaceView({ partner, city, visits }) {
+function spaceView({ partner, city, visits, key, role }) {
+  if (role !== 'manager') return counterView({ partner, city, visits, key });
   const lang = getLang();
   const owed = visits.filter((v) => v.status === 'visited').length;
 
@@ -120,14 +127,15 @@ function spaceView({ partner, city, visits }) {
     <div class="spread"><b>${esc(v.client || '?')}</b>${statusBadge(v)}</div>
     <div class="hint">${fmtMoment(v.at, lang, city.timezone)} · ${t('scan.people', { n: v.people })} · ${t('partner.visit.guide', { guide: v.guideName || '?' })}</div>
     ${v.amount != null && v.status !== 'visited' ? `<div>${t('partner.visit.amount', { amount: money(v.amount, city.currency, lang) })}</div>` : ''}
-    ${v.status === 'visited' ? `<a class="btn small" href="#/p/${encodeURIComponent(partner.token)}/declarer/${encodeURIComponent(v.id)}">${t('partner.declare.button')}</a>` : ''}
+    ${v.status === 'visited' ? `<a class="btn small" href="#/p/${encodeURIComponent(key)}/declarer/${encodeURIComponent(v.id)}">${t('partner.declare.button')}</a>` : ''}
   </li>`;
 
   return {
     html: `
       <h1>${esc(partner.name)}</h1>
+      <p class="hint">${t('manager.badge')}</p>
       ${owed ? `<div class="notice warn">${t('partner.todeclare', { n: owed })}
-        <a class="btn block" style="margin-top:10px" href="#/p/${encodeURIComponent(partner.token)}/pagar">${t('partner.pay.button')}</a></div>` : ''}
+        <a class="btn block" style="margin-top:10px" href="#/p/${encodeURIComponent(key)}/pagar">${t('partner.pay.button')}</a></div>` : ''}
       <div class="card">
         <h2>${t('partner.visits')}</h2>
         ${visits.length ? `<ul class="list">${visits.map(item).join('')}</ul>` : `<p class="hint">${t('partner.visits.none')}</p>`}
@@ -135,7 +143,7 @@ function spaceView({ partner, city, visits }) {
       <div class="card no-print">
         <h2>${t('report.card')}</h2>
         <p class="hint">${t('report.card.hint')}</p>
-        <a class="btn secondary" href="#/p/${encodeURIComponent(partner.token)}/relatorio">${t('report.open')}</a>
+        <a class="btn secondary" href="#/p/${encodeURIComponent(key)}/relatorio">${t('report.open')}</a>
       </div>
       <form class="card" id="offer">
         <h2>${t('partner.offer.title')}</h2>
@@ -153,7 +161,7 @@ function spaceView({ partner, city, visits }) {
     mount(root, ctx) {
       root.querySelector('#offer').onsubmit = async (e) => {
         e.preventDefault();
-        await store.setPartnerOffer(partner.token, new FormData(e.target).get('offer'));
+        await store.setPartnerOffer(key, new FormData(e.target).get('offer'));
         ctx.refresh(tRaw('common.saved'));
       };
       root.querySelector('#print').onclick = () => window.print();
@@ -168,11 +176,11 @@ function spaceView({ partner, city, visits }) {
 }
 
 // Déclarer plusieurs passages et les payer en un seul Pix (comprovante unique).
-function payView({ partner, city, visits }) {
+function payView({ partner, city, visits, key }) {
   const lang = getLang();
   const todo = visits.filter((v) => v.status === 'visited');
-  const key = pixKeyOf(city);
-  const back = `#/p/${encodeURIComponent(partner.token)}`;
+  const pixKey = pixKeyOf(city);
+  const back = `#/p/${encodeURIComponent(key)}`;
   if (!todo.length) return { html: `<div class="notice">${t('partner.pay.nothing')}</div><a class="btn ghost" href="${back}">${t('partner.space')}</a>` };
   return {
     html: `
@@ -187,7 +195,7 @@ function payView({ partner, city, visits }) {
             <input name="a-${esc(v.id)}" type="number" min="0" step="0.01" inputmode="decimal" placeholder="${esc(city.currency)}" style="width:120px">
           </label></li>`).join('')}</ul>
         <div class="stat" style="margin:12px 0"><span>${t('partner.pay.total')}</span><b id="total">${money(0, city.currency, lang)}</b></div>
-        ${key ? `<div style="text-align:center">
+        ${pixKey ? `<div style="text-align:center">
             <div class="qr" id="pixqr"></div>
             <p class="hint">${t('partner.pay.pixhint')}</p>
             <button type="button" class="btn secondary" id="copypix">${t('partner.pay.copy')}</button>
@@ -207,8 +215,8 @@ function payView({ partner, city, visits }) {
       const update = () => {
         const total = Math.round(chosen().reduce((s, x) => s + x.amount, 0) * 100) / 100;
         root.querySelector('#total').textContent = money(total, city.currency, lang);
-        if (key) {
-          payload = pixPayload({ key, amount: total, txid: `KBR${partner.id.replace(/-/g, '').slice(0, 10)}` });
+        if (pixKey) {
+          payload = pixPayload({ key: pixKey, amount: total, txid: `KBR${partner.id.replace(/-/g, '').slice(0, 10)}` });
           root.querySelector('#pixqr').innerHTML = total > 0 ? qrSvg(payload) : '';
         }
       };
@@ -237,11 +245,11 @@ function payView({ partner, city, visits }) {
           }
           const method = form.method.value;
           const [first, ...rest] = list;
-          await store.declareVisit(partner.token, first.v.id, { amount: first.amount, method, receipt });
+          await store.declareVisit(key, first.v.id, { amount: first.amount, method, receipt });
           for (const x of rest) {
-            await store.declareVisit(partner.token, x.v.id, { amount: x.amount, method, receipt: { name: receipt.name, type: 'same', ref: first.v.id } });
+            await store.declareVisit(key, x.v.id, { amount: x.amount, method, receipt: { name: receipt.name, type: 'same', ref: first.v.id } });
           }
-          ctx.go(`p/${partner.token}`, tRaw('partner.declare.thanks'));
+          ctx.go(`p/${key}`, tRaw('partner.declare.thanks'));
         } catch {
           button.disabled = false;
           notify(tRaw('err.generic'));
@@ -316,13 +324,13 @@ function reportBlock({ partner, city, visits }, month, base) {
 
 // Relevé vu par le partenaire, avec le lien à donner au comptable.
 function reportPage(space, month) {
-  const { partner } = space;
-  const base = `p/${partner.token}/relatorio`;
+  const { partner, key } = space;
+  const base = `p/${key}/relatorio`;
   const block = reportBlock(space, month, base);
   const link = partner.reportToken ? appLink('partner', `r/${partner.reportToken}`) : '';
   return {
     html: `
-      <p class="no-print"><a href="#/p/${encodeURIComponent(partner.token)}">← ${t('partner.space')}</a></p>
+      <p class="no-print"><a href="#/p/${encodeURIComponent(key)}">← ${t('partner.space')}</a></p>
       ${block.html}
       <div class="card no-print">
         <h2>${t('report.share.title')}</h2>
@@ -339,11 +347,11 @@ function reportPage(space, month) {
     mount(root, ctx) {
       block.mount(root, ctx);
       const create = root.querySelector('#create');
-      if (create) create.onclick = async () => { try { await store.renewReportToken(partner.token); ctx.refresh(); } catch { notify(tRaw('err.generic')); } };
+      if (create) create.onclick = async () => { try { await store.renewReportToken(key); ctx.refresh(); } catch { notify(tRaw('err.generic')); } };
       const copy = root.querySelector('#copylink');
       if (copy) copy.onclick = async () => { try { await navigator.clipboard.writeText(link); copy.textContent = tRaw('common.copied'); } catch { prompt('', link); } };
       const renew = root.querySelector('#renew');
-      if (renew) confirmTwice(renew, tRaw('report.share.renew.confirm'), async () => { await store.renewReportToken(partner.token); ctx.refresh(); }, tRaw('err.generic'));
+      if (renew) confirmTwice(renew, tRaw('report.share.renew.confirm'), async () => { await store.renewReportToken(key); ctx.refresh(); }, tRaw('err.generic'));
     },
   };
 }
@@ -355,3 +363,31 @@ export async function reportView([reportToken, month]) {
   const block = reportBlock(data, month, `r/${reportToken}`);
   return { html: `<p class="hint no-print">${t('report.readonly')}</p>${block.html}`, mount: block.mount };
 }
+
+// Espace de la caisse (QR posé sur la caisse) : relier le téléphone, voir les passages des dernières 24 h et l'offre.
+function counterView({ partner, city, visits, key }) {
+  const lang = getLang();
+  return {
+    html: `
+      <h1>${esc(partner.name)}</h1>
+      <div class="notice ok">${t('counter.ready')}</div>
+      ${partner.offer ? `<div class="card"><h2>${t('counter.offer')}</h2><div class="offer">${esc(partner.offer)}</div><p class="hint" style="margin-top:8px">${t('counter.offer.hint')}</p></div>` : ''}
+      <div class="card">
+        <h2>${t('counter.today')}</h2>
+        ${visits.length ? `<ul class="list">${visits.map((v) => `<li><div class="spread"><b>${esc(v.client || '?')}</b><span class="hint">${fmtMoment(v.at, lang, city.timezone)}</span></div>
+          <div class="hint">${t('scan.people', { n: v.people })} · ${t('partner.visit.guide', { guide: v.guideName || '?' })}</div></li>`).join('')}</ul>`
+          : `<p class="hint">${t('partner.visits.none')}</p>`}
+      </div>
+      <p class="hint">${t('counter.manager')}</p>
+      <p class="hint">${t('partner.linked', { name: partner.name })} <a href="#" id="unlink">${t('partner.unlink')}</a></p>`,
+    mount() {
+      root().querySelector('#unlink').onclick = (e) => {
+        e.preventDefault();
+        try { localStorage.removeItem(ME_KEY); } catch { /* rien */ }
+        location.hash = '';
+        notify(tRaw('partner.unlinked'));
+      };
+    },
+  };
+}
+const root = () => document.getElementById('app');
