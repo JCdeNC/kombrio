@@ -5,7 +5,9 @@ Cadrage complet : document « Kombrio : cadrage du projet » (Claude Docs).
 
 ## Ouvrir le prototype
 
-Double-cliquer sur **Ouvrir le prototype.command**. Le navigateur s'ouvre sur la page d'accueil.
+**En ligne :** https://jcdenc.github.io/kombrio/ (Client `/client/`, Partenaire `/partner/`, Guide `/guide/`, Administrateur `/admin/`). Mis à jour à chaque sauvegarde.
+
+**Sur ce Mac :** double-cliquer sur **Ouvrir le prototype.command**. Le navigateur s'ouvre sur la page d'accueil.
 (La première fois, macOS peut demander une confirmation : clic droit › Ouvrir.)
 
 Depuis la **v3**, les applications utilisent la vraie base **Supabase** (projet « kombrio », São Paulo) : les données sont partagées entre tous les téléphones.
@@ -40,7 +42,7 @@ La page d'accueil (`/`) donne les liens vers les quatre. Le numéro de version s
 
 ## Le parcours à tester
 
-1. **App Guide** › se connecter comme Marcos Silva › créer un nouveau client › le QR apparaît.
+1. **App Guide** › se connecter avec un compte guide validé › créer un nouveau client › le QR apparaît.
 2. **Voir la page du client** (elle s'ouvre dans l'app Client) : son QR, son guide, les partenaires (restaurants et boutiques) et leur offre s'ils en ont une.
 3. **Ouvrir la page du scan** (dans l'app Partenaire : ce que voit le partenaire après avoir scanné le QR du client) › choisir le partenaire (en vrai : il scanne son QR Partenaire).
 4. Le passage est enregistré, l'offre à accorder s'affiche (si le partenaire en propose une) › déclarer la commission avec le comprovante.
@@ -73,7 +75,7 @@ La page d'accueil (`/`) donne les liens vers les quatre. Le numéro de version s
 
 1. ~~Créer Supabase et brancher les applications~~ (fait, v3).
 2. Retirer les deux partenaires de test avant le pilote.
-3. Mettre le site en ligne sur Netlify (glisser-déposer le dossier suffit au début).
-4. Pointer **kombrio.com.br** vers Netlify depuis Registro.br.
+3. ~~Mettre le site en ligne~~ (fait le 30/10/2026 : GitHub Pages, https://jcdenc.github.io/kombrio/).
+4. Afficher le site sous **kombrio.com.br** : domaine personnalisé GitHub Pages, réglé depuis Registro.br (Netlify n'est plus nécessaire).
 
 Coût : 0 R$ par mois tant que les offres gratuites suffisent.
