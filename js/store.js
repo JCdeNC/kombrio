@@ -176,7 +176,7 @@ export async function renewPartnerToken(partnerId) {
 export async function partnerSpace(token) {
   const d = check(await sb.rpc('partner_space', { p_token: token }));
   if (!d) return null;
-  return { partner: toPartner(d.partner), city: toCity(d.city), visits: (d.visits || []).map(toVisit) };
+  return { role: d.role, partner: toPartner(d.partner), city: toCity(d.city), visits: (d.visits || []).map(toVisit) };
 }
 // Relevé du comptable (lecture seule), à partir de son lien. null si le lien n'est pas reconnu.
 export async function partnerReport(reportToken) {
