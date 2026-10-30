@@ -223,6 +223,17 @@ async function partners({ partnerList, cityList, city }) {
             <button class="btn small">${t('admin.part.save')}</button>
           </form>
         </details>
+        <details style="margin-top:8px" ${p.managerName ? '' : 'open'}><summary>${t('admin.part.access')}</summary>
+          ${p.managerName
+            ? `<p class="hint" style="margin-top:8px">${t('admin.part.activated', { name: p.managerName, email: p.managerEmail, phone: p.managerPhone, terms: p.termsVersion, date: fmtMoment(p.termsAcceptedAt, getLang(), city(p.cityId)?.timezone) })}</p>`
+            : `<p class="hint" style="margin-top:8px">${t('admin.part.access.hint')}</p>
+              ${p.activationCode ? `<p style="font-size:1.4rem;font-weight:700;letter-spacing:.04em;margin:6px 0">${esc(p.activationCode)}</p>
+                <div class="row">
+                  <a class="btn small" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent(tRaw('admin.part.access.text', { name: p.name, link: appLink('partner', ''), code: p.activationCode }))}">WhatsApp</a>
+                  <button type="button" class="btn ghost small" data-code="${esc(p.id)}">${t('admin.part.code.new')}</button>
+                </div>`
+              : `<button type="button" class="btn small" data-code="${esc(p.id)}">${t('admin.part.code.create')}</button>`}`}
+        </details>
         <details style="margin-top:8px"><summary>${t('admin.part.manager')}</summary>
           <p class="hint" style="margin-top:8px">${t('admin.part.manager.hint')}</p>
           ${p.managerToken ? `<input readonly value="${esc(appLink('partner', `p/${p.managerToken}`))}" style="margin-bottom:8px">
@@ -276,6 +287,9 @@ async function partners({ partnerList, cityList, city }) {
           ctx.refresh(tRaw('admin.part.created'));
         } catch { notify(tRaw('err.generic')); }
       };
+      root.querySelectorAll('[data-code]').forEach((b) => {
+        b.onclick = async () => { try { await store.setActivationCode(b.dataset.code); ctx.refresh(); } catch { notify(tRaw('err.generic')); } };
+      });
       root.querySelectorAll('[data-copy]').forEach((b) => {
         b.onclick = async () => { try { await navigator.clipboard.writeText(b.dataset.copy); b.textContent = tRaw('common.copied'); } catch { prompt('', b.dataset.copy); } };
       });

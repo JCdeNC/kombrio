@@ -141,6 +141,8 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--brand-light
 .pbody h3 { margin: 0 0 2px; font-size: 1.05rem; }
 .pbody .offer { margin: 8px 0 0; }
 .pbody .btn { margin-top: 10px; }
+.terms h3 { margin: 18px 0 4px; }
+.terms p { margin: 0 0 6px; }
 .thumb { width: 72px; height: 72px; border-radius: 12px; object-fit: cover; border: 1px solid var(--line); display: block; }
 
 table { width: 100%; border-collapse: collapse; font-size: .92rem; }

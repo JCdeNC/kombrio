@@ -36,6 +36,8 @@ const toGuide = (r) => r && ({
 const toPartner = (r) => r && ({
   id: r.id, cityId: r.city_id, type: r.type, name: r.name, area: r.area, offer: r.offer || '', token: r.token, status: r.status, taxId: r.tax_id,
   photo: r.photo || '', address: r.address || '', reportToken: r.report_token || '', managerToken: r.manager_token || '',
+  activationCode: r.activation_code || '', managerName: r.manager_name || '', managerEmail: r.manager_email || '',
+  managerPhone: r.manager_phone || '', termsVersion: r.terms_version || '', termsAcceptedAt: r.terms_accepted_at || '',
 });
 const toStay = (r) => r && ({
   id: r.id, guideId: r.guide_id, client: r.client, people: r.people, start: r.start_day, end: r.end_day,
@@ -109,6 +111,27 @@ export async function signUpGuide({ email, password, name, phone, license, cityI
   });
   if (error) throw new Error(error.message.includes('registered') ? 'exists' : 'auth');
   return Boolean(data.session);
+}
+
+// Premier accès du gérant d'un partenaire : le code d'activation relie le compte à l'établissement.
+export async function signUpPartner({ email, password, code, name, phone, terms }) {
+  const { data, error } = await sb.auth.signUp({
+    email, password,
+    options: { data: { role: 'partner', code: code.trim().toUpperCase(), name, phone, terms }, emailRedirectTo: location.href.split('#')[0] },
+  });
+  if (error) throw new Error(error.message.includes('registered') ? 'exists' : 'code');
+  return Boolean(data.session);
+}
+// Le gérant connecté : le lien de son espace (null si pas connecté ou pas gérant).
+export async function myPartnerToken() {
+  if (!(await currentUser())) return null;
+  return check(await sb.rpc('my_partner_token'));
+}
+export async function hasSession() { return Boolean(await currentUser()); }
+export async function setActivationCode(partnerId) {
+  const code = `KBR-${String(Math.floor(10000 + Math.random() * 90000))}`;
+  check(await sb.from('partners').update({ activation_code: code }).eq('id', partnerId));
+  return code;
 }
 
 // Premier compte administrateur (accepté seulement s'il n'en existe aucun).

@@ -4,18 +4,94 @@
 import { t, tRaw, getLang } from '../i18n.js';
 import { esc, money, fmtMoment, fmtDay, qrSvg, appLink, readFileAsDataUrl, notify, pixPayload, pixKeyOf, photoToJpeg, confirmTwice, fmtTaxId, locale } from '../util.js';
 import * as store from '../store.js';
-import { statusBadge, notFound } from './shared.js';
+import { statusBadge, notFound, forgotLink, mountForgot, resetView } from './shared.js';
 import { readPendingStay, clearPendingStay } from './scan.js';
 
 const MAX_RECEIPT = 1.5 * 1024 * 1024;
+export const TERMS_VERSION = 'v1 · 30/10/2026';
 const ME_KEY = 'kombrio-partner';
 
 // L'app ouverte sans lien (icône sur l'écran d'accueil) : on rouvre l'espace du partenaire de ce téléphone.
+// Lien unique https://app.kombrio.com.br/partner/ : le gérant se connecte (ou fait son premier accès) ;
+// un téléphone de caisse déjà relié rouvre directement la caisse.
 export async function partnerHome(params, ctx) {
+  if (store.inRecovery() && await store.hasSession()) return resetView();
+  let mine = null;
+  try { mine = await store.myPartnerToken(); } catch { /* rien */ }
+  if (mine) return { html: '', mount: () => ctx.replace(`p/${mine}`) };
   let me = null;
   try { me = localStorage.getItem(ME_KEY); } catch { /* rien */ }
   if (me) return { html: '', mount: () => ctx.replace(`p/${me}`) };
-  return { html: `<div class="card"><h1>Kombrio</h1><p>${t('partner.home')}</p></div>` };
+  return {
+    html: `
+      <h1>${t('pm.title')}</h1>
+      <form class="card" id="login">
+        <h2>${t('auth.login')}</h2>
+        <div class="field"><label for="m-email">${t('auth.email')}</label><input id="m-email" name="email" type="email" required autocomplete="email"></div>
+        <div class="field"><label for="m-pass">${t('auth.password')}</label><input id="m-pass" name="password" type="password" required autocomplete="current-password"></div>
+        <button class="btn block">${t('auth.login')}</button>
+        ${forgotLink()}
+      </form>
+      <div class="card">
+        <h2>${t('pm.first')}</h2>
+        <p class="hint">${t('pm.first.hint')}</p>
+        <a class="btn secondary block" href="#/ativar">${t('pm.first.button')}</a>
+      </div>
+      <p class="hint">${t('partner.home')}</p>`,
+    mount(root, c) {
+      mountForgot(root.querySelector('#login'));
+      root.querySelector('#login').onsubmit = async (e) => {
+        e.preventDefault();
+        const f = Object.fromEntries(new FormData(e.target));
+        try { await store.signIn(f.email.trim(), f.password); c.refresh(); } catch { notify(tRaw('auth.err.login')); }
+      };
+    },
+  };
+}
+
+// Premier accès : code d'activation, responsable, e-mail, mot de passe, conditions générales.
+export async function activateView([code = ''], ctx) {
+  return {
+    html: `
+      <p><a href="#/">← ${t('pm.title')}</a></p>
+      <form class="card" id="activate">
+        <h1>${t('pm.first')}</h1>
+        <p class="hint">${t('pm.activate.hint')}</p>
+        <div class="field"><label for="a-code">${t('pm.code')}</label><input id="a-code" name="code" required value="${esc(code)}" placeholder="KBR-12345" autocapitalize="characters" style="text-transform:uppercase"></div>
+        <div class="grid2">
+          <div class="field"><label for="a-name">${t('pm.name')}</label><input id="a-name" name="name" required autocomplete="name"></div>
+          <div class="field"><label for="a-phone">${t('guide.signup.phone')}</label><input id="a-phone" name="phone" type="tel" required autocomplete="tel"></div>
+        </div>
+        <div class="field"><label for="a-email">${t('auth.email')}</label><input id="a-email" name="email" type="email" required autocomplete="email"></div>
+        <div class="grid2">
+          <div class="field"><label for="a-pass">${t('auth.password.new')}</label><input id="a-pass" name="password" type="password" required minlength="8" autocomplete="new-password"></div>
+          <div class="field"><label for="a-pass2">${t('auth.password.confirm')}</label><input id="a-pass2" name="password2" type="password" required minlength="8" autocomplete="new-password"></div>
+        </div>
+        <label style="font-weight:400;display:flex;gap:10px;align-items:flex-start;margin:4px 0 14px">
+          <input type="checkbox" name="terms" required style="width:auto;margin-top:4px">
+          <span>${t('pm.terms.accept')} <a href="#/termos" target="_blank" rel="noopener">${t('pm.terms.link')}</a> (${esc(TERMS_VERSION)}).</span>
+        </label>
+        <button class="btn block">${t('pm.activate.submit')}</button>
+      </form>`,
+    mount(root) {
+      root.querySelector('#activate').onsubmit = async (e) => {
+        e.preventDefault();
+        const f = Object.fromEntries(new FormData(e.target));
+        if (f.password !== f.password2) { notify(tRaw('auth.err.mismatch')); return; }
+        const button = e.target.querySelector('button');
+        button.disabled = true;
+        try {
+          const ready = await store.signUpPartner({
+            email: f.email.trim(), password: f.password, code: f.code, name: f.name.trim(), phone: f.phone.trim(), terms: TERMS_VERSION,
+          });
+          ctx.go('', tRaw(ready ? 'pm.activate.done' : 'pm.activate.confirm'));
+        } catch (err) {
+          button.disabled = false;
+          notify(tRaw(err.message === 'exists' ? 'auth.err.exists' : 'pm.activate.err'));
+        }
+      };
+    },
+  };
 }
 
 export async function partnerView([token, action, visitId], ctx) {
@@ -26,6 +102,7 @@ export async function partnerView([token, action, visitId], ctx) {
   }
   try { localStorage.setItem(ME_KEY, token); } catch { /* rien */ }
   space.key = token;
+  space.loggedIn = space.role === 'manager' && await store.hasSession();
 
   if (!action) {
     const pending = readPendingStay();
@@ -118,7 +195,7 @@ function declareView({ partner, city, key, role }, visit, justScanned) {
   };
 }
 
-function spaceView({ partner, city, visits, key, role }) {
+function spaceView({ partner, city, visits, key, role, loggedIn }) {
   if (role !== 'manager') return counterView({ partner, city, visits, key });
   const lang = getLang();
   const owed = visits.filter((v) => v.status === 'visited').length;
@@ -132,8 +209,8 @@ function spaceView({ partner, city, visits, key, role }) {
 
   return {
     html: `
-      <h1>${esc(partner.name)}</h1>
-      <p class="hint">${t('manager.badge')}</p>
+      <div class="spread"><h1>${esc(partner.name)}</h1>${loggedIn ? `<button class="btn ghost small no-print" id="logout">${t('common.logout')}</button>` : ''}</div>
+      <p class="hint">${partner.managerName ? t('pm.hello', { name: partner.managerName }) : t('manager.badge')}</p>
       ${owed ? `<div class="notice warn">${t('partner.todeclare', { n: owed })}
         <a class="btn block" style="margin-top:10px" href="#/p/${encodeURIComponent(key)}/pagar">${t('partner.pay.button')}</a></div>` : ''}
       <div class="card">
@@ -165,6 +242,8 @@ function spaceView({ partner, city, visits, key, role }) {
         ctx.refresh(tRaw('common.saved'));
       };
       root.querySelector('#print').onclick = () => window.print();
+      const out = root.querySelector('#logout');
+      if (out) out.onclick = async () => { await store.signOut(); try { localStorage.removeItem(ME_KEY); } catch { /* rien */ } location.hash = ''; };
       root.querySelector('#unlink').onclick = (e) => {
         e.preventDefault();
         try { localStorage.removeItem(ME_KEY); } catch { /* rien */ }
@@ -391,3 +470,36 @@ function counterView({ partner, city, visits, key }) {
   };
 }
 const root = () => document.getElementById('app');
+
+// Conditions générales du partenaire (brouillon v1, à faire relire par un avocat avant le pilote).
+export async function termsView() {
+  return {
+    html: `<article class="card terms">
+      <h1>Termos de uso · Parceiro Kombrio</h1>
+      <p class="hint">Versão ${esc(TERMS_VERSION)} · <b>rascunho, em revisão jurídica</b></p>
+      <h3>1. O serviço</h3>
+      <p>A Kombrio conecta guias de turismo cadastrados e estabelecimentos parceiros (restaurantes, lojas). O guia recomenda o parceiro ao seu cliente; o cliente apresenta o QR Kombrio no estabelecimento; a visita é registrada pelo parceiro.</p>
+      <h3>2. Cadastro e acesso</h3>
+      <p>O acesso do gerente é pessoal, com e-mail e senha. O responsável informado no primeiro acesso representa o estabelecimento perante a Kombrio. O QR da caixa serve apenas para registrar as visitas e não dá acesso aos pagamentos.</p>
+      <h3>3. Registro das visitas</h3>
+      <p>O parceiro se compromete a escanear o QR de cada cliente Kombrio atendido e a conceder, quando houver, a oferta anunciada, uma vez por grupo e por estadia.</p>
+      <h3>4. Comissão</h3>
+      <p>Para cada visita registrada, o parceiro declara livremente o valor da comissão que paga pela recomendação. A comissão é paga à Kombrio por Pix ou transferência, com o comprovante, de uma vez ou agrupada (por exemplo, mensalmente).</p>
+      <h3>5. Prazo de pagamento</h3>
+      <p>As comissões do mês devem ser declaradas e pagas até o dia 10 do mês seguinte. A Kombrio pode enviar lembretes ao responsável (WhatsApp ou e-mail).</p>
+      <h3>6. Repasse ao guia</h3>
+      <p>A Kombrio repassa 80 % de cada comissão recebida ao guia que fez a recomendação e conserva 20 % pelo serviço. O parceiro não paga nada ao guia diretamente.</p>
+      <h3>7. Oferta</h3>
+      <p>A oferta aos clientes Kombrio é opcional, definida e alterada pelo próprio parceiro no seu espaço.</p>
+      <h3>8. Dados pessoais (LGPD)</h3>
+      <p>A Kombrio trata apenas os dados necessários ao serviço (nome do cliente ou grupo, número de pessoas, data da visita, valores e comprovantes) e não os vende nem os cede a terceiros. O parceiro pode pedir acesso, correção ou exclusão dos seus dados.</p>
+      <h3>9. Relatórios</h3>
+      <p>O parceiro tem acesso aos relatórios mensais e pode compartilhar um link somente leitura com o seu contador.</p>
+      <h3>10. Duração e encerramento</h3>
+      <p>Prazo indeterminado. Qualquer uma das partes pode encerrar a parceria a qualquer momento, com as comissões das visitas já registradas devidas.</p>
+      <h3>11. Alterações</h3>
+      <p>A Kombrio pode atualizar estes termos; uma nova versão será apresentada ao parceiro para aceite.</p>
+      <p class="hint" style="margin-top:16px">Kombrio · Rio de Janeiro · contato pelo WhatsApp do seu interlocutor Kombrio.</p>
+    </article>`,
+  };
+}
