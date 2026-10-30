@@ -333,4 +333,6 @@ export default {
   'admin.part.code.new': 'Nouveau code',
   'admin.part.access.text': 'Olá! Bem-vindo à Kombrio. Para criar o acesso de {name}: abra {link}, toque em « Primeiro acesso » e informe o código {code}.',
   'admin.part.activated': 'Activé par {name} · {email} · {phone} · conditions {terms} acceptées le {date}.',
+  'auth.show': 'Afficher le mot de passe',
+  'auth.hide': 'Masquer le mot de passe',
 };

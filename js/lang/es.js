@@ -46,4 +46,6 @@ export default {
   'client.saveqr': 'Guardar el QR en mis fotos',
   'client.saveqr.hint': 'Siempre a mano, incluso sin internet.',
   'client.valid.until': 'Válido hasta el {end}',
+  'auth.show': 'Mostrar la contraseña',
+  'auth.hide': 'Ocultar la contraseña',
 };

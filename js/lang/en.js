@@ -46,4 +46,6 @@ export default {
   'client.saveqr': 'Save the QR to my photos',
   'client.saveqr.hint': 'Always at hand, even offline.',
   'client.valid.until': 'Valid until {end}',
+  'auth.show': 'Show password',
+  'auth.hide': 'Hide password',
 };

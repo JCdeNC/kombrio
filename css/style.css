@@ -87,6 +87,9 @@ input, select, textarea {
 }
 input:focus, select:focus, textarea:focus { outline: 2px solid var(--brand-light); outline-offset: 1px; border-color: var(--brand-light);
 }
+.pw { position: relative; }
+.pw input { padding-right: 48px; }
+.pw-eye { position: absolute; right: 2px; top: 50%; transform: translateY(-50%); width: 44px; height: 44px; border: 0; background: transparent; color: var(--muted); cursor: pointer; display: grid; place-items: center; padding: 0; }
 .grid2 { display: grid; gap: 12px; grid-template-columns: 1fr 1fr; }
 @media (max-width: 480px) { .grid2 { grid-template-columns: 1fr; } }
 .hint { color: var(--muted); font-size: .88rem; }

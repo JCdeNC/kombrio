@@ -90,8 +90,31 @@ async function render() {
       ctx.go('', t('demo.reset.done'));
     };
   }
+  root.querySelectorAll('input[type=password]').forEach(addEye);
   window.scrollTo(0, 0);
   if (out.mount) out.mount(root.querySelector('main'), ctx);
+}
+
+// Œil dans les champs mot de passe : afficher / masquer ce qu'on tape.
+const EYE = '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>';
+const EYE_OFF = '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3l18 18M10.6 5.1A10.4 10.4 0 0 1 12 5c6.5 0 10 7 10 7a17 17 0 0 1-3.2 4.1M6.6 6.6A17 17 0 0 0 2 12s3.5 7 10 7a9.8 9.8 0 0 0 5.4-1.6M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>';
+function addEye(input) {
+  const wrap = document.createElement('div');
+  wrap.className = 'pw';
+  input.parentNode.insertBefore(wrap, input);
+  wrap.appendChild(input);
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.className = 'pw-eye';
+  b.innerHTML = EYE;
+  b.setAttribute('aria-label', t('auth.show'));
+  b.onclick = () => {
+    const show = input.type === 'password';
+    input.type = show ? 'text' : 'password';
+    b.innerHTML = show ? EYE_OFF : EYE;
+    b.setAttribute('aria-label', t(show ? 'auth.hide' : 'auth.show'));
+  };
+  wrap.appendChild(b);
 }
 
 window.addEventListener('hashchange', render);
