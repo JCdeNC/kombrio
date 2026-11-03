@@ -122,6 +122,9 @@ async function dashboardView(me, city) {
       </div>
       <p class="hint">${t('guide.sum.note')} <a href="#/releve">${t('guide.statement.open')}</a></p>
 
+      <label class="card" style="display:block"><input type="checkbox" id="weekly"${me.weeklyPayout ? ' checked' : ''}> <b>${t('guide.weekly.title')}</b>
+        <span class="hint" style="display:block">${t('guide.weekly.hint')}</span></label>
+
       <form class="card" id="new-stay">
         <h2>${t('guide.stay.new')}</h2>
         <div class="grid2">
@@ -140,6 +143,10 @@ async function dashboardView(me, city) {
       </div>`,
     mount(root, ctx) {
       mountLogout(root, ctx);
+      root.querySelector('#weekly').onchange = async (e) => {
+        await store.setWeeklyPayout(e.target.checked);
+        ctx.refresh(tRaw('common.saved'));
+      };
       root.querySelector('#new-stay').onsubmit = async (e) => {
         e.preventDefault();
         const f = Object.fromEntries(new FormData(e.target));

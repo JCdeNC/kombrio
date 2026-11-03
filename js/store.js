@@ -31,13 +31,13 @@ const toCity = (r) => r && ({
 });
 const toGuide = (r) => r && ({
   id: r.id, cityId: r.city_id, name: r.name, phone: r.phone, license: r.license, photo: r.photo,
-  status: r.status, email: r.email, cpf: r.cpf, pixKey: r.pix_key, createdAt: r.created_at,
+  status: r.status, email: r.email, cpf: r.cpf, pixKey: r.pix_key, createdAt: r.created_at, weeklyPayout: !!r.weekly_payout,
 });
 const toPartner = (r) => r && ({
   id: r.id, cityId: r.city_id, type: r.type, name: r.name, area: r.area, offer: r.offer || '', token: r.token, status: r.status, taxId: r.tax_id,
   photo: r.photo || '', address: r.address || '', reportToken: r.report_token || '', managerToken: r.manager_token || '',
   activationCode: r.activation_code || '', managerName: r.manager_name || '', managerEmail: r.manager_email || '',
-  managerPhone: r.manager_phone || '', termsVersion: r.terms_version || '', termsAcceptedAt: r.terms_accepted_at || '',
+  managerPhone: r.manager_phone || '', commissionRate: r.commission_rate == null ? 0.1 : Number(r.commission_rate), termsVersion: r.terms_version || '', termsAcceptedAt: r.terms_accepted_at || '',
 });
 const toStay = (r) => r && ({
   id: r.id, guideId: r.guide_id, client: r.client, people: r.people, start: r.start_day, end: r.end_day,
@@ -220,6 +220,13 @@ export async function renewReportToken(partnerToken) {
 }
 export async function setPartnerOffer(token, offer) {
   check(await sb.rpc('set_partner_offer', { p_token: token, p_offer: offer }));
+}
+
+export async function setCommissionRate(managerToken, rate) {
+  return check(await sb.rpc('set_commission_rate', { p_manager_token: managerToken, p_rate: rate }));
+}
+export async function setWeeklyPayout(on) {
+  return check(await sb.rpc('set_weekly_payout', { p_on: on }));
 }
 
 /* ---------- Séjours ---------- */

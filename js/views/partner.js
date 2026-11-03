@@ -207,6 +207,12 @@ function spaceView({ partner, city, visits, payments, key, role, loggedIn }) {
         <p class="hint">${t('report.card.hint')}</p>
         <a class="btn secondary" href="#/p/${encodeURIComponent(key)}/relatorio">${t('report.open')}</a>
       </div>
+      <form class="card" id="rate">
+        <h2>${t('partner.rate.title')}</h2>
+        <p class="hint">${t('partner.rate.hint')}</p>
+        <div class="field"><select name="rate">${[5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 20].map((n) => `<option value="${n / 100}"${Math.round(partner.commissionRate * 100) === n ? ' selected' : ''}>${n} %${n === 10 ? ` (${t('partner.rate.suggested')})` : ''}</option>`).join('')}</select></div>
+        <button class="btn secondary">${t('common.save')}</button>
+      </form>
       <form class="card" id="offer">
         <h2>${t('partner.offer.title')}</h2>
         <p class="hint">${t('partner.offer.hint')}</p>
@@ -221,6 +227,11 @@ function spaceView({ partner, city, visits, payments, key, role, loggedIn }) {
       </div>
       <p class="hint no-print">${t('partner.linked', { name: partner.name })} <a href="#" id="unlink">${t('partner.unlink')}</a></p>`,
     mount(root, ctx) {
+      root.querySelector('#rate').onsubmit = async (e) => {
+        e.preventDefault();
+        await store.setCommissionRate(key, Number(new FormData(e.target).get('rate')));
+        ctx.refresh(tRaw('common.saved'));
+      };
       root.querySelector('#offer').onsubmit = async (e) => {
         e.preventDefault();
         await store.setPartnerOffer(key, new FormData(e.target).get('offer'));
