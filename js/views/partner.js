@@ -57,7 +57,7 @@ export async function activateView([code = ''], ctx) {
       <form class="card" id="activate">
         <h1>${t('pm.first')}</h1>
         <p class="hint">${t('pm.activate.hint')}</p>
-        <div class="field"><label for="a-code">${t('pm.code')}</label><input id="a-code" name="code" required value="${esc(code)}" placeholder="KBR-12345" autocapitalize="characters" style="text-transform:uppercase"></div>
+        <div class="field"><label for="a-code">${t('pm.code')}</label><input id="a-code" name="code" required value="${esc(code)}" placeholder="RIO-KP-12345 / 12345" autocapitalize="characters" style="text-transform:uppercase"></div>
         <div class="grid2">
           <div class="field"><label for="a-name">${t('pm.name')}</label><input id="a-name" name="name" required autocomplete="name"></div>
           <div class="field"><label for="a-phone">${t('guide.signup.phone')}</label><input id="a-phone" name="phone" type="tel" required autocomplete="tel"></div>
@@ -251,7 +251,7 @@ function spaceView({ partner, city, visits, payments, key, role, loggedIn }) {
 }
 
 // Étape 1 : déclarer librement la commission de chaque passage (0 = aucune commission).
-function declareManyView({ city, visits, key }) {
+function declareManyView({ partner, city, visits, key }) {
   const lang = getLang();
   const todo = visits.filter((v) => v.status === 'visited');
   const back = `#/p/${encodeURIComponent(key)}`;
@@ -261,7 +261,7 @@ function declareManyView({ city, visits, key }) {
       <p><a href="${back}">← ${t('partner.space')}</a></p>
       <form class="card" id="declare">
         <h1>${t('partner.declare.title')}</h1>
-        <p class="hint">${t('partner.declare.free')}</p>
+        <p class="hint">${t('partner.declare.free', { rate: Math.round(partner.commissionRate * 100) })}</p>
         <ul class="list">${todo.map((v) => `<li>
           <div class="spread" style="align-items:center">
             <span><b>${esc(v.client || '?')}</b><br><span class="hint">${esc(store.txNum(v.num))} · ${fmtDay(v.at.slice(0, 10), lang)} · ${t('scan.people', { n: v.peopleServed })} · ${t('partner.visit.guide', { guide: v.guideName || '?' })}</span></span>

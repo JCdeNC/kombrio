@@ -122,6 +122,7 @@ async function dashboardView(me, city) {
       </div>
       <p class="hint">${t('guide.sum.note')} <a href="#/releve">${t('guide.statement.open')}</a></p>
 
+      ${me.code ? `<p class="hint">${t('guide.code')} <b>${esc(me.code)}</b></p>` : ''}
       <label class="card" style="display:block"><input type="checkbox" id="weekly"${me.weeklyPayout ? ' checked' : ''}> <b>${t('guide.weekly.title')}</b>
         <span class="hint" style="display:block">${t('guide.weekly.hint')}</span></label>
 

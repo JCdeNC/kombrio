@@ -27,11 +27,11 @@ function check({ data, error }) {
 /* ---------- Conversion base → écrans ---------- */
 const toCity = (r) => r && ({
   id: r.id, name: r.name, country: r.country, currency: r.currency, timezone: r.timezone,
-  methods: r.methods || [], licenseLabel: r.license_label, payTo: r.pay_to,
+  code: r.code || '', methods: r.methods || [], licenseLabel: r.license_label, payTo: r.pay_to,
 });
 const toGuide = (r) => r && ({
   id: r.id, cityId: r.city_id, name: r.name, phone: r.phone, license: r.license, photo: r.photo,
-  status: r.status, email: r.email, cpf: r.cpf, pixKey: r.pix_key, createdAt: r.created_at, weeklyPayout: !!r.weekly_payout,
+  status: r.status, email: r.email, cpf: r.cpf, pixKey: r.pix_key, createdAt: r.created_at, weeklyPayout: !!r.weekly_payout, code: r.code || '',
 });
 const toPartner = (r) => r && ({
   id: r.id, cityId: r.city_id, type: r.type, name: r.name, area: r.area, offer: r.offer || '', token: r.token, status: r.status, taxId: r.tax_id,
@@ -49,7 +49,7 @@ const toVisit = (r) => r && ({
   id: r.id, num: num(r.num), stayId: r.stay_id, partnerId: r.partner_id, guideId: r.guide_id, at: r.at,
   people: r.people, peopleServed: r.people_served ?? r.people, offerGiven: r.offer_given, status: r.status,
   declaredCents: num(r.declared_cents), receivedCents: num(r.received_cents), guideCents: num(r.guide_cents),
-  kombrioCents: num(r.kombrio_cents), paymentId: r.payment_id, payoutId: r.payout_id, prevStatus: r.prev_status,
+  kombrioCents: num(r.kombrio_cents), invoiceCents: num(r.invoice_cents), rate: r.commission_rate == null ? null : Number(r.commission_rate), paymentId: r.payment_id, payoutId: r.payout_id, prevStatus: r.prev_status,
   statusNote: r.status_note, declaredAt: r.declared_at, receivedAt: r.received_at, client: r.client, guideName: r.guide_name,
 });
 const toPayout = (r) => r && ({
@@ -78,6 +78,12 @@ export async function addCity(c) {
   }));
 }
 
+export async function setCityCode(cityId, code) {
+  return check(await sb.rpc('set_city_code', { p_city: cityId, p_code: code }));
+}
+export async function suspendLatePartners() {
+  return check(await sb.rpc('suspend_late_partners'));
+}
 export async function setCityPayTo(cityId, payTo) {
   check(await sb.from('cities').update({ pay_to: payTo }).eq('id', cityId));
 }
@@ -137,9 +143,7 @@ export async function myPartnerToken() {
 }
 export async function hasSession() { return Boolean(await currentUser()); }
 export async function setActivationCode(partnerId) {
-  const code = `KBR-${String(Math.floor(10000 + Math.random() * 90000))}`;
-  check(await sb.from('partners').update({ activation_code: code }).eq('id', partnerId));
-  return code;
+  return check(await sb.rpc('new_activation_code', { p_partner: partnerId }));
 }
 
 // Premier compte administrateur (accepté seulement s'il n'en existe aucun).

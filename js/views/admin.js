@@ -351,6 +351,7 @@ async function partners({ partnerList, cityList, city }) {
   return {
     html: `<div class="card">
       <h2>${t('admin.part.title')}</h2>
+      <button type="button" class="btn ghost small" id="suspend-late">${t('admin.part.late')}</button>
       <ul class="list">${partnerList.map((p) => `<li>
         <div class="spread"><b>${esc(p.name)}</b><span class="hint">${t(`ptype.${p.type}`)} · ${esc(p.area || '')} · ${esc(city(p.cityId)?.name || '')}</span></div>
         <div class="hint">${t('admin.part.taxid')} ${p.taxId ? esc(fmtTaxId(p.taxId)) : `<b>${t('admin.missing')}</b>`}</div>
@@ -429,6 +430,10 @@ async function partners({ partnerList, cityList, city }) {
           ctx.refresh(tRaw('admin.part.created'));
         } catch { notify(tRaw('err.generic')); }
       };
+      root.querySelector('#suspend-late').onclick = async () => {
+        if (!confirm(tRaw('admin.part.late.confirm'))) return;
+        try { const n = await store.suspendLatePartners(); ctx.refresh(tRaw('admin.part.late.done', { n })); } catch { notify(tRaw('err.generic')); }
+      };
       root.querySelectorAll('[data-code]').forEach((b) => {
         b.onclick = async () => { try { await store.setActivationCode(b.dataset.code); ctx.refresh(); } catch { notify(tRaw('err.generic')); } };
       });
@@ -453,9 +458,12 @@ async function cities({ cityList }) {
       <h2>${t('admin.city.title')}</h2>
       <p class="hint">${t('admin.city.hint')}</p>
       <div class="table-wrap"><table>
-        <tr><th>${t('admin.city.name')}</th><th>${t('admin.city.currency')}</th><th>${t('admin.city.tz')}</th><th>${t('admin.city.methods')}</th><th>${t('admin.city.license')}</th></tr>
-        ${cityList.map((c) => `<tr><td>${esc(c.name)} (${esc(c.country)})</td><td>${esc(c.currency)}</td><td>${esc(c.timezone)}</td><td>${c.methods.map((m) => t(`method.${m}`)).join(', ')}</td><td>${esc(c.licenseLabel)}</td></tr>`).join('')}
+        <tr><th>${t('admin.city.name')}</th><th>${t('admin.city.currency')}</th><th>${t('admin.city.tz')}</th><th>${t('admin.city.methods')}</th><th>${t('admin.city.license')}</th><th>${t('admin.city.code')}</th></tr>
+        ${cityList.map((c) => `<tr><td>${esc(c.name)} (${esc(c.country)})</td><td>${esc(c.currency)}</td><td>${esc(c.timezone)}</td><td>${c.methods.map((m) => t(`method.${m}`)).join(', ')}</td><td>${esc(c.licenseLabel)}</td><td><b>${esc(c.code || '—')}</b></td></tr>`).join('')}
       </table></div>
+      ${cityList.map((c) => `<form class="citycode row" data-city="${esc(c.id)}" style="margin-top:12px;align-items:flex-end">
+        <div class="field" style="flex:1;margin:0"><label>${t('admin.city.code')} · ${esc(c.name)}</label><input name="code" value="${esc(c.code)}" maxlength="3" placeholder="RIO" style="text-transform:uppercase"></div>
+        <button class="btn small">${t('common.save')}</button></form>`).join('')}
       ${cityList.map((c) => `<form class="payto row" data-city="${esc(c.id)}" style="margin-top:12px;align-items:flex-end">
         <div class="field" style="flex:1;margin:0"><label>${t('admin.city.payto')} · ${esc(c.name)}</label><input name="payTo" value="${esc(c.payTo)}"></div>
         <button class="btn small">${t('common.save')}</button></form>`).join('')}
@@ -474,6 +482,15 @@ async function cities({ cityList }) {
       <button class="btn block">${t('admin.city.create')}</button>
     </form>`,
     mount(root, ctx) {
+      root.querySelectorAll('.citycode').forEach((f) => {
+        f.onsubmit = async (e) => {
+          e.preventDefault();
+          try {
+            const ok = await store.setCityCode(f.dataset.city, f.code.value);
+            if (ok) ctx.refresh(tRaw('common.saved')); else notify(tRaw('admin.city.code.err'));
+          } catch { notify(tRaw('err.generic')); }
+        };
+      });
       root.querySelectorAll('.payto').forEach((f) => {
         f.onsubmit = async (e) => {
           e.preventDefault();
