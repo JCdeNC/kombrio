@@ -5,3 +5,7 @@ Procédure de sauvegarde et de récupération.html
 *.command
 00 KOMBRIO/
 *.pdf
+
+# Clé secrète Google (compte de service) : jamais sur GitHub
+Clé/
+*.json.key

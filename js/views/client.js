@@ -2,6 +2,7 @@
 import { t, tRaw, getLang } from '../i18n.js';
 import { esc, fmtDay, stayIsValid, qrSvg, appLink, qrCardBlob, shareOrDownload } from '../util.js';
 import * as store from '../store.js';
+import { SUPABASE_URL, SUPABASE_KEY, WALLET_GOOGLE } from '../config.js';
 import { guideCard, validity, notFound, partnerShowcase, mountShowcase } from './shared.js';
 
 const LAST_KEY = 'kombrio-client-stay';
@@ -35,7 +36,9 @@ export async function clientView([token]) {
           <p><b>${t('client.show')}</b></p>
           <p class="hint">${t('client.people', { n: stay.people, end: fmtDay(stay.end, lang) })}</p>
           <button type="button" class="btn block" id="saveqr">${t('client.saveqr')}</button>
-          <p class="hint" style="margin-top:8px">${t('client.saveqr.hint')}</p>`
+          <p class="hint" style="margin-top:8px">${t('client.saveqr.hint')}</p>
+          ${showGoogleWallet() ? `<button type="button" class="btn block wallet-google" id="gwallet">${t('client.wallet.google')}</button>` : ''}
+          ${showIosHome() ? iosHomeHtml() : ''}`
           : `<p>${t('client.expired')}</p>`}
       </div>
       <div class="card">
@@ -58,6 +61,58 @@ export async function clientView([token]) {
           await shareOrDownload(blob, 'kombrio-qr.png', tRaw('client.show'));
         };
       }
+      const gw = root.querySelector('#gwallet');
+      if (gw) gw.onclick = () => openGoogleWallet(gw, stay.token, lang);
+      const ih = root.querySelector('#ioshome');
+      if (ih) {
+        // L'icône doit rouvrir CE séjour : sans manifeste, l'iPhone garde l'adresse de la page.
+        document.querySelector('link[rel="manifest"]')?.remove();
+        ih.onclick = () => {
+          const steps = root.querySelector('#ioshome-steps');
+          steps.hidden = !steps.hidden;
+          ih.setAttribute('aria-expanded', String(!steps.hidden));
+        };
+      }
     },
   };
+}
+
+// iPhone/iPad dans Safari (pas déjà ouvert depuis l'icône) : Apple ne permet pas d'ajouter
+// l'icône pour le client, on lui montre les deux gestes.
+function showIosHome() {
+  const ios = /iPhone|iPad|iPod/i.test(navigator.userAgent)
+    || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  return ios && !navigator.standalone;
+}
+
+const SHARE_ICON = `<svg class="ios-share" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M12 3v12M7.5 7.5 12 3l4.5 4.5M6 11H5v10h14V11h-1" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+
+function iosHomeHtml() {
+  return `<button type="button" class="btn block secondary" id="ioshome" aria-expanded="false" aria-controls="ioshome-steps" style="margin-top:12px">${t('client.ioshome')}</button>
+    <ol class="ios-steps" id="ioshome-steps" hidden>
+      <li>${t('client.ioshome.step1')} ${SHARE_ICON}</li>
+      <li>${t('client.ioshome.step2')}</li>
+    </ol>`;
+}
+
+// Carteira do Google : pas sur iPhone/iPad (la Carteira da Apple viendra à sa place).
+function showGoogleWallet() {
+  return WALLET_GOOGLE && !/iPhone|iPad|iPod/i.test(navigator.userAgent);
+}
+
+// La fonction Supabase signe le pass, puis on ouvre la page Google qui l'ajoute à la carteira.
+async function openGoogleWallet(button, token, lang) {
+  button.disabled = true;
+  try {
+    const r = await fetch(`${SUPABASE_URL}/functions/v1/carteira-google?token=${encodeURIComponent(token)}&lang=${lang}`, {
+      headers: { apikey: SUPABASE_KEY },
+    });
+    const d = await r.json();
+    if (!d.url) throw new Error(d.error || 'wallet');
+    window.location.href = d.url;
+  } catch {
+    alert(tRaw('client.wallet.error'));
+  } finally {
+    button.disabled = false;
+  }
 }
