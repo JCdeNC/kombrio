@@ -32,6 +32,7 @@ const toCity = (r) => r && ({
 const toGuide = (r) => r && ({
   id: r.id, cityId: r.city_id, name: r.name, phone: r.phone, license: r.license, photo: r.photo,
   status: r.status, email: r.email, cpf: r.cpf, pixKey: r.pix_key, createdAt: r.created_at, weeklyPayout: !!r.weekly_payout, code: r.code || '',
+  referralEnabled: !!r.referral_enabled,
 });
 const toPartner = (r) => r && ({
   id: r.id, cityId: r.city_id, type: r.type, name: r.name, area: r.area, offer: r.offer || '', token: r.token, status: r.status, taxId: r.tax_id,
@@ -142,10 +143,10 @@ export async function setNewPassword(password) {
 }
 
 // Inscription d'un guide. Renvoie false si la base demande d'abord de confirmer l'e-mail.
-export async function signUpGuide({ email, password, name, phone, license, cityId, cpf, pixKey }) {
+export async function signUpGuide({ email, password, name, phone, license, cityId, cpf, pixKey, refCode }) {
   const { data, error } = await sb.auth.signUp({
     email, password,
-    options: { data: { role: 'guide', name, phone, license, city_id: cityId, cpf, pix_key: pixKey }, emailRedirectTo: location.href.split('#')[0] },
+    options: { data: { role: 'guide', name, phone, license, city_id: cityId, cpf, pix_key: pixKey, ref_code: refCode || null }, emailRedirectTo: location.href.split('#')[0] },
   });
   if (error) throw new Error(error.message.includes('registered') ? 'exists' : 'auth');
   return Boolean(data.session);
@@ -345,3 +346,12 @@ export async function listLedger(limit = 200) {
 }
 
 export async function resetDemo() { /* plus de mode démo */ }
+
+/* ---------- Parrainage (supabase/012_parrainage.sql) ---------- */
+export async function myReferral() { return check(await sb.rpc('my_referral')); }
+export async function adminReferrals() { return check(await sb.rpc('admin_referrals')) || []; }
+export async function setReferralEnabled(guideId, on) { return check(await sb.rpc('set_referral_enabled', { p_guide: guideId, p_on: on })); }
+export async function closeReferralMonth(month) { return check(await sb.rpc('close_referral_month', { p_month: month })); }
+export async function setReferralReward(id, action, text = null) {
+  return check(await sb.rpc('set_referral_reward', { p_reward: id, p_action: action, p_text: text }));
+}

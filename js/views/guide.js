@@ -25,6 +25,7 @@ export async function guideView(params, ctx) {
   const city = await store.getCity(me.cityId);
   if (params[0] === 'sejour') return stayView(me, city, params[1]);
   if (params[0] === 'releve') return statementView(me, city);
+  if (params[0] === 'indicacao') return referralView(me, city);
   return dashboardView(me, city);
 }
 
@@ -59,6 +60,7 @@ async function loginView() {
           <div class="field"><label for="g-pass">${t('auth.password.new')}</label><input id="g-pass" name="password" type="password" required minlength="8" autocomplete="new-password"></div>
         </div>
         <div class="field"><label for="g-pass2">${t('auth.password.confirm')}</label><input id="g-pass2" name="password2" type="password" required minlength="8" autocomplete="new-password"></div>
+        <div class="field"><label for="g-ref">${t('guide.signup.ref')}</label><input id="g-ref" name="refCode" autocomplete="off" placeholder="RIO-KG-00000" value="${esc(refFromUrl())}"></div>
         <p class="hint">${t('guide.signup.hint')}</p>
         <button class="btn block">${t('guide.signup.submit')}</button>
       </form>`,
@@ -79,7 +81,7 @@ async function loginView() {
         try {
           const ready = await store.signUpGuide({
             email: f.email.trim(), password: f.password, name: f.name.trim(), phone: f.phone.trim(),
-            license: f.license.trim(), cityId: f.cityId, cpf: onlyDigits(f.cpf), pixKey: f.pixKey.trim(),
+            license: f.license.trim(), cityId: f.cityId, cpf: onlyDigits(f.cpf), pixKey: f.pixKey.trim(), refCode: (f.refCode || '').trim(),
           });
           ctx.refresh(tRaw(ready ? 'guide.signup.done' : 'auth.confirm'));
         } catch (err) { notify(tRaw(err.message === 'exists' ? 'auth.err.exists' : 'auth.err.signup')); }
@@ -135,6 +137,8 @@ async function dashboardView(me, city) {
       <p class="hint">${t('guide.sum.note')} <a href="#/releve">${t('guide.statement.open')}</a></p>
 
       ${me.code ? `<p class="hint">${t('guide.code')} <b>${esc(me.code)}</b></p>` : ''}
+      ${me.referralEnabled ? `<a class="card" href="#/indicacao" style="display:block;text-decoration:none;color:inherit">
+        <b>${t('ref.card.title')}</b><span class="hint" style="display:block">${t('ref.card.hint')}</span></a>` : ''}
       <label class="card" style="display:block"><input type="checkbox" id="weekly"${me.weeklyPayout ? ' checked' : ''}> <b>${t('guide.weekly.title')}</b>
         <span class="hint" style="display:block">${t('guide.weekly.hint')}</span></label>
 
@@ -166,6 +170,80 @@ async function dashboardView(me, city) {
         if (f.end < f.start) { notify(tRaw('guide.stay.err.dates')); return; }
         const s = await store.addStay(me.id, { client: f.client.trim(), people: Number(f.people), start: f.start, end: f.end });
         ctx.go(`sejour/${s.id}`, tRaw('guide.stay.created'));
+      };
+    },
+  };
+}
+
+// Lien d'invitation : https://app.kombrio.com.br/guide/?ref=RIO-KG-12345
+function refFromUrl() {
+  try { return (new URLSearchParams(location.search).get('ref') || '').toUpperCase().replace(/[^A-Z0-9-]/g, '').slice(0, 20); } catch { return ''; }
+}
+
+// Parrainage du guide : code, progression, filleuls, primes, règles.
+async function referralView(me, city) {
+  const r = await store.myReferral();
+  const lang = getLang();
+  const back = `<p><a href="#/">← ${t('common.back')}</a></p>`;
+  if (!r) return { html: `${back}<div class="notice warn">${t('ref.off')}</div>` };
+  const cur = (n) => cents(n, city.currency, lang);
+  const day = (d) => (d ? fmtDay(String(d).slice(0, 10), lang) : '');
+  const st = r.settings;
+  const link = `${appLink('guide')}?ref=${encodeURIComponent(r.code)}`;
+  const qualified = r.filleuls.filter((f) => f.qualified_at).length;
+  const pct = (x) => `${Math.round(Number(x) * 100)} %`;
+  const sum = (s) => r.rewards.filter((w) => w.status === s).reduce((a, w) => a + Number(w.reward_cents), 0);
+  const msg = tRaw('ref.share.msg', { code: r.code, link });
+  const fItem = (f) => `<li><div class="spread"><b>${esc(f.label)}</b>
+      <span class="badge ${f.qualified_at ? 'ok' : ''}">${f.qualified_at ? t('ref.f.qualified') : (f.validated ? t('ref.f.active') : t('ref.f.pending'))}</span></div>
+      <div class="hint">${t('ref.f.tx', { n: f.tx, need: st.tx_needed })}${f.promo_until ? ` · ${t('ref.f.promo', { date: day(f.promo_until) })}` : ''}${f.qualified_at && !f.rewarded ? ` · ${t('ref.f.extra')}` : ''}</div></li>`;
+  const wItem = (w) => `<li><div class="spread"><b>${esc(new Date(`${w.month}T12:00:00`).toLocaleDateString(locale(lang), { month: 'long', year: 'numeric' }))} · ${esc(w.filleul || '')}</b>
+      <b>${cur(w.reward_cents)}</b></div>
+      <div class="hint">${t(`ref.w.${w.status}`)}${w.paid_at ? ` · ${day(w.paid_at)}` : ''}${w.pix_ref ? ` · Pix ${esc(w.pix_ref)}` : ''} · ${t('ref.w.base', { k: cur(w.k_cents), n: w.tx })}</div></li>`;
+  return {
+    html: `${back}
+      <h1>${t('ref.title')}</h1>
+      <div class="card">
+        <p class="hint">${t('ref.code')}</p>
+        <p style="font-size:1.6rem;font-weight:800;margin:0 0 12px">${esc(r.code)}</p>
+        <div class="grid2">
+          <button type="button" class="btn secondary" id="ref-copy">${t('ref.copy')}</button>
+          <a class="btn" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent(msg)}">${t('ref.share')}</a>
+        </div>
+      </div>
+      <div class="card">
+        <h2>${t('ref.progress', { n: Math.min(qualified, st.needed), need: st.needed })}</h2>
+        <progress max="${st.needed}" value="${Math.min(qualified, st.needed)}" style="width:100%"></progress>
+        <p class="hint">${r.qualified_at
+          ? t('ref.active', { start: day(r.qualified_at), end: day(r.period_end) })
+          : t('ref.todo', { need: st.needed, tx: st.tx_needed })}</p>
+      </div>
+      <div class="stats">
+        <div class="stat"><b>${cur(sum('estimated'))}</b><span>${t('ref.sum.estimated')}</span></div>
+        <div class="stat"><b>${cur(sum('validated'))}</b><span>${t('ref.sum.validated')}</span></div>
+        <div class="stat"><b>${cur(sum('paid'))}</b><span>${t('ref.sum.paid')}</span></div>
+      </div>
+      <div class="card">
+        <h2>${t('ref.filleuls')}</h2>
+        ${r.filleuls.length ? `<ul class="list">${r.filleuls.map(fItem).join('')}</ul>` : `<p class="hint">${t('ref.filleuls.none')}</p>`}
+      </div>
+      <div class="card">
+        <h2>${t('ref.history')}</h2>
+        ${r.rewards.length ? `<ul class="list">${r.rewards.map(wItem).join('')}</ul>` : `<p class="hint">${t('ref.history.none')}</p>`}
+      </div>
+      <details class="card">
+        <summary><b>${t('ref.rules')}</b></summary>
+        <ul>
+          <li>${t('ref.rule.1', { share: pct(st.filleul_share), days: st.promo_days })}</li>
+          <li>${t('ref.rule.2', { need: st.needed, tx: st.tx_needed })}</li>
+          <li>${t('ref.rule.3', { rate: pct(st.parrain_rate), months: st.months })}</li>
+          <li>${t('ref.rule.4')}</li>
+          <li>${t('ref.rule.5')}</li>
+        </ul>
+      </details>`,
+    mount(root) {
+      root.querySelector('#ref-copy').onclick = async () => {
+        try { await navigator.clipboard.writeText(link); notify(tRaw('ref.copied')); } catch { prompt(tRaw('ref.copy'), link); }
       };
     },
   };

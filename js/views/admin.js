@@ -1,12 +1,12 @@
 // Administration (français, passable en portugais) : validations, paiements, reversements, partenaires, villes.
 // Accès réservé au compte qui a le rôle « admin » dans la base (le tout premier créé ici).
 import { t, tRaw, getLang } from '../i18n.js';
-import { esc, money, cents, parseCents, fmtMoment, qrSvg, appLink, notify, confirmTwice, validTaxId, fmtTaxId, onlyDigits } from '../util.js';
+import { esc, money, cents, parseCents, fmtMoment, fmtDay, qrSvg, appLink, notify, confirmTwice, validTaxId, fmtTaxId, onlyDigits } from '../util.js';
 import * as store from '../store.js';
 import { forgotLink, mountForgot, resetView, statusBadge } from './shared.js';
 import { maskTaxId, photoToJpeg } from '../util.js';
 
-const TABS = ['dashboard', 'validations', 'payments', 'payouts', 'transactions', 'partners', 'cities', 'journal'];
+const TABS = ['dashboard', 'validations', 'payments', 'payouts', 'referral', 'transactions', 'partners', 'cities', 'journal'];
 
 export async function adminView([tab = 'dashboard']) {
   if (store.inRecovery() && await store.hasSession()) return resetView();
@@ -22,7 +22,7 @@ export async function adminView([tab = 'dashboard']) {
   if (!TABS.includes(tab)) tab = 'dashboard';
   const nav = `<nav class="tabs">${TABS.map((k) => `<a href="#/${k}" class="${k === tab ? 'on' : ''}">${t(`admin.tab.${k}`)}</a>`).join('')}</nav>`;
   const data = await loadAll();
-  const view = await ({ dashboard, validations, payments, payouts, transactions, partners, cities, journal })[tab](data);
+  const view = await ({ dashboard, validations, payments, payouts, referral, transactions, partners, cities, journal })[tab](data);
   return {
     html: `<div class="spread"><h1>${t('admin.title')}</h1>
         <span class="hint">${esc(me.email)} <button class="btn ghost small" id="logout">${t('common.logout')}</button></span></div>
@@ -214,6 +214,81 @@ async function payments({ paymentList, visits, partner, cur, city }) {
 }
 
 // Reversements : « lancer » (montant figé, statut en cours), puis « confirmer » avec la référence du virement.
+// Parrainage V1 : activation par guide, progression, clôture mensuelle, validation et versement des primes.
+async function referral({ cur, guide }) {
+  const lang = getLang();
+  const list = await store.adminReferrals();
+  const day = (d) => (d ? fmtDay(String(d).slice(0, 10), lang) : '');
+  const money_ = (n, id) => cur(Number(n), guide(id)?.cityId);
+  const lastMonth = (() => { const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - 1); return d.toISOString().slice(0, 7); })();
+  const rewards = list.flatMap((r) => r.rewards.map((w) => ({ ...w, parrain: r.name, gid: r.guide_id })));
+  const todo = rewards.filter((w) => w.status === 'estimated' || w.status === 'validated');
+  const item = (r) => {
+    const q = r.filleuls.filter((f) => f.qualified_at).length;
+    return `<li>
+      <div class="spread"><b>${esc(r.name)} <span class="hint">${esc(r.code || '')}</span></b>
+        <label style="white-space:nowrap"><input type="checkbox" data-ref-on="${esc(r.guide_id)}"${r.enabled ? ' checked' : ''}> ${t('admin.ref.enabled')}</label></div>
+      <div class="hint">${t('admin.ref.line', { n: r.filleuls.length, q: Math.min(q, r.settings.needed), need: r.settings.needed })}${r.qualified_at ? ` · ${t('admin.ref.period', { start: day(r.qualified_at), end: day(r.period_end) })}` : ''}</div>
+      ${r.filleuls.length ? `<div class="hint">${r.filleuls.map((f) => `${esc(f.label)} (${f.tx} tx${f.qualified_at ? ' ✓' : ''})`).join(' · ')}</div>` : ''}
+    </li>`;
+  };
+  const wItem = (w) => `<li>
+      <div class="spread"><b>${esc(w.parrain)} ← ${esc(w.filleul || '')} · ${esc(String(w.month).slice(0, 7))}</b><b>${money_(w.reward_cents, w.gid)}</b></div>
+      <div class="hint">${t(`admin.ref.st.${w.status}`)} · ${t('admin.ref.base', { k: money_(w.k_cents, w.gid), n: w.tx })}</div>
+      ${w.status === 'estimated' ? `<div class="row" style="margin-top:6px"><button class="btn small" data-rw-ok="${esc(w.id)}">${t('admin.ref.validate')}</button>
+        <button class="btn ghost small" data-rw-cancel="${esc(w.id)}">${t('admin.ref.cancel')}</button></div>` : ''}
+      ${w.status === 'validated' ? `<form class="row rw-pay" data-id="${esc(w.id)}" style="align-items:flex-end;margin-top:6px">
+        <div class="field" style="margin:0;flex:1"><label>${t('admin.out.ref')}</label><input name="ref" required placeholder="E2E…"></div>
+        <button class="btn small">${t('admin.ref.paid')}</button></form>` : ''}
+    </li>`;
+  return {
+    html: `<div class="card">
+      <h2>${t('admin.ref.title')}</h2>
+      <p class="hint">${t('admin.ref.hint')}</p>
+      ${list.length ? `<ul class="list">${list.map(item).join('')}</ul>` : `<p class="hint">${t('admin.ref.none')}</p>`}
+    </div>
+    <form class="card" id="ref-close">
+      <h2>${t('admin.ref.close')}</h2>
+      <p class="hint">${t('admin.ref.close.hint')}</p>
+      <div class="row" style="align-items:flex-end"><div class="field" style="margin:0"><label for="ref-month">${t('admin.ref.month')}</label>
+        <input id="ref-month" name="month" type="month" value="${lastMonth}" required></div>
+        <button class="btn">${t('admin.ref.close.go')}</button></div>
+    </form>
+    <div class="card">
+      <h2>${t('admin.ref.todo')}</h2>
+      ${todo.length ? `<ul class="list">${todo.map(wItem).join('')}</ul>` : `<p class="hint">${t('admin.ref.todo.none')}</p>`}
+    </div>`,
+    mount(root, ctx) {
+      root.querySelectorAll('[data-ref-on]').forEach((b) => {
+        b.onchange = async () => { await store.setReferralEnabled(b.dataset.refOn, b.checked); ctx.refresh(tRaw('common.saved')); };
+      });
+      root.querySelector('#ref-close').onsubmit = async (e) => {
+        e.preventDefault();
+        const n = await store.closeReferralMonth(`${e.target.month.value}-01`);
+        ctx.refresh(tRaw('admin.ref.closed', { n }));
+      };
+      root.querySelectorAll('[data-rw-ok]').forEach((b) => {
+        b.onclick = async () => { await store.setReferralReward(b.dataset.rwOk, 'validate'); ctx.refresh(tRaw('common.saved')); };
+      });
+      root.querySelectorAll('[data-rw-cancel]').forEach((b) => {
+        b.onclick = async () => {
+          const why = prompt(tRaw('admin.ref.cancel.why'));
+          if (!why) return;
+          await store.setReferralReward(b.dataset.rwCancel, 'cancel', why);
+          ctx.refresh(tRaw('common.saved'));
+        };
+      });
+      root.querySelectorAll('form.rw-pay').forEach((f) => {
+        f.onsubmit = async (e) => {
+          e.preventDefault();
+          const ok = await store.setReferralReward(f.dataset.id, 'pay', e.target.ref.value);
+          ctx.refresh(tRaw(ok ? 'admin.ref.paid.done' : 'err.generic'));
+        };
+      });
+    },
+  };
+}
+
 async function payouts({ guides, visits, payoutList, cur, guide }) {
   const lang = getLang();
   const due = guides.map((g) => {
