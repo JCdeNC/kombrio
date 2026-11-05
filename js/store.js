@@ -111,6 +111,23 @@ export function takeLinkError() {
   history.replaceState(null, '', location.pathname + location.search);
   return LINK_ERROR;
 }
+// Liens des e-mails : « #token_hash=…&type=… ». Les messageries (AOL, Outlook…) ouvrent les liens
+// pour les vérifier, ce qui grillerait un lien à usage unique : on ne le valide qu'au clic sur « Continuar ».
+let OTP = (() => {
+  const h = new URLSearchParams(location.hash.replace(/^#\/?/, ''));
+  const tokenHash = h.get('token_hash');
+  return tokenHash ? { tokenHash, type: h.get('type') || 'email' } : null;
+})();
+export function pendingOtp() { return OTP; }
+export async function confirmOtp() {
+  const { tokenHash, type } = OTP;
+  OTP = null;
+  history.replaceState(null, '', location.pathname + location.search);
+  const { error } = await sb.auth.verifyOtp({ token_hash: tokenHash, type });
+  if (error) throw new Error(/expired|invalid/i.test(error.message) ? 'otp_expired' : 'link');
+  if (type === 'recovery') { try { sessionStorage.setItem(RECOVERY_KEY, '1'); } catch { /* rien */ } }
+  return type;
+}
 export function inRecovery() {
   try { return sessionStorage.getItem(RECOVERY_KEY) === '1'; } catch { return false; }
 }

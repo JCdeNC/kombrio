@@ -12,6 +12,11 @@ export default {
 
   'err.link.expired': "This link has expired or was already used. Request a new one with “Forgot password”. Only the latest e-mail works.",
   'err.link': "This link is not valid. Please request a new one.",
+  'auth.link.title': "Almost there!",
+  'auth.link.text.reset': "Tap the button to choose your new password.",
+  'auth.link.text.confirm': "Tap the button to confirm your e-mail.",
+  'auth.link.button': "Continue",
+  'auth.link.confirmed': "E-mail confirmed! Welcome to Kombrio.",
   'err.generic': 'Something went wrong. Please reload the page.',
   'err.notfound': 'Page not found.',
   'err.qr': 'This QR code is not recognised.',

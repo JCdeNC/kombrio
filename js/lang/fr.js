@@ -17,6 +17,11 @@ export default {
 
   'err.link.expired': "Ce lien a expiré ou a déjà été utilisé. Demandez un nouveau lien avec « Mot de passe oublié ». Seul le dernier e-mail reçu fonctionne.",
   'err.link': "Ce lien n'est pas valide. Demandez un nouveau lien.",
+  'auth.link.title': "Presque fini !",
+  'auth.link.text.reset': "Touchez le bouton pour choisir votre nouveau mot de passe.",
+  'auth.link.text.confirm': "Touchez le bouton pour confirmer votre e-mail.",
+  'auth.link.button': "Continuer",
+  'auth.link.confirmed': "E-mail confirmé ! Bienvenue chez Kombrio.",
   'err.generic': 'Une erreur est survenue. Rechargez la page.',
   'err.storage': 'La mémoire de ce navigateur est pleine. Remettez la démo à zéro.',
   'err.notfound': 'Page introuvable.',

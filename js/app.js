@@ -58,7 +58,7 @@ async function render() {
   const root = document.getElementById('app');
   let out;
   try {
-    out = await view(params, ctx);
+    out = store.pendingOtp() ? otpView() : await view(params, ctx);
   } catch (err) {
     console.error(err);
     out = { html: `<div class="notice bad">${t(err.message === 'storage-full' ? 'err.storage' : 'err.generic')}</div>` };
@@ -95,6 +95,30 @@ async function render() {
   root.querySelectorAll('input[type=password]').forEach(addEye);
   window.scrollTo(0, 0);
   if (out.mount) out.mount(root.querySelector('main'), ctx);
+}
+
+// Lien reçu par e-mail : un bouton pour le valider (voir store.confirmOtp).
+function otpView() {
+  const recovery = store.pendingOtp().type === 'recovery';
+  return {
+    html: `<div class="card" style="text-align:center">
+        <h1>${t('auth.link.title')}</h1>
+        <p>${t(recovery ? 'auth.link.text.reset' : 'auth.link.text.confirm')}</p>
+        <button type="button" class="btn block" id="otp-go">${t('auth.link.button')}</button>
+      </div>`,
+    mount(root) {
+      const b = root.querySelector('#otp-go');
+      b.onclick = async () => {
+        b.disabled = true;
+        try {
+          const type = await store.confirmOtp();
+          ctx.replace('', type === 'recovery' ? null : t('auth.link.confirmed'));
+        } catch (err) {
+          ctx.replace('', t(err.message === 'otp_expired' ? 'err.link.expired' : 'err.link'));
+        }
+      };
+    },
+  };
 }
 
 // Œil dans les champs mot de passe : afficher / masquer ce qu'on tape.

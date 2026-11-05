@@ -17,6 +17,11 @@ export default {
 
   'err.link.expired': "Este link expirou ou já foi usado. Peça um novo link com « Esqueci minha senha ». Só o último e-mail recebido funciona.",
   'err.link': "Este link não é válido. Peça um novo link.",
+  'auth.link.title': "Quase lá!",
+  'auth.link.text.reset': "Toque no botão para criar sua nova senha.",
+  'auth.link.text.confirm': "Toque no botão para confirmar seu e-mail.",
+  'auth.link.button': "Continuar",
+  'auth.link.confirmed': "E-mail confirmado! Bem-vindo à Kombrio.",
   'err.generic': 'Ocorreu um erro. Recarregue a página.',
   'err.storage': 'A memória deste navegador está cheia. Reinicie a demonstração.',
   'err.notfound': 'Página não encontrada.',
