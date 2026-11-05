@@ -65,8 +65,7 @@ export async function clientView([token]) {
       if (gw) gw.onclick = () => openGoogleWallet(gw, stay.token, lang);
       const ih = root.querySelector('#ioshome');
       if (ih) {
-        // L'icône doit rouvrir CE séjour : sans manifeste, l'iPhone garde l'adresse de la page.
-        document.querySelector('link[rel="manifest"]')?.remove();
+        // L'icône rouvre CE séjour : client/index.html ne charge pas le manifeste sur iPhone.
         ih.onclick = () => {
           const steps = root.querySelector('#ioshome-steps');
           steps.hidden = !steps.hidden;

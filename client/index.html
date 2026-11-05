@@ -5,7 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Kombrio · Client</title>
   <meta name="theme-color" content="#102C38">
-  <link rel="manifest" href="manifest.webmanifest">
+  <!-- Pas de manifeste sur iPhone/iPad : sinon l'icône de l'écran d'accueil ouvre « Kombrio Client » sans le séjour. -->
+  <script>
+    if (!(/iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1))) {
+      document.write('<link rel="manifest" href="manifest.webmanifest">');
+    }
+  </script>
   <link rel="icon" href="../icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="../icon-180.png">
   <meta name="apple-mobile-web-app-capable" content="yes">
