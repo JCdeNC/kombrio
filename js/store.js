@@ -201,6 +201,10 @@ export async function listGuides(status) {
 }
 export async function setGuideStatus(guideId, status) {
   check(await sb.from('guides').update({ status }).eq('id', guideId));
+  // Guide validé : e-mail « Sua conta foi validada! » (fonction Supabase conta-validada). Un échec ne bloque pas.
+  if (status === 'validated') {
+    try { await sb.functions.invoke('conta-validada', { body: { guideId } }); } catch { /* rien */ }
+  }
 }
 
 /* ---------- Partenaires ---------- */
