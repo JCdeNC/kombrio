@@ -67,9 +67,9 @@ declare
   m jsonb := coalesce(new.raw_user_meta_data, '{}'::jsonb);
   r text;
   typed text := regexp_replace(upper(coalesce(m->>'code', '')), '[^A-Z0-9]', '', 'g');
-  ref text := regexp_replace(upper(coalesce(m->>'ref_code', '')), '[^A-Z0-9]', '', 'g');
-  cpf text := nullif(regexp_replace(coalesce(m->>'cpf', ''), '[^0-9]', '', 'g'), '');
-  pix text := nullif(trim(m->>'pix_key'), '');
+  v_ref text := regexp_replace(upper(coalesce(m->>'ref_code', '')), '[^A-Z0-9]', '', 'g');
+  v_cpf text := nullif(regexp_replace(coalesce(m->>'cpf', ''), '[^0-9]', '', 'g'), '');
+  v_pix text := nullif(trim(m->>'pix_key'), '');
   parrain guides;
 begin
   if m->>'role' = 'partner' then
@@ -87,16 +87,16 @@ begin
   insert into profiles (id, role) values (new.id, r);
   if r = 'guide' then
     -- Parrain : guide validé, parrainage activé, pas le même CPF ni la même clé Pix.
-    if ref <> '' then
+    if v_ref <> '' then
       select * into parrain from guides g
       where g.status = 'validated' and g.referral_enabled and g.code is not null
-        and (regexp_replace(g.code, '[^A-Z0-9]', '', 'g') = ref or (ref ~ '^[0-9]{5}$' and right(g.code, 5) = ref))
-        and (cpf is null or g.cpf is distinct from cpf) and (pix is null or g.pix_key is distinct from pix)
+        and (regexp_replace(g.code, '[^A-Z0-9]', '', 'g') = v_ref or (v_ref ~ '^[0-9]{5}$' and right(g.code, 5) = v_ref))
+        and (v_cpf is null or g.cpf is distinct from v_cpf) and (v_pix is null or g.pix_key is distinct from v_pix)
       limit 1;
     end if;
     insert into guides (id, city_id, name, phone, license, email, cpf, pix_key, referred_by)
     values (new.id, coalesce(m->>'city_id', 'rio'), coalesce(nullif(m->>'name', ''), new.email), m->>'phone', m->>'license', new.email,
-            cpf, pix, parrain.id);
+            v_cpf, v_pix, parrain.id);
     if parrain.id is not null then
       insert into ledger (actor, actor_kind, event, data)
       values (new.id, 'guide', 'referral_signup', jsonb_build_object('parrain', parrain.id, 'code', parrain.code));
