@@ -12,6 +12,9 @@ export default {
 
   'err.link.expired': "This link has expired or was already used. Request a new one with “Forgot password”. Only the latest e-mail works.",
   'err.link': "This link is not valid. Please request a new one.",
+  'guide.notguide': "This e-mail is not a guide account. If you are a partner, sign in to the Partner app.",
+  'guide.notguide.go': "Open the Partner app",
+  'guide.notguide.out': "Sign out",
   'auth.link.title': "Almost there!",
   'auth.link.text.reset': "Tap the button to choose your new password.",
   'auth.link.text.confirm': "Tap the button to confirm your e-mail.",

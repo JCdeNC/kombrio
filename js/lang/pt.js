@@ -17,6 +17,9 @@ export default {
 
   'err.link.expired': "Este link expirou ou já foi usado. Peça um novo link com « Esqueci minha senha ». Só o último e-mail recebido funciona.",
   'err.link': "Este link não é válido. Peça um novo link.",
+  'guide.notguide': "Este e-mail não é de uma conta de guia. Se você é parceiro, entre pelo aplicativo Parceiro.",
+  'guide.notguide.go': "Abrir o aplicativo Parceiro",
+  'guide.notguide.out': "Sair",
   'auth.link.title': "Quase lá!",
   'auth.link.text.reset': "Toque no botão para criar sua nova senha.",
   'auth.link.text.confirm': "Toque no botão para confirmar seu e-mail.",

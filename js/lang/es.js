@@ -12,6 +12,9 @@ export default {
 
   'err.link.expired': "Este enlace caducó o ya se usó. Pida uno nuevo con «Olvidé mi contraseña». Solo funciona el último correo recibido.",
   'err.link': "Este enlace no es válido. Pida uno nuevo.",
+  'guide.notguide': "Este correo no es de una cuenta de guía. Si es socio, entre por la aplicación Socio.",
+  'guide.notguide.go': "Abrir la aplicación Socio",
+  'guide.notguide.out': "Salir",
   'auth.link.title': "¡Casi listo!",
   'auth.link.text.reset': "Toque el botón para crear su nueva contraseña.",
   'auth.link.text.confirm': "Toque el botón para confirmar su correo.",

@@ -9,7 +9,18 @@ export async function guideView(params, ctx) {
   // Lien « nouveau mot de passe » : il suffit d'être connecté par le lien, même sans fiche guide complète.
   if (store.inRecovery() && await store.hasSession()) return resetView();
   const me = await store.currentGuide();
-  if (!me) return loginView();
+  if (!me) {
+    // Connecté, mais pas guide (ex. un compte partenaire) : on l'envoie vers la bonne application.
+    if (await store.hasSession()) {
+      return {
+        html: `<div class="card"><p>${t('guide.notguide')}</p>
+          <a class="btn block" href="${appLink('partner')}">${t('guide.notguide.go')}</a>
+          <button type="button" class="btn block secondary" id="ng-out" style="margin-top:12px">${t('guide.notguide.out')}</button></div>`,
+        mount(root, ctx) { root.querySelector('#ng-out').onclick = async () => { await store.signOut(); ctx.refresh(); }; },
+      };
+    }
+    return loginView();
+  }
   if (me.status !== 'validated') return pendingView(me);
   const city = await store.getCity(me.cityId);
   if (params[0] === 'sejour') return stayView(me, city, params[1]);

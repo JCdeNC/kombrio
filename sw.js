@@ -1,7 +1,7 @@
 // Kombrio · service worker (v15) : installation propre sur Android et page « sem conexão » hors ligne.
 // Toujours le réseau d'abord : on ne sert une copie que s'il n'y a pas de connexion.
 // Les données (Supabase) et les autres sites ne passent jamais par ici.
-const CACHE = 'kombrio-v23';
+const CACHE = 'kombrio-v24';
 const BASE = new URL('./', self.location).href;
 const HORS = BASE + 'hors-ligne.html';
 
