@@ -59,7 +59,15 @@ async function signJwt(payload: unknown, pem: string) {
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
+  try {
+    return await handle(req);
+  } catch (e) {
+    // Message d'erreur seul (jamais le contenu des secrets), pour comprendre une panne.
+    return json({ error: 'crash', step: (e as Error & { step?: string }).step ?? '', detail: String((e as Error)?.message ?? e).slice(0, 300) }, 500);
+  }
+});
 
+async function handle(req: Request) {
   const issuer = Deno.env.get('GOOGLE_WALLET_ISSUER_ID');
   const saRaw = Deno.env.get('GOOGLE_WALLET_SA');
   if (!issuer || !saRaw) return json({ error: 'not_configured' }, 503);
@@ -81,7 +89,9 @@ Deno.serve(async (req) => {
   const tz = city.timezone || 'UTC';
   if (today(tz) > stay.end_day) return json({ error: 'expired' }, 410);
 
-  const sa = JSON.parse(saRaw);
+  let sa;
+  try { sa = JSON.parse(saRaw); } catch (e) { throw Object.assign(new Error(`secret JSON illisible (${saRaw.length} caractères)`), { step: 'sa' }); }
+  if (!sa.client_email || !sa.private_key) throw Object.assign(new Error('client_email ou private_key absent du secret'), { step: 'sa' });
   const t = (value: string) => ({ defaultValue: { language: L.lang, value } });
   const [y, m, dd] = String(stay.end_day).split('-');
   const classId = `${issuer}.kombrio_cliente`;
@@ -118,4 +128,4 @@ Deno.serve(async (req) => {
   }, sa.private_key);
 
   return json({ url: `https://pay.google.com/gp/v/save/${jwt}` });
-});
+}
