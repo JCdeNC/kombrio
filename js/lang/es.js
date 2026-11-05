@@ -10,6 +10,8 @@ export default {
   'demo.reset.confirm': '¿Borrar todos los datos de la demostración y volver al ejemplo?',
   'demo.reset.done': 'Demostración reiniciada.',
 
+  'err.link.expired': "Este enlace caducó o ya se usó. Pida uno nuevo con «Olvidé mi contraseña». Solo funciona el último correo recibido.",
+  'err.link': "Este enlace no es válido. Pida uno nuevo.",
   'err.generic': 'Ha ocurrido un error. Recargue la página.',
   'err.notfound': 'Página no encontrada.',
   'err.qr': 'Este código QR no se reconoce.',

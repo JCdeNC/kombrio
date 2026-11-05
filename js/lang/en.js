@@ -10,6 +10,8 @@ export default {
   'demo.reset.confirm': 'Erase all demo data and start again from the example?',
   'demo.reset.done': 'Demo reset.',
 
+  'err.link.expired': "This link has expired or was already used. Request a new one with “Forgot password”. Only the latest e-mail works.",
+  'err.link': "This link is not valid. Please request a new one.",
   'err.generic': 'Something went wrong. Please reload the page.',
   'err.notfound': 'Page not found.',
   'err.qr': 'This QR code is not recognised.',

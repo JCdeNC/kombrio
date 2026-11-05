@@ -15,6 +15,8 @@ export default {
   'demo.reset.confirm': 'Apagar todos os dados da demonstração e voltar ao exemplo?',
   'demo.reset.done': 'Demonstração reiniciada.',
 
+  'err.link.expired': "Este link expirou ou já foi usado. Peça um novo link com « Esqueci minha senha ». Só o último e-mail recebido funciona.",
+  'err.link': "Este link não é válido. Peça um novo link.",
   'err.generic': 'Ocorreu um erro. Recarregue a página.',
   'err.storage': 'A memória deste navegador está cheia. Reinicie a demonstração.',
   'err.notfound': 'Página não encontrada.',

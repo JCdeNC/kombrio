@@ -15,6 +15,8 @@ export default {
   'demo.reset.confirm': 'Effacer toutes les données de démo et repartir de l\'exemple ?',
   'demo.reset.done': 'Démo remise à zéro.',
 
+  'err.link.expired': "Ce lien a expiré ou a déjà été utilisé. Demandez un nouveau lien avec « Mot de passe oublié ». Seul le dernier e-mail reçu fonctionne.",
+  'err.link': "Ce lien n'est pas valide. Demandez un nouveau lien.",
   'err.generic': 'Une erreur est survenue. Rechargez la page.',
   'err.storage': 'La mémoire de ce navigateur est pleine. Remettez la démo à zéro.',
   'err.notfound': 'Page introuvable.',

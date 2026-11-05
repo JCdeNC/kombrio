@@ -63,7 +63,9 @@ async function render() {
     console.error(err);
     out = { html: `<div class="notice bad">${t(err.message === 'storage-full' ? 'err.storage' : 'err.generic')}</div>` };
   }
-  const message = flash ? `<div class="notice ok" role="status">${esc(flash)}</div>` : '';
+  const linkError = store.takeLinkError();
+  const message = (linkError ? `<div class="notice bad" role="alert">${t(linkError === 'otp_expired' ? 'err.link.expired' : 'err.link')}</div>` : '')
+    + (flash ? `<div class="notice ok" role="status">${esc(flash)}</div>` : '');
   flash = null;
   const langs = conf.langs ? LANGS.filter(([code]) => conf.langs.includes(code)) : LANGS;
   document.title = APP === 'hub' ? 'Kombrio' : `Kombrio · ${t(`app.${APP}`)}`;

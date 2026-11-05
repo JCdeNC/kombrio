@@ -104,6 +104,13 @@ export async function signOut() { await sb.auth.signOut(); }
 // Le lien arrive avec « type=recovery » dans l'adresse : on le note avant que Supabase ne l'efface.
 const RECOVERY_KEY = `kombrio-recovery-${window.KOMBRIO_APP || 'hub'}`;
 try { if (/type=recovery/.test(location.hash)) sessionStorage.setItem(RECOVERY_KEY, '1'); } catch { /* rien */ }
+// Lien d'e-mail périmé ou déjà utilisé : Supabase renvoie « error_code=… » dans l'adresse.
+const LINK_ERROR = /error_code=([a-z_]+)/.exec(location.hash)?.[1] || null;
+export function takeLinkError() {
+  if (!LINK_ERROR) return null;
+  history.replaceState(null, '', location.pathname + location.search);
+  return LINK_ERROR;
+}
 export function inRecovery() {
   try { return sessionStorage.getItem(RECOVERY_KEY) === '1'; } catch { return false; }
 }
