@@ -9,8 +9,8 @@ import { maskTaxId, photoToJpeg } from '../util.js';
 const TABS = ['dashboard', 'validations', 'payments', 'payouts', 'transactions', 'partners', 'cities', 'journal'];
 
 export async function adminView([tab = 'dashboard']) {
+  if (store.inRecovery() && await store.hasSession()) return resetView();
   const me = await store.currentAdmin();
-  if (me && store.inRecovery()) return resetView();
   if (!me) return loginView();
   if (!me.isAdmin) {
     return {

@@ -6,8 +6,9 @@ import { validity, statusBadge, guideAmounts, notFound, forgotLink, mountForgot,
 import { maskTaxId, qrCardBlob, shareOrDownload } from '../util.js';
 
 export async function guideView(params, ctx) {
+  // Lien « nouveau mot de passe » : il suffit d'être connecté par le lien, même sans fiche guide complète.
+  if (store.inRecovery() && await store.hasSession()) return resetView();
   const me = await store.currentGuide();
-  if (me && store.inRecovery()) return resetView();
   if (!me) return loginView();
   if (me.status !== 'validated') return pendingView(me);
   const city = await store.getCity(me.cityId);
