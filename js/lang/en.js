@@ -48,6 +48,7 @@ export default {
   'client.wallet.google': "Add to Google Wallet",
   'client.wallet.error': "Couldn't open Google Wallet. Please try again.",
   'client.ioshome': "Add to Home Screen",
+  'client.ioshome.step0': "If the link opened inside WhatsApp, first tap “Open in Safari”.",
   'client.ioshome.step1': "Tap Share (in Safari, it may be in the ⋯ menu)",
   'client.ioshome.step2': "Choose “Add to Home Screen”. Your QR is then one tap away.",
   'client.valid.until': 'Valid until {end}',

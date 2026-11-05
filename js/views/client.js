@@ -89,6 +89,7 @@ const SHARE_ICON = `<svg class="ios-share" viewBox="0 0 24 24" width="18" height
 function iosHomeHtml() {
   return `<button type="button" class="btn block secondary" id="ioshome" aria-expanded="false" aria-controls="ioshome-steps" style="margin-top:12px">${t('client.ioshome')}</button>
     <ol class="ios-steps" id="ioshome-steps" hidden>
+      <li>${t('client.ioshome.step0')}</li>
       <li>${t('client.ioshome.step1')} ${SHARE_ICON}</li>
       <li>${t('client.ioshome.step2')}</li>
     </ol>`;

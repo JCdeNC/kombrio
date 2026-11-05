@@ -48,6 +48,7 @@ export default {
   'client.wallet.google': "Añadir a Google Wallet",
   'client.wallet.error': "No se pudo abrir Google Wallet. Inténtelo de nuevo.",
   'client.ioshome': "Añadir a pantalla de inicio",
+  'client.ioshome.step0': "Si el enlace se abrió dentro de WhatsApp, toque primero «Abrir en Safari».",
   'client.ioshome.step1': "Toque Compartir (en Safari, puede estar en el menú ⋯)",
   'client.ioshome.step2': "Elija «Añadir a pantalla de inicio». Su QR queda a un toque.",
   'client.valid.until': 'Válido hasta el {end}',

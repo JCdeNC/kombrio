@@ -257,6 +257,7 @@ export default {
   'client.wallet.google': "Ajouter à Google Wallet",
   'client.wallet.error': "Impossible d'ouvrir Google Wallet. Réessayez.",
   'client.ioshome': "Mettre sur l'écran d'accueil",
+  'client.ioshome.step0': "Si le lien s'est ouvert dans WhatsApp, touchez d'abord « Ouvrir dans Safari ».",
   'client.ioshome.step1': "Touchez Partager (dans Safari, parfois dans le menu ⋯)",
   'client.ioshome.step2': "Choisissez « Sur l'écran d'accueil ». Votre QR est alors à portée de doigt.",
   'client.valid.until': 'Valable jusqu\'au {end}',

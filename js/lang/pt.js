@@ -257,6 +257,7 @@ export default {
   'client.wallet.google': "Adicionar à Carteira do Google",
   'client.wallet.error': "Não foi possível abrir a Carteira do Google. Tente de novo.",
   'client.ioshome': "Adicionar à Tela de Início",
+  'client.ioshome.step0': "Se o link abriu dentro do WhatsApp, toque primeiro em « Abrir no Safari ».",
   'client.ioshome.step1': "Toque em Compartilhar (no Safari, pode estar no menu ⋯)",
   'client.ioshome.step2': "Escolha « Adicionar à Tela de Início ». O seu QR fica a um toque.",
   'client.valid.until': 'Válido até {end}',
