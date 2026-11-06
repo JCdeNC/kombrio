@@ -439,6 +439,8 @@ async function transactions({ visits, adjustments, guide, partner, cur, city }) 
 }
 
 // Journal non modifiable des opérations.
+// Libellé d'un événement du journal ; sans traduction, le nom technique devient des mots lisibles.
+const evLabel = (ev) => { const s = tRaw(`log.${ev}`); return s === `log.${ev}` ? ev.replace(/_/g, ' ') : s; };
 async function journal({ visits, paymentList, payoutList }) {
   const lang = getLang();
   const rows = await store.listLedger(300);
@@ -455,7 +457,7 @@ async function journal({ visits, paymentList, payoutList }) {
       <p class="hint">${t('admin.log.hint')}</p>
       ${rows.length ? `<div class="table-wrap"><table>
         <tr><th>${t('common.date')}</th><th>${t('admin.log.who')}</th><th>${t('admin.log.event')}</th><th>${t('admin.log.ref')}</th><th>${t('admin.log.detail')}</th></tr>
-        ${rows.map((r) => `<tr><td style="white-space:nowrap">${fmtMoment(r.at, lang)}</td><td>${esc(r.actor_kind)}</td><td>${esc(tRaw(`log.${r.event}`))}</td><td>${esc(ref(r))}</td><td class="hint">${detail(r.data)}</td></tr>`).join('')}
+        ${rows.map((r) => `<tr><td style="white-space:nowrap">${fmtMoment(r.at, lang)}</td><td>${esc(r.actor_kind)}</td><td>${esc(evLabel(r.event))}</td><td>${esc(ref(r))}</td><td class="hint">${detail(r.data)}</td></tr>`).join('')}
       </table></div>` : `<p class="hint">${t('admin.log.none')}</p>`}
     </div>`,
   };

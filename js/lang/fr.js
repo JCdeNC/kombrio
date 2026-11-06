@@ -567,4 +567,14 @@ export default {
   'log.commission_adjusted': 'Correction après encaissement',
   'log.adjustment_settled': 'Correction régularisée avec le partenaire',
   'log.lot0_backfill': 'Mise à niveau (taux et parts figés)',
+  // K-31 : libellés du journal (parrainage, partenaire, guide)
+  'log.commission_rate_set': 'Taux de commission modifié par le partenaire',
+  'log.partner_suspended_late': 'Partenaire suspendu (retard de paiement)',
+  'log.referral_enabled_set': 'Parrainage activé ou désactivé',
+  'log.referral_signup': 'Inscription avec un code de parrainage',
+  'log.referral_month_closed': 'Primes de parrainage calculées pour le mois',
+  'log.referral_reward_validate': 'Prime de parrainage validée',
+  'log.referral_reward_pay': 'Prime de parrainage versée',
+  'log.referral_reward_cancel': 'Prime de parrainage annulée',
+  'log.weekly_payout_set': 'Option paiement à la semaine modifiée par le guide',
 };

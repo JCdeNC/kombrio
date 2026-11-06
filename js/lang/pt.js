@@ -567,4 +567,14 @@ export default {
   'log.commission_adjusted': 'Correção após recebimento',
   'log.adjustment_settled': 'Correção regularizada com o parceiro',
   'log.lot0_backfill': 'Atualização (taxas e partes fixadas)',
+  // K-31 : rótulos do registro (indicação, parceiro, guia)
+  'log.commission_rate_set': 'Taxa de comissão alterada pelo parceiro',
+  'log.partner_suspended_late': 'Parceiro suspenso (pagamento atrasado)',
+  'log.referral_enabled_set': 'Indicação ativada ou desativada',
+  'log.referral_signup': 'Cadastro com código de indicação',
+  'log.referral_month_closed': 'Bônus de indicação calculados para o mês',
+  'log.referral_reward_validate': 'Bônus de indicação validado',
+  'log.referral_reward_pay': 'Bônus de indicação pago',
+  'log.referral_reward_cancel': 'Bônus de indicação cancelado',
+  'log.weekly_payout_set': 'Opção de pagamento semanal alterada pelo guia',
 };
