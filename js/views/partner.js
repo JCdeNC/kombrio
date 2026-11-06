@@ -121,6 +121,7 @@ export async function partnerView([token, action, visitId], ctx) {
 
   // La caisse n'a accès qu'aux passages qu'elle vient d'enregistrer.
   if (space.role !== 'manager' && action !== 'passage' && action !== 'deja') return spaceView(space);
+  if (['visitas', 'pagamentos', 'config'].includes(action)) return spaceView(space, action);
   if (action === 'declarar') return declareManyView(space);
   if (action === 'pagar') return payView(space);
   if (action === 'relatorio') return reportPage(space, visitId);
@@ -179,39 +180,99 @@ function txLine(v, city, lang) {
   </li>`;
 }
 
-function spaceView({ partner, city, visits, payments, adjustments = [], key, role, loggedIn }) {
+// Espace du gérant (v32) : tableau de bord à onglets, visites traitées en groupe (cases à cocher), liste « À faire ».
+const PD_TABS = ['painel', 'visitas', 'pagamentos', 'config'];
+const ageDays = (iso) => (iso ? Math.floor((Date.now() - new Date(iso)) / 864e5) : 0);
+const doneKey = (pid, month) => `kb-todo-${pid}-${month}`;
+const readDone = (k) => { try { return new Set(JSON.parse(localStorage.getItem(k) || '[]')); } catch { return new Set(); } };
+const saveDone = (k, s) => { try { localStorage.setItem(k, JSON.stringify([...s])); } catch { /* rien */ } };
+
+export function spaceView(space, tab = 'painel') {
+  const { partner, city, visits, payments, adjustments = [], key, role, loggedIn } = space;
   if (role !== 'manager') return counterView({ partner, city, visits, key });
   const lang = getLang();
   const c = (n) => cents(n, city.currency, lang);
-  const toDeclare = visits.filter((v) => v.status === 'visited').length;
+  const base = `#/p/${encodeURIComponent(key)}`;
+  const month = monthOf(new Date().toISOString(), city.timezone);
+  const rate = Math.round(partner.commissionRate * 100);
+  const toDeclare = visits.filter((v) => v.status === 'visited');
   const toPay = visits.filter((v) => v.status === 'declared');
-  const toPayCents = toPay.reduce((s, v) => s + v.declaredCents, 0);
+  const extraDue = adjustments.filter((a) => a.partnerStatus === 'extra_due');
+  const payCents = toPay.reduce((s, v) => s + (v.declaredCents || 0), 0) + extraDue.reduce((s, a) => s + a.deltaCents, 0);
+  const late = toPay.length ? Math.max(...toPay.map((v) => ageDays(v.declaredAt))) : 0;
+  const lastPay = payments[0];
+  const rejected = lastPay && lastPay.status === 'rejected' && toPay.length ? lastPay : null;
+  const inMonth = visits.filter((v) => monthOf(v.at, city.timezone) === month && v.status !== 'cancelled');
+  const paidMonth = payments.filter((y) => y.status === 'verified' && y.verifiedAt && monthOf(y.verifiedAt, city.timezone) === month).reduce((s, y) => s + y.cents, 0);
+  const fresh = !visits.length && !payments.length;
+  const dk = doneKey(partner.id, month);
+  const done = readDone(dk);
 
-  return {
-    html: `
-      <div class="spread"><h1>${esc(partner.name)}</h1>${loggedIn ? `<button class="btn ghost small no-print" id="logout">${t('common.logout')}</button>` : ''}</div>
-      <p class="hint">${partner.managerName ? t('pm.hello', { name: partner.managerName }) : t('manager.badge')}</p>
-      ${toDeclare ? `<div class="notice">${t('partner.nodeclared', { n: toDeclare })}
-        <a class="btn block" style="margin-top:10px" href="#/p/${encodeURIComponent(key)}/declarar">${t('partner.declare.open')}</a></div>` : ''}
-      ${toPay.length ? `<div class="notice warn">${t('partner.topay', { n: toPay.length, amount: c(toPayCents) })}
-        <a class="btn block" style="margin-top:10px" href="#/p/${encodeURIComponent(key)}/pagar">${t('partner.pay.button')}</a></div>` : ''}
-      <div class="card">
-        <h2>${t('partner.visits')}</h2>
-        ${visits.length ? `<ul class="list">${visits.map((v) => txLine(v, city, lang)).join('')}</ul>` : `<p class="hint">${t('partner.visits.none')}</p>`}
-      </div>
-      ${payments.length ? `<div class="card"><h2>${t('partner.payments')}</h2><ul class="list">${payments.map((y) => `<li>
-          <div class="spread"><b>${t('partner.payment.line', { num: y.num, amount: c(y.cents) })}</b><span class="badge ${y.status === 'verified' ? 'ok' : y.status === 'rejected' ? 'bad' : 'warn'}">${t(`payment.${y.status}`)}</span></div>
-          <div class="hint">${fmtMoment(y.submittedAt, lang, city.timezone)}${y.note ? ` · ${esc(y.note)}` : ''}</div></li>`).join('')}</ul></div>` : ''}
-      ${adjustmentsCard(adjustments, city, lang)}
-      <div class="card no-print">
-        <h2>${t('report.card')}</h2>
-        <p class="hint">${t('report.card.hint')}</p>
-        <a class="btn secondary" href="#/p/${encodeURIComponent(key)}/relatorio">${t('report.open')}</a>
-      </div>
-      <form class="card" id="rate">
+  // Bandeaux : suspension, retards (J+7, J+15), paiement refusé, bienvenue.
+  let banner = '';
+  if (partner.status === 'paused') banner = `<div class="notice bad"><b>${t('pd.susp.title')}</b><br>${t('pd.susp.text', { amount: c(payCents) })}</div>`;
+  else if (late >= 15) banner = `<div class="notice bad"><b>${t('pd.late15.title')}</b><br>${t('pd.late15.text', { amount: c(payCents) })}</div>`;
+  else if (late >= 7) banner = `<div class="notice warn"><b>${t('pd.late7.title', { n: late })}</b><br>${t('pd.late7.text', { amount: c(payCents) })}</div>`;
+  if (rejected) banner += `<div class="notice bad"><b>${t('pd.rejected.title', { num: rejected.num })}</b><br>${esc(rejected.note || '')} ${t('pd.rejected.text')}</div>`;
+  if (fresh) banner += `<div class="notice">${t('pd.welcome')}</div>`;
+
+  // Une ligne de visite : case à cocher si une action est possible, addition à saisir si elle n'est pas déclarée.
+  const row = (v) => {
+    const can = ['visited', 'declared'].includes(v.status) && partner.status !== 'paused';
+    const inv = v.status === 'visited'
+      ? `<input class="pd-inv" data-inv="${esc(v.id)}" inputmode="decimal" placeholder="${t('pd.col.bill')}" aria-label="${esc(tRaw('pd.col.bill'))} ${esc(v.client || '')}">`
+      : `<span class="pd-num">${v.invoiceCents == null ? '—' : c(v.invoiceCents)}</span>`;
+    return `<label class="pd-row" data-v="${v.status}">
+      <span class="pd-c">${can ? `<input type="checkbox" data-sel="${esc(v.id)}" data-st="${v.status}" aria-label="${esc(v.client || '')}">` : ''}</span>
+      <span class="pd-d">${fmtDay(v.at.slice(0, 10), lang)}</span>
+      <span class="pd-who"><b>${esc(v.client || '?')}</b><small>${esc(v.guideName || '?')} · ${t('scan.people', { n: v.peopleServed })} · ${esc(store.txNum(v.num))}${v.statusNote && ['disputed', 'cancelled'].includes(v.status) ? ` · ${esc(v.statusNote)}` : ''}</small></span>
+      <span class="pd-st">${statusBadge(v, 'partner')}</span>
+      <span class="pd-i">${inv}</span>
+      <span class="pd-num pd-com" data-com="${esc(v.id)}">${v.declaredCents == null ? '—' : c(v.declaredCents)}</span>
+    </label>`;
+  };
+  const visitsCard = (title, list, filters) => `<div class="card pd-card">
+      <div class="spread" style="padding:12px 14px 6px"><h2 style="margin:0">${title}</h2>
+        ${filters ? `<select id="pd-filter" style="width:auto">${['all', 'visited', 'declared', 'verifying', 'paid'].map((f) => `<option value="${f}">${t(`pd.f.${f}`)}</option>`).join('')}</select>` : ''}</div>
+      ${list.length ? `<div class="pd-rows"><div class="pd-row pd-head"><span></span><span>${t('pd.col.date')}</span><span>${t('pd.col.who')}</span><span>${t('pd.col.status')}</span><span class="pd-r">${t('pd.col.bill')}</span><span class="pd-r">${t('pd.col.com', { rate })}</span></div>
+        ${list.map(row).join('')}</div>
+        <div class="pd-bar"><span id="pd-sel">${t('pd.sel.none')}</span>
+          <span class="row" style="gap:6px"><button class="btn secondary small" id="pd-declare" disabled>${t('pd.declare')}</button><button class="btn small" id="pd-pay" disabled>${t('pd.pay')}</button></span></div>`
+      : `<p class="hint" style="padding:0 14px 14px">${t('pd.empty')}</p>`}
+    </div>`;
+
+  const todo = [];
+  if (fresh || !partner.offer) todo.push(['offer', t('pd.todo.offer')]);
+  if (fresh) todo.push(['qr', t('pd.todo.qr')], ['rate', t('pd.todo.rate', { rate })]);
+  if (toDeclare.length) todo.push([`decl-${toDeclare.length}`, t('pd.todo.declare', { n: toDeclare.length })]);
+  if (payCents > 0) todo.push([`pay-${payCents}`, t('pd.todo.pay', { amount: c(payCents) })]);
+  adjustments.filter((a) => a.partnerStatus === 'refund_due').forEach((a) => todo.push([`ref-${a.num}`, t('pd.todo.refund', { amount: c(-a.deltaCents), num: store.adjNum(a.num) })]));
+  if (rejected) todo.push([`resend-${rejected.num}`, t('pd.todo.resend')]);
+  if (!fresh) todo.push(['report', t('pd.todo.report')]);
+  const left = todo.filter(([k]) => !done.has(k)).length;
+  const todoCard = `<div class="card"><div class="spread"><h2 style="margin:0">${t('pd.todo.title')}</h2><span class="hint">${t('pd.todo.left', { n: left })}</span></div>
+    <div class="pd-todo">${todo.length ? todo.map(([k, l]) => `<label class="${done.has(k) ? 'pd-done' : ''}"><input type="checkbox" data-todo="${esc(k)}"${done.has(k) ? ' checked' : ''}> ${l}</label>`).join('') : `<p class="hint">${t('pd.todo.none')}</p>`}</div></div>`;
+  const payBadge = (y) => `<span class="badge ${y.status === 'verified' ? 'ok' : y.status === 'rejected' ? 'bad' : 'warn'}">${t(`payment.${y.status}`)}</span>`;
+  const lastCard = `<div class="card"><h2>${t('pd.last')}</h2>${lastPay ? `<div class="spread"><span>${t('partner.payment.line', { num: lastPay.num, amount: c(lastPay.cents) })}<br><span class="hint">${fmtMoment(lastPay.submittedAt, lang, city.timezone)}</span></span>${payBadge(lastPay)}</div>` : `<p class="hint">${t('pd.last.none')}</p>`}</div>`;
+  const shortcuts = `<div class="card"><h2>${t('pd.shortcuts')}</h2><div class="pd-links">
+      <a href="${base}/config">${t('partner.qr.title')}</a><a href="${base}/config">${t('partner.offer.title')}</a>
+      <a href="${base}/relatorio">${t('report.card')}</a><a href="${base}/config">${t('partner.rate.title')}</a></div></div>`;
+
+  const kpis = `<div class="pd-kpis">
+      <div class="pd-kpi"><span>${t('pd.k.visits')}</span><b>${inMonth.length}</b><em>${t('pd.k.people', { n: inMonth.reduce((s, v) => s + v.peopleServed, 0) })}</em></div>
+      <div class="pd-kpi"><span>${t('pd.k.bills')}</span><b>${c(inMonth.reduce((s, v) => s + (v.invoiceCents || 0), 0))}</b><em>${t('pd.k.rate', { rate })}</em></div>
+      <div class="pd-kpi ${late >= 15 || partner.status === 'paused' ? 'bad' : payCents > 0 ? 'warn' : ''}"><span>${t('pd.k.topay')}</span><b>${c(payCents)}</b><em>${payCents > 0 ? (late >= 7 ? t('pd.k.late', { n: late }) : t('pd.k.due')) : t('pd.k.nothing')}</em></div>
+      <div class="pd-kpi"><span>${t('pd.k.paid')}</span><b>${c(paidMonth)}</b><em>${paidMonth ? t('pd.k.confirmed') : '—'}</em></div>
+    </div>`;
+
+  const payHistory = `<div class="card"><h2>${t('partner.payments')}</h2>${payments.length ? `<ul class="list">${payments.map((y) => `<li>
+      <div class="spread"><b>${t('partner.payment.line', { num: y.num, amount: c(y.cents) })}</b>${payBadge(y)}</div>
+      <div class="hint">${fmtMoment(y.submittedAt, lang, city.timezone)}${y.note ? ` · ${esc(y.note)}` : ''}</div></li>`).join('')}</ul>` : `<p class="hint">${t('pd.last.none')}</p>`}</div>`;
+
+  const settings = `<form class="card" id="rate">
         <h2>${t('partner.rate.title')}</h2>
         <p class="hint">${t('partner.rate.hint')}</p>
-        <div class="field"><select name="rate">${[5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 20].map((n) => `<option value="${n / 100}"${Math.round(partner.commissionRate * 100) === n ? ' selected' : ''}>${n} %${n === 10 ? ` (${t('partner.rate.suggested')})` : ''}</option>`).join('')}</select></div>
+        <div class="field"><select name="rate">${[5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 20].map((n) => `<option value="${n / 100}"${rate === n ? ' selected' : ''}>${n} %${n === 10 ? ` (${t('partner.rate.suggested')})` : ''}</option>`).join('')}</select></div>
         <button class="btn secondary">${t('common.save')}</button>
       </form>
       <form class="card" id="offer">
@@ -226,22 +287,87 @@ function spaceView({ partner, city, visits, payments, adjustments = [], key, rol
         <div class="qr">${qrSvg(appLink('partner', `p/${partner.token}`))}</div>
         <button class="btn ghost no-print" id="print">${t('partner.qr.print')}</button>
       </div>
-      <p class="hint no-print">${t('partner.linked', { name: partner.name })} <a href="#" id="unlink">${t('partner.unlink')}</a></p>`,
+      <div class="card no-print"><h2>${t('report.card')}</h2><p class="hint">${t('report.card.hint')}</p>
+        <a class="btn secondary" href="${base}/relatorio">${t('report.open')}</a></div>
+      <p class="hint no-print">${t('partner.linked', { name: partner.name })} <a href="#" id="unlink">${t('partner.unlink')}</a></p>`;
+
+  const open = visits.filter((v) => ['visited', 'declared', 'verifying', 'disputed'].includes(v.status));
+  const body = {
+    painel: `${kpis}<div class="pd-cols">${visitsCard(t('pd.totreat'), open, false)}<div class="pd-side">${todoCard}${adjustmentsCard(adjustments, city, lang)}${lastCard}${shortcuts}</div></div>`,
+    visitas: visitsCard(t('pd.all'), visits, true),
+    pagamentos: `${visitsCard(t('pd.topay'), toPay, false)}${adjustmentsCard(adjustments, city, lang)}${payHistory}`,
+    config: settings,
+  }[tab];
+  const counts = { painel: toDeclare.length + toPay.length + extraDue.length, visitas: toDeclare.length, pagamentos: toPay.length + extraDue.length, config: 0 };
+  const tabsNav = `<nav class="tabs no-print">${PD_TABS.map((k) => `<a href="${base}${k === 'painel' ? '' : `/${k}`}" class="${k === tab ? 'on' : ''}">${t(`pd.tab.${k}`)}${counts[k] ? `<span class="todo">${counts[k]}</span>` : ''}</a>`).join('')}
+      <a href="${base}/relatorio">${t('pd.tab.relatorio')}</a></nav>`;
+
+  return {
+    html: `
+      <div class="spread"><div><h1 style="margin-bottom:2px">${esc(partner.name)}</h1>
+        <p class="hint" style="margin:0">${t(`ptype.${partner.type}`)}${partner.area ? ` · ${esc(partner.area)}` : ''} · ${t('pd.k.rate', { rate })}${partner.managerName ? ` · ${t('pm.hello', { name: partner.managerName })}` : ''}</p></div>
+        ${loggedIn ? `<button class="btn ghost small no-print" id="logout">${t('common.logout')}</button>` : ''}</div>
+      ${tabsNav}${banner}${body}`,
     mount(root, ctx) {
-      root.querySelector('#rate').onsubmit = async (e) => {
+      const out = root.querySelector('#logout');
+      if (out) out.onclick = async () => { await store.signOut(); try { localStorage.removeItem(ME_KEY); } catch { /* rien */ } location.hash = ''; };
+      root.querySelectorAll('[data-todo]').forEach((b) => { b.onchange = () => { b.checked ? done.add(b.dataset.todo) : done.delete(b.dataset.todo); saveDone(dk, done); b.parentElement.classList.toggle('pd-done', b.checked); }; });
+      const filter = root.querySelector('#pd-filter');
+      const PAIDS = ['received', 'payout_pending', 'paid'];
+      if (filter) filter.onchange = () => root.querySelectorAll('.pd-row[data-v]').forEach((r) => {
+        r.hidden = filter.value !== 'all' && r.dataset.v !== filter.value && !(filter.value === 'paid' && PAIDS.includes(r.dataset.v));
+      });
+      // Sélection : total de la commission, déclaration groupée, paiement des visites cochées.
+      const byId = (id) => visits.find((v) => v.id === id);
+      const sel = () => [...root.querySelectorAll('[data-sel]:checked')].map((b) => byId(b.dataset.sel));
+      const billOf = (v) => { const el = root.querySelector(`[data-inv="${v.id}"]`); return el && el.value.trim() !== '' ? parseCents(el.value) : null; };
+      const refresh = () => {
+        const list = sel(); const decl = list.filter((v) => v.status === 'visited'); const pay = list.filter((v) => v.status === 'declared');
+        const missing = decl.filter((v) => billOf(v) == null).length;
+        const total = pay.reduce((s, v) => s + v.declaredCents, 0) + decl.reduce((s, v) => s + (billOf(v) != null ? Math.round(billOf(v) * (v.rate ?? partner.commissionRate)) : 0), 0);
+        const info = root.querySelector('#pd-sel');
+        if (info) info.textContent = list.length ? tRaw('pd.sel.n', { n: list.length, amount: c(total) }) + (missing ? ` · ${tRaw('pd.sel.missing', { n: missing })}` : '') : tRaw('pd.sel.none');
+        const bd = root.querySelector('#pd-declare'); if (bd) bd.disabled = !decl.length || missing > 0 || pay.length > 0;
+        const bp = root.querySelector('#pd-pay'); if (bp) bp.disabled = !pay.length || decl.length > 0;
+      };
+      root.querySelectorAll('[data-sel]').forEach((b) => { b.onchange = refresh; });
+      root.querySelectorAll('[data-inv]').forEach((inp) => {
+        inp.oninput = () => {
+          const v = byId(inp.dataset.inv); const cts = billOf(v);
+          const box = root.querySelector(`[data-sel="${v.id}"]`); if (box && cts != null) box.checked = true;
+          const com = root.querySelector(`[data-com="${v.id}"]`); if (com) com.textContent = cts == null ? '—' : c(Math.round(cts * (v.rate ?? partner.commissionRate)));
+          refresh();
+        };
+      });
+      const bd = root.querySelector('#pd-declare');
+      if (bd) bd.onclick = async (e) => {
+        e.preventDefault();
+        const items = sel().filter((v) => v.status === 'visited').map((v) => ({ visit: v.id, cents: billOf(v) }));
+        if (!items.length || items.some((i) => i.cents == null)) { notify(tRaw('pd.sel.missing', { n: 1 })); return; }
+        bd.disabled = true;
+        try { const n = await store.declareCommissions(key, items); ctx.refresh(tRaw('partner.declare.saved', { n })); } catch { bd.disabled = false; notify(tRaw('err.generic')); }
+      };
+      const bp = root.querySelector('#pd-pay');
+      if (bp) bp.onclick = (e) => {
+        e.preventDefault();
+        try { sessionStorage.setItem('kb-pay-sel', JSON.stringify(sel().filter((v) => v.status === 'declared').map((v) => v.id))); } catch { /* rien */ }
+        ctx.go(`p/${key}/pagar`);
+      };
+      const rateForm = root.querySelector('#rate');
+      if (rateForm) rateForm.onsubmit = async (e) => {
         e.preventDefault();
         await store.setCommissionRate(key, Number(new FormData(e.target).get('rate')));
         ctx.refresh(tRaw('common.saved'));
       };
-      root.querySelector('#offer').onsubmit = async (e) => {
+      const offerForm = root.querySelector('#offer');
+      if (offerForm) offerForm.onsubmit = async (e) => {
         e.preventDefault();
         await store.setPartnerOffer(key, new FormData(e.target).get('offer'));
         ctx.refresh(tRaw('common.saved'));
       };
-      root.querySelector('#print').onclick = () => window.print();
-      const out = root.querySelector('#logout');
-      if (out) out.onclick = async () => { await store.signOut(); try { localStorage.removeItem(ME_KEY); } catch { /* rien */ } location.hash = ''; };
-      root.querySelector('#unlink').onclick = (e) => {
+      const pr = root.querySelector('#print'); if (pr) pr.onclick = () => window.print();
+      const un = root.querySelector('#unlink');
+      if (un) un.onclick = (e) => {
         e.preventDefault();
         try { localStorage.removeItem(ME_KEY); } catch { /* rien */ }
         location.hash = '';
@@ -309,6 +435,10 @@ function payView({ partner, city, visits, key }) {
   const c = (n) => cents(n, city.currency, lang);
   const todo = visits.filter((v) => v.status === 'declared');
   const pixKey = pixKeyOf(city);
+  // Visites cochées dans le tableau de bord (sinon : toutes).
+  let pre = null;
+  try { pre = JSON.parse(sessionStorage.getItem('kb-pay-sel') || 'null'); sessionStorage.removeItem('kb-pay-sel'); } catch { pre = null; }
+  if (pre && !pre.length) pre = null;
   const back = `#/p/${encodeURIComponent(key)}`;
   if (!todo.length) return { html: `<div class="notice">${t('partner.pay.nothing')}</div><a class="btn ghost" href="${back}">${t('partner.space')}</a>` };
   return {
@@ -319,7 +449,7 @@ function payView({ partner, city, visits, key }) {
         <p class="hint">${t('partner.pay.hint')}</p>
         <ul class="list">${todo.map((v) => `<li>
           <label class="spread" style="font-weight:400;align-items:center">
-            <span><input type="checkbox" name="sel" value="${esc(v.id)}" checked style="width:auto;margin-right:8px"><b>${esc(v.client || '?')}</b>
+            <span><input type="checkbox" name="sel" value="${esc(v.id)}"${!pre || pre.includes(v.id) ? ' checked' : ''} style="width:auto;margin-right:8px"><b>${esc(v.client || '?')}</b>
               <span class="hint"> · ${esc(store.txNum(v.num))} · ${fmtDay(v.at.slice(0, 10), lang)}</span></span>
             <b>${c(v.declaredCents)}</b>
           </label></li>`).join('')}</ul>
