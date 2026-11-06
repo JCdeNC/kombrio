@@ -577,4 +577,6 @@ export default {
   'log.referral_reward_pay': 'Bônus de indicação pago',
   'log.referral_reward_cancel': 'Bônus de indicação cancelado',
   'log.weekly_payout_set': 'Opção de pagamento semanal alterada pelo guia',
+  'guide.stay.err.long': 'Uma estadia dura no máximo {n} dias. Para uma estadia mais longa, crie um segundo QR.',
+  'log.stay_max_days_set': 'Duração máxima das estadias definida',
 };

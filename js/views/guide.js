@@ -4,6 +4,8 @@ import { esc, money, cents, locale, fmtDay, fmtMoment, todayIn, addDays, stayIsV
 import * as store from '../store.js';
 import { validity, statusBadge, guideAmounts, notFound, forgotLink, mountForgot, resetView } from './shared.js';
 import { maskTaxId, qrCardBlob, shareOrDownload } from '../util.js';
+// Durée maximale d'un séjour (K-15, décidé le 06/11/2026) : les clients restent au plus une semaine. Même règle dans la base (script 014).
+const MAX_STAY_DAYS = 7;
 
 export async function guideView(params, ctx) {
   // Lien « nouveau mot de passe » : il suffit d'être connecté par le lien, même sans fiche guide complète.
@@ -173,6 +175,7 @@ async function dashboardView(me, city) {
         e.preventDefault();
         const f = Object.fromEntries(new FormData(e.target));
         if (f.end < f.start) { notify(tRaw('guide.stay.err.dates')); return; }
+        if (addDays(f.start, MAX_STAY_DAYS) < f.end) { notify(tRaw('guide.stay.err.long', { n: MAX_STAY_DAYS })); return; }
         const s = await store.addStay(me.id, { client: f.client.trim(), people: Number(f.people), start: f.start, end: f.end });
         ctx.go(`sejour/${s.id}`, tRaw('guide.stay.created'));
       };

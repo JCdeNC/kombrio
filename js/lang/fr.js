@@ -577,4 +577,6 @@ export default {
   'log.referral_reward_pay': 'Prime de parrainage versée',
   'log.referral_reward_cancel': 'Prime de parrainage annulée',
   'log.weekly_payout_set': 'Option paiement à la semaine modifiée par le guide',
+  'guide.stay.err.long': 'Un séjour dure au plus {n} jours. Pour un séjour plus long, créez un second QR.',
+  'log.stay_max_days_set': 'Durée maximale des séjours fixée',
 };
