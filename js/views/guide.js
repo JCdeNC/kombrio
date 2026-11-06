@@ -5,6 +5,7 @@ import * as store from '../store.js';
 import { validity, statusBadge, guideAmounts, notFound, forgotLink, mountForgot, resetView } from './shared.js';
 import { maskTaxId, qrCardBlob, shareOrDownload, photoToJpeg } from '../util.js';
 import { helpButton, problemLink, mountHelp, topicLabel, alertStatus } from './help.js';
+import { WEEKLY_OPTION } from '../config.js';
 // Durée maximale d'un séjour (K-15, décidé le 06/11/2026) : les clients restent au plus une semaine. Même règle dans la base (script 014).
 const MAX_STAY_DAYS = 7;
 
@@ -263,8 +264,8 @@ async function dashboardView(me, city, tab = 'inicio') {
       <div class="hint">${t(a.payoutId ? 'g.adj.done' : 'g.adj.next')}</div></li>`).join('')}</ul></div>` : '';
 
   const contaBody = `${pixCard(me, pixChecks, payouts, cur, lang)}
-      <label class="card" style="display:block"><input type="checkbox" id="weekly"${me.weeklyPayout ? ' checked' : ''}> <b>${t('guide.weekly.title')}</b>
-        <span class="hint" style="display:block">${t('guide.weekly.hint')}</span></label>
+      ${WEEKLY_OPTION || me.weeklyPayout ? `<label class="card" style="display:block"><input type="checkbox" id="weekly"${me.weeklyPayout ? ' checked' : ''}> <b>${t('guide.weekly.title')}</b>
+        <span class="hint" style="display:block">${t('guide.weekly.hint')}</span></label>` : ''}
       <div class="card"><div class="spread"><h2 style="margin:0">${t('g.cad.title')}</h2>
         <span class="badge ${!cad ? '' : cad < today ? 'bad' : cad < soon60 ? 'warn' : 'ok'}">${t(!cad ? 'g.cad.unknown' : cad < today ? 'g.cad.st.expired' : cad < soon60 ? 'g.cad.st.soon' : 'g.cad.st.ok')}</span></div>
         <p class="hint" style="margin:6px 0 0">${esc(me.license || '')}${cad ? ` · ${t('g.cad.until', { date: fmtDay(cad, lang) })}` : ''}</p></div>
