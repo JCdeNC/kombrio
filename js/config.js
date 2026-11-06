@@ -7,4 +7,4 @@ export const SUPABASE_KEY = 'sb_publishable_xAkmmV2JSogQ7F45fp9OAQ_gqGhd6cb';
 
 // Bouton « Adicionar à Carteira do Google » sur la page client.
 // À passer à true une fois la fonction Supabase « carteira-google » déployée et ses secrets remplis.
-export const WALLET_GOOGLE = false;
+export const WALLET_GOOGLE = true;
