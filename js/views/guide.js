@@ -544,7 +544,8 @@ async function badgeView(me, city) {
   const link = appLink('verify', tok.token);
   const initials = String(me.name || '?').split(/\s+/).filter(Boolean).map((w) => w[0]).slice(0, 2).join('').toUpperCase();
   const photo = me.photo && me.photo.startsWith('data:image/') ? `<img class="bd-photo" src="${esc(me.photo)}" alt="">` : `<div class="bd-photo">${esc(initials)}</div>`;
-  const cad = `${me.license ? `Cadastur ${esc(me.license)}` : ''}${me.cadasturValidUntil ? ` · ${tRaw('bdg.until', { date: fmtDay(me.cadasturValidUntil, 'pt') })}` : ''}`;
+  // Jamais le numéro saisi à l'inscription (il peut s'agir du CPF) : seulement la validité vérifiée par Kombrio.
+  const cad = me.cadasturValidUntil ? `Cadastur ${tRaw('bdg.until', { date: fmtDay(me.cadasturValidUntil, 'pt') })}` : '';
   const issued = tok.issued_at ? fmtDay(String(tok.issued_at).slice(0, 10), 'pt') : '';
   const front = `<div class="bdg" role="img" aria-label="${esc(tRaw('bdg.front'))}">
       <div class="bd-band"></div><div class="bd-slot"></div>
