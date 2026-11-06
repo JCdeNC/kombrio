@@ -68,7 +68,7 @@ export function initials(name) {
 
 // Racine du site (le dossier qui contient js/), en ligne comme sur le Mac.
 const ROOT = new URL('../', import.meta.url).href;
-export const APP_DIRS = { hub: '', client: 'client/', partner: 'partner/', guide: 'guide/', admin: 'admin/' };
+export const APP_DIRS = { hub: '', client: 'client/', partner: 'partner/', guide: 'guide/', admin: 'admin/', verify: 'g/' };
 
 // Lien absolu vers un écran d'une des 4 applications (ex. appLink('partner', 's/abc')).
 export function appLink(app, path = '') {

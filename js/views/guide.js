@@ -3,7 +3,7 @@ import { t, tRaw, getLang } from '../i18n.js';
 import { esc, money, cents, locale, fmtDay, fmtMoment, todayIn, addDays, stayIsValid, qrSvg, appLink, notify, validCpf, onlyDigits } from '../util.js';
 import * as store from '../store.js';
 import { validity, statusBadge, guideAmounts, notFound, forgotLink, mountForgot, resetView } from './shared.js';
-import { maskTaxId, qrCardBlob, shareOrDownload } from '../util.js';
+import { maskTaxId, qrCardBlob, shareOrDownload, photoToJpeg } from '../util.js';
 import { helpButton, problemLink, mountHelp, topicLabel, alertStatus } from './help.js';
 // Durée maximale d'un séjour (K-15, décidé le 06/11/2026) : les clients restent au plus une semaine. Même règle dans la base (script 014).
 const MAX_STAY_DAYS = 7;
@@ -29,6 +29,7 @@ export async function guideView(params, ctx) {
   if (params[0] === 'sejour') return stayView(me, city, params[1]);
   if (params[0] === 'releve') return statementView(me, city);
   if (params[0] === 'indicacao') return referralView(me, city);
+  if (params[0] === 'cracha') return badgeView(me, city);
   if (['clientes', 'ganhos', 'conta'].includes(params[0])) return dashboardView(me, city, params[0]);
   return dashboardView(me, city);
 }
@@ -267,6 +268,8 @@ async function dashboardView(me, city, tab = 'inicio') {
       <div class="card"><div class="spread"><h2 style="margin:0">${t('g.cad.title')}</h2>
         <span class="badge ${!cad ? '' : cad < today ? 'bad' : cad < soon60 ? 'warn' : 'ok'}">${t(!cad ? 'g.cad.unknown' : cad < today ? 'g.cad.st.expired' : cad < soon60 ? 'g.cad.st.soon' : 'g.cad.st.ok')}</span></div>
         <p class="hint" style="margin:6px 0 0">${esc(me.license || '')}${cad ? ` · ${t('g.cad.until', { date: fmtDay(cad, lang) })}` : ''}</p></div>
+      <a class="card" href="#/cracha" style="display:block;text-decoration:none;color:inherit"><div class="spread"><b>${t('bdg.card.title')}</b><span>→</span></div>
+        <span class="hint" style="display:block">${t('bdg.card.hint')}</span></a>
       <div class="card"><h2>${t('g.docs')}</h2><ul class="list">
         <li><a href="#/releve"><div class="spread"><span>${t('guide.statement.title')}</span><span>→</span></div></a></li></ul>
         <p class="hint">${t('g.docs.hint')}</p></div>
@@ -528,5 +531,76 @@ async function statementView(me, city) {
           }).join('')}
         </table></div>
       </div>` : ''}`,
+  };
+}
+
+// Crachá du guide (v35) : badge au format carte de crédit (54 × 85,6 mm), recto et verso, à imprimer.
+// Le QR mène à la page publique de vérification avec un code secret propre au badge (renouvelable si perdu).
+async function badgeView(me, city) {
+  const lang = getLang();
+  const back = `<p class="no-print"><a href="#/conta">← ${t('common.back')}</a></p>`;
+  const tok = await store.myBadgeToken();
+  if (!tok || !tok.ok) return { html: `${back}<div class="notice warn">${t('bdg.unavailable')}</div>` };
+  const link = appLink('verify', tok.token);
+  const initials = String(me.name || '?').split(/\s+/).filter(Boolean).map((w) => w[0]).slice(0, 2).join('').toUpperCase();
+  const photo = me.photo && me.photo.startsWith('data:image/') ? `<img class="bd-photo" src="${esc(me.photo)}" alt="">` : `<div class="bd-photo">${esc(initials)}</div>`;
+  const cad = `${me.license ? `Cadastur ${esc(me.license)}` : ''}${me.cadasturValidUntil ? ` · ${tRaw('bdg.until', { date: fmtDay(me.cadasturValidUntil, 'pt') })}` : ''}`;
+  const issued = tok.issued_at ? fmtDay(String(tok.issued_at).slice(0, 10), 'pt') : '';
+  const front = `<div class="bdg" role="img" aria-label="${esc(tRaw('bdg.front'))}">
+      <div class="bd-band"></div><div class="bd-slot"></div>
+      <div class="bd-top"><span class="bd-logo"><span class="bd-k">K</span>kombrio</span><span class="bd-pill">Guia parceiro</span></div>
+      ${photo}
+      <div class="bd-name">${esc(me.name)}</div>
+      <div class="bd-sub">Guia de turismo · ${esc(city.name || 'Rio de Janeiro')}</div>
+      <div class="bd-code">${esc(me.code || '')}</div>
+      ${cad ? `<div class="bd-cad">${cad}</div>` : ''}
+      <div class="bd-qr">${qrSvg(link)}</div>
+      <div class="bd-qrcap">Escaneie para verificar este guia</div>
+      <div class="bd-foot">kombrio.com.br</div>
+    </div>`;
+  const verso = `<div class="bdg back" role="img" aria-label="${esc(tRaw('bdg.back'))}">
+      <div class="bd-topline"></div><div class="bd-slot"></div>
+      <div><div class="bd-over">Para a loja parceira</div><h2>Este guia faz parte da rede Kombrio</h2></div>
+      <ol><li><span><b>Escaneie o QR da frente.</b> O perfil verificado do guia abre no celular.</span></li>
+        <li><span><b>Confira o nome e a foto</b> com a pessoa à sua frente.</span></li>
+        <li><span><b>Registre a visita</b> no aplicativo Kombrio, como sempre.</span></li></ol>
+      <div class="bd-box"><span><b>Perfil suspenso ou QR inválido?</b> Não registre a visita e avise a Kombrio.</span>
+        <span style="color:#5B6F78">O guia é independente e recomenda livremente. O turista é livre para comprar ou não.</span></div>
+      <div class="bd-small"><span>Crachá pessoal e intransferível.</span><span>Encontrou este crachá? contato@kombrio.com.br</span>${issued ? `<span>Emitido em ${esc(issued)}</span>` : ''}</div>
+      <div class="bd-foot">kombrio</div>
+    </div>`;
+  return {
+    html: `${back}
+      <div class="no-print"><h1>${t('bdg.title')}</h1><p class="hint">${t('bdg.intro')}</p></div>
+      <div class="badge-sheet">${front}${verso}</div>
+      <div class="card no-print">
+        <div class="row" style="gap:8px"><button class="btn" id="bdg-print">${t('bdg.print')}</button>
+          <a class="btn secondary" href="${esc(link)}" target="_blank" rel="noopener">${t('bdg.test')}</a></div>
+        <p class="hint" style="margin-top:10px">${t('bdg.print.hint')}</p>
+      </div>
+      <form class="card no-print" id="bdg-photo">
+        <h2>${t('bdg.photo.title')}</h2>
+        <p class="hint">${t('bdg.photo.hint')}</p>
+        <div class="field"><input type="file" name="photo" accept="image/*" required></div>
+        <button class="btn secondary small">${t('common.save')}</button>
+      </form>
+      <div class="card no-print"><h2>${t('bdg.lost.title')}</h2><p class="hint">${t('bdg.lost.hint')}</p>
+        <button class="btn ghost small" id="bdg-renew">${t('bdg.lost.btn')}</button></div>`,
+    mount(root, ctx) {
+      root.querySelector('#bdg-print').onclick = () => window.print();
+      root.querySelector('#bdg-photo').onsubmit = async (e) => {
+        e.preventDefault();
+        const file = e.target.photo.files[0]; if (!file) return;
+        try {
+          const jpg = await photoToJpeg(file, 480, 0.8);
+          const r = await store.setMyPhoto(jpg);
+          if (r && r.ok) ctx.refresh(tRaw('common.saved')); else notify(tRaw('bdg.photo.err'));
+        } catch { notify(tRaw('bdg.photo.err')); }
+      };
+      root.querySelector('#bdg-renew').onclick = async () => {
+        if (!confirm(tRaw('bdg.lost.confirm'))) return;
+        try { await store.renewBadgeToken(); ctx.refresh(tRaw('bdg.lost.done')); } catch { notify(tRaw('err.generic')); }
+      };
+    },
   };
 }

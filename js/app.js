@@ -11,6 +11,7 @@ import { clientView, clientHome } from './views/client.js';
 import { scanView } from './views/scan.js';
 import { partnerView, partnerHome, reportView, activateView, termsView } from './views/partner.js';
 import { adminView } from './views/admin.js';
+import { verifyView } from './views/verify.js';
 
 const APP = window.KOMBRIO_APP || 'hub';
 const ICON = new URL('../icon.svg', import.meta.url).href;
@@ -22,6 +23,7 @@ const APPS = {
   partner: { routes: { '': partnerHome, s: scanView, p: partnerView, r: reportView, ativar: activateView, termos: termsView }, lang: 'pt' },
   guide: { routes: { '': guideView }, lang: 'pt', all: true },
   admin: { routes: { '': adminView }, lang: 'fr', langs: ['fr', 'pt'], all: true },
+  verify: { routes: { '': verifyView }, lang: 'pt', all: true },
 };
 const conf = APPS[APP] || APPS.hub;
 setLangScope(APP);

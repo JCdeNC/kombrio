@@ -466,3 +466,20 @@ export async function adminFaqSolvedSince(iso) {
 export async function adminSetAlert(id, status, answer = null) {
   return check(await sb.rpc('admin_set_alert', { p_alert: id, p_status: status, p_answer: answer }));
 }
+
+/* ---------- Crachá du guide (v35, script 018) ---------- */
+// Le QR du badge contient un code secret (B-…), jamais le code public RIO-KG.
+export async function myBadgeToken() {
+  const { data, error } = await sb.rpc('my_badge_token');
+  return error ? null : data;
+}
+export async function renewBadgeToken() {
+  return check(await sb.rpc('renew_badge_token'));
+}
+export async function setMyPhoto(dataUrl) {
+  return check(await sb.rpc('set_my_photo', { p_photo: dataUrl }));
+}
+export async function guideBadge(token) {
+  const { data, error } = await sb.rpc('guide_badge', { p_token: token });
+  return error ? null : data;
+}
