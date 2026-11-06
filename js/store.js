@@ -483,3 +483,11 @@ export async function guideBadge(token) {
   const { data, error } = await sb.rpc('guide_badge', { p_token: token });
   return error ? null : data;
 }
+
+/* ---------- Actif / suspendu (v38, script 019) : l'admin suspend ou réactive, avec un motif au journal. ---------- */
+export async function adminSetGuideStatus(guideId, status, reason = null) {
+  return check(await sb.rpc('admin_set_guide_status', { p_guide: guideId, p_status: status, p_reason: reason }));
+}
+export async function adminSetPartnerStatus(partnerId, status, reason = null) {
+  return check(await sb.rpc('admin_set_partner_status', { p_partner: partnerId, p_status: status, p_reason: reason }));
+}

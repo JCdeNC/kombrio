@@ -240,7 +240,8 @@ async function validations({ guides, city, cadChecks }) {
     </div>
     ${expiring.length ? `<div class="card"><h2>${t('admin.cad.expiring')}</h2><ul class="list">${expiring.map((g) => `<li>
       <div class="spread"><b>${esc(g.name)}</b><span class="badge ${g.cadasturValidUntil && g.cadasturValidUntil >= today ? 'warn' : 'bad'}">${g.cadasturValidUntil ? t('admin.cad.until.short', { date: fmtDay(g.cadasturValidUntil, lang) }) : t('admin.cad.never')}</span></div>
-      <div class="hint">${esc(city(g.cityId)?.licenseLabel || '')} ${esc(g.license || '')}</div>${cadBlock(g)}</li>`).join('')}</ul></div>` : ''}`,
+      <div class="hint">${esc(city(g.cityId)?.licenseLabel || '')} ${esc(g.license || '')}</div>${cadBlock(g)}</li>`).join('')}</ul></div>` : ''}
+    ${activeCard(guides.filter((g) => ['validated', 'suspended'].includes(g.status)), 'guide')}`,
     mount(root, ctx) {
       root.querySelectorAll('[data-cad-open]').forEach((b) => { b.onclick = () => {
         const g = guides.find((x) => x.id === b.dataset.cadOpen);
@@ -261,6 +262,7 @@ async function validations({ guides, city, cadChecks }) {
           if (r && r.ok) ctx.refresh(tRaw('admin.cad.saved')); else notify(tRaw(r && r.reason === 'date' ? 'admin.cad.err.date' : 'err.generic'));
         } catch { notify(tRaw('err.generic')); }
       }; });
+      mountActive(root, ctx);
       root.querySelectorAll('[data-ok]').forEach((b) => { b.onclick = async () => { await store.setGuideStatus(b.dataset.ok, 'validated'); ctx.refresh(tRaw('admin.val.accepted')); }; });
       root.querySelectorAll('[data-no]').forEach((b) => { b.onclick = async () => { await store.setGuideStatus(b.dataset.no, 'refused'); ctx.refresh(tRaw('admin.val.refused')); }; });
     },
@@ -678,13 +680,48 @@ async function journal({ visits, paymentList, payoutList }) {
   };
 }
 
+// Boutons Actif / Suspendu (v38) : guides validés ou suspendus, et partenaires. Suspendre demande un motif (journal).
+const isOn = (kind, x) => (kind === 'guide' ? x.status === 'validated' : x.status === 'active');
+const activeToggle = (kind, x) => `<span class="row" style="gap:6px;align-items:center">
+    <span class="badge ${isOn(kind, x) ? 'ok' : 'bad'}">${t(isOn(kind, x) ? 'admin.act.on' : 'admin.act.off')}</span>
+    <button type="button" class="btn small ${isOn(kind, x) ? 'ghost' : ''}" data-act-kind="${kind}" data-act-id="${esc(x.id)}" data-act-on="${isOn(kind, x) ? '0' : '1'}" data-act-name="${esc(x.name)}">${t(isOn(kind, x) ? 'admin.act.suspend' : 'admin.act.reactivate')}</button></span>`;
+function activeCard(list, kind) {
+  if (!list.length) return '';
+  const sorted = [...list].sort((a, b) => Number(isOn(kind, a)) - Number(isOn(kind, b)) || a.name.localeCompare(b.name));
+  return `<div class="card"><h2>${t(kind === 'guide' ? 'admin.act.guides' : 'admin.act.partners')}</h2><p class="hint">${t(`admin.act.hint.${kind}`)}</p>
+    <ul class="list">${sorted.map((x) => `<li><div class="spread"><span><b>${esc(x.name)}</b>${x.code ? ` <span class="hint">${esc(x.code)}</span>` : ''}</span>${activeToggle(kind, x)}</div></li>`).join('')}</ul></div>`;
+}
+function mountActive(root, ctx) {
+  root.querySelectorAll('[data-act-kind]').forEach((b) => {
+    b.onclick = async () => {
+      const kind = b.dataset.actKind; const on = b.dataset.actOn === '1'; const name = b.dataset.actName;
+      let reason = null;
+      if (on) { if (!confirm(tRaw('admin.act.confirm.on', { name }))) return; }
+      else {
+        reason = prompt(tRaw(`admin.act.reason.${kind}`, { name }));
+        if (reason === null) return;
+        if (!reason.trim()) { notify(tRaw('admin.act.reason.required')); return; }
+      }
+      b.disabled = true;
+      try {
+        const r = kind === 'guide'
+          ? await store.adminSetGuideStatus(b.dataset.actId, on ? 'validated' : 'suspended', reason)
+          : await store.adminSetPartnerStatus(b.dataset.actId, on ? 'active' : 'paused', reason);
+        if (r && r.ok) ctx.refresh(tRaw(on ? 'admin.act.done.on' : 'admin.act.done.off', { name }));
+        else { b.disabled = false; notify(tRaw('err.generic')); }
+      } catch { b.disabled = false; notify(tRaw('err.generic')); }
+    };
+  });
+}
+
 async function partners({ partnerList, cityList, city }) {
   return {
     html: `<div class="card">
       <h2>${t('admin.part.title')}</h2>
       <button type="button" class="btn ghost small" id="suspend-late">${t('admin.part.late')}</button>
       <ul class="list">${partnerList.map((p) => `<li>
-        <div class="spread"><b>${esc(p.name)}</b><span class="hint">${t(`ptype.${p.type}`)} · ${esc(p.area || '')} · ${esc(city(p.cityId)?.name || '')}</span></div>
+        <div class="spread"><b>${esc(p.name)}</b>${activeToggle('partner', p)}</div>
+        <div class="hint">${t(`ptype.${p.type}`)} · ${esc(p.area || '')} · ${esc(city(p.cityId)?.name || '')}</div>
         <div class="hint">${t('admin.part.taxid')} ${p.taxId ? esc(fmtTaxId(p.taxId)) : `<b>${t('admin.missing')}</b>`}</div>
         ${p.offer ? `<div class="offer">${esc(p.offer)}</div>` : `<div class="hint">${t('admin.part.nooffer')}</div>`}
         <details style="margin-top:8px"><summary>${t('admin.part.showcase')}</summary>
@@ -740,6 +777,7 @@ async function partners({ partnerList, cityList, city }) {
       <button class="btn block">${t('admin.part.create')}</button>
     </form>`,
     mount(root, ctx) {
+      mountActive(root, ctx);
       maskTaxId(root.querySelector('#p-tax'));
       root.querySelectorAll('.pdetails').forEach((form) => {
         form.onsubmit = async (e) => {

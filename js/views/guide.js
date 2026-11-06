@@ -106,7 +106,7 @@ async function pendingView(me) {
   return {
     html: `
       <div class="spread"><h1>${t('guide.hello', { name: me.name })}</h1>${logoutButton()}</div>
-      <div class="notice warn">${t(me.status === 'refused' ? 'guide.refused' : 'guide.pending')}</div>`,
+      <div class="notice warn">${t(me.status === 'refused' ? 'guide.refused' : me.status === 'suspended' ? 'guide.suspended' : 'guide.pending')}</div>`,
     mount: mountLogout,
   };
 }
