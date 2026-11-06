@@ -534,7 +534,7 @@ export default {
   'log.visit_cancelled': 'Transação cancelada',
   'guide.sum.available': 'Disponível para você (recebido)',
   'guide.sum.expected': 'Anunciado pelos parceiros, ainda não recebido',
-  'guide.sum.note': 'As comissões são voluntárias: só o valor recebido é seu ({pct} %).',
+  'guide.sum.note': 'A comissão é prevista no contrato de cada parceiro (taxa negociada com ele). Você recebe {pct} % do valor efetivamente recebido pela Kombrio.',
   'guide.statement.open': 'Ver meu extrato detalhado',
   'guide.statement.title': 'Meu extrato de comissões',
   'guide.statement.hint': 'Cada transação: o que o parceiro declarou, o que a Kombrio realmente recebeu e a sua parte ({pct} % do recebido, fixada no dia da visita).',
@@ -969,4 +969,7 @@ export default {
   'log.badge_issued': 'Crachá emitido',
   'log.badge_renewed': 'Novo QR do crachá',
   'log.guide_photo_changed': 'Foto do guia alterada',
+  // v39 : réponses REV3 (addition, information du touriste).
+  'bill.rule': 'Valor da conta = consumo efetivamente pago pelo cliente, após descontos, sem a taxa de serviço (10 %) e sem gorjeta. Em caso de cancelamento ou devolução, peça uma correção à Kombrio.',
+  'client.disclosure': 'Alguns parceiros podem remunerar comercialmente as recomendações atribuídas ao seu guia e à Kombrio. Você continua totalmente livre para visitar ou não esses estabelecimentos e para comprar ou não.',
 };

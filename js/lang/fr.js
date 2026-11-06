@@ -534,7 +534,7 @@ export default {
   'log.visit_cancelled': 'Transaction annulée',
   'guide.sum.available': 'Disponible pour vous (encaissé)',
   'guide.sum.expected': 'Annoncé par les partenaires, pas encore encaissé',
-  'guide.sum.note': 'Les commissions sont volontaires : seul l\'encaissé vous revient ({pct} %).',
+  'guide.sum.note': 'La commission est prévue au contrat de chaque partenaire (taux négocié avec lui). Vous recevez {pct} % du montant réellement encaissé par Kombrio.',
   'guide.statement.open': 'Voir mon relevé détaillé',
   'guide.statement.title': 'Mon relevé de commissions',
   'guide.statement.hint': 'Chaque transaction : ce que le partenaire a déclaré, ce que Kombrio a réellement encaissé, et votre part ({pct} % de l\'encaissé, figée le jour du passage).',
@@ -969,4 +969,7 @@ export default {
   'log.badge_issued': 'Badge émis',
   'log.badge_renewed': 'Nouveau QR du badge',
   'log.guide_photo_changed': 'Photo du guide modifiée',
+  // v39 : réponses REV3 (addition, information du touriste).
+  'bill.rule': "Montant de l'addition = consommation réellement payée par le client, après remises, sans la taxe de service (10 %) ni le pourboire. En cas d'annulation ou de remboursement, demandez une correction à Kombrio.",
+  'client.disclosure': 'Certains partenaires peuvent rémunérer commercialement les recommandations attribuées à votre guide et à Kombrio. Vous restez entièrement libre de visiter ou non ces établissements et d\'y acheter ou non.',
 };

@@ -103,4 +103,6 @@ export default {
   'client.valid.until': 'Valid until {end}',
   'auth.show': 'Show password',
   'auth.hide': 'Hide password',
+  // v39 : réponses REV3 (addition, information du touriste).
+  'client.disclosure': 'Some partners may pay a commercial fee for recommendations attributed to your guide and to Kombrio. You remain entirely free to visit these places or not, and to buy or not.',
 };

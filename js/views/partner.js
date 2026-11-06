@@ -241,6 +241,7 @@ export function spaceView(space, tab = 'painel') {
   const visitsCard = (title, list, filters) => `<div class="card pd-card">
       <div class="spread" style="padding:12px 14px 6px"><h2 style="margin:0">${title}</h2>
         ${filters ? `<select id="pd-filter" style="width:auto">${['all', 'visited', 'declared', 'verifying', 'paid'].map((f) => `<option value="${f}">${t(`pd.f.${f}`)}</option>`).join('')}</select>` : ''}</div>
+      ${list.some((v) => v.status === 'visited') ? `<p class="hint" style="padding:0 14px;margin:0 0 6px">${t('bill.rule')}</p>` : ''}
       ${list.length ? `<div class="pd-rows"><div class="pd-row pd-head"><span></span><span>${t('pd.col.date')}</span><span>${t('pd.col.who')}</span><span>${t('pd.col.status')}</span><span class="pd-r">${t('pd.col.bill')}</span><span class="pd-r">${t('pd.col.com', { rate })}</span></div>
         ${list.map(row).join('')}</div>
         <div class="pd-bar"><span id="pd-sel">${t('pd.sel.none')}</span>
@@ -399,6 +400,7 @@ function declareManyView({ partner, city, visits, key }) {
       <form class="card" id="declare">
         <h1>${t('partner.declare.title')}</h1>
         <p class="hint">${t('partner.declare.free', { rate: Math.round(partner.commissionRate * 100) })}</p>
+        <p class="hint">${t('bill.rule')}</p>
         <ul class="list">${todo.map((v) => `<li>
           <div class="spread" style="align-items:center">
             <span><b>${esc(v.client || '?')}</b><br><span class="hint">${esc(store.txNum(v.num))} · ${fmtDay(v.at.slice(0, 10), lang)} · ${t('scan.people', { n: v.peopleServed })} · ${t('partner.visit.guide', { guide: v.guideName || '?' })}</span></span>

@@ -47,6 +47,7 @@ export async function clientView([token]) {
       </div>
       <div class="card">
         <h2>${t('client.partners')}</h2>
+        <p class="notice" style="margin:0 0 10px">${t('client.disclosure')}</p>
         <p class="hint">${t('client.partners.hint')}</p>
         ${partnerShowcase(partners, city)}
       </div>`,
