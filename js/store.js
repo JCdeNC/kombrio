@@ -35,7 +35,7 @@ const toGuide = (r) => r && ({
   referralEnabled: !!r.referral_enabled,
   // Module Pix (v30) : undefined tant que le script 015 n'est pas lancé.
   pixKeyType: r.pix_key_type || '', pixKeyVersion: r.pix_key_version ?? null, pixStatus: r.pix_status, pixVerifiedAt: r.pix_verified_at || '',
-  isTest: !!r.is_test,
+  isTest: !!r.is_test, cadasturValidUntil: r.cadastur_valid_until || '',
 });
 const toPartner = (r) => r && ({
   id: r.id, cityId: r.city_id, type: r.type, name: r.name, area: r.area, offer: r.offer || '', token: r.token, status: r.status, taxId: r.tax_id,
@@ -369,6 +369,18 @@ export async function confirmPixVerification(verifId, received) {
 }
 export async function confirmPayoutReceived(payoutId, received) {
   return check(await sb.rpc('confirm_payout_received', { p_payout: payoutId, p_received: received }));
+}
+/* ---------- Vérification Cadastur (v31) ---------- */
+// La liste ne charge jamais les captures (lourdes) : une capture se charge seulement quand on l'ouvre.
+export async function listCadasturChecks() {
+  const { data, error } = await sb.from('guide_cadastur_checks').select('id, num, guide_id, valid_until, checked_at').order('checked_at', { ascending: false });
+  return error ? [] : (data || []).map((r) => ({ id: r.id, num: num(r.num), guideId: r.guide_id, validUntil: r.valid_until, checkedAt: r.checked_at }));
+}
+export async function cadasturProof(checkId) {
+  return check(await sb.from('guide_cadastur_checks').select('proof').eq('id', checkId).maybeSingle())?.proof || '';
+}
+export async function recordCadasturCheck(guideId, validUntil, proof) {
+  return check(await sb.rpc('record_cadastur_check', { p_guide: guideId, p_valid_until: validUntil, p_proof: proof }));
 }
 export async function setGuideTest(guideId, on) { return check(await sb.rpc('set_guide_test', { p_guide: guideId, p_on: on })); }
 

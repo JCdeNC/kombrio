@@ -20,8 +20,9 @@ export async function adminView([tab = 'dashboard']) {
     };
   }
   if (!TABS.includes(tab)) tab = 'dashboard';
-  const nav = `<nav class="tabs">${TABS.map((k) => `<a href="#/${k}" class="${k === tab ? 'on' : ''}">${t(`admin.tab.${k}`)}</a>`).join('')}</nav>`;
   const data = await loadAll();
+  const todo = todoCounts(data);
+  const nav = `<nav class="tabs">${TABS.map((k) => `<a href="#/${k}" class="${k === tab ? 'on' : ''}">${t(`admin.tab.${k}`)}${todo[k] ? `<span class="todo" title="${esc(tRaw('admin.todo.hint'))}">${todo[k]}</span>` : ''}</a>`).join('')}</nav>`;
   const view = await ({ dashboard, validations, payments, payouts, pix: pixAdmin, referral, transactions, partners, cities, journal })[tab](data);
   return {
     html: `<div class="spread"><h1>${t('admin.title')}</h1>
@@ -78,19 +79,35 @@ function loginView() {
 const plural = (key, n) => tRaw(`${key}.${n === 1 ? 'one' : 'other'}`, { n });
 
 async function loadAll() {
-  const [cityList, guides, partnerList, visits, payoutList, paymentList, adjustments, pixChecks, expenses] = await Promise.all([
+  const [cityList, guides, partnerList, visits, payoutList, paymentList, adjustments, pixChecks, expenses, cadChecks] = await Promise.all([
     store.listCities(), store.listGuides(), store.listPartners(), store.listVisits(), store.listPayouts(), store.listPayments(),
-    store.listAdjustments(), store.listPixVerifications(), store.listExpenses(),
+    store.listAdjustments(), store.listPixVerifications(), store.listExpenses(), store.listCadasturChecks(),
   ]);
   const city = (id) => cityList.find((c) => c.id === id);
   const guide = (id) => guides.find((g) => g.id === id);
   const partner = (id) => partnerList.find((p) => p.id === id);
   const cur = (n, cityId) => cents(n, city(cityId)?.currency || 'BRL', getLang());
-  return { cityList, guides, partnerList, visits, payoutList, paymentList, adjustments, pixChecks, expenses, city, guide, partner, cur };
+  return { cityList, guides, partnerList, visits, payoutList, paymentList, adjustments, pixChecks, expenses, cadChecks, city, guide, partner, cur };
 }
 // Corrections pas encore reversées et déjà dues au guide : une baisse tout de suite, une hausse une fois le complément reçu.
 const openAdjustments = (adjustments, guideId) => adjustments.filter((a) => (!guideId || a.guideId === guideId) && !a.payoutId
   && (a.guideDelta < 0 || a.partnerStatus === 'settled'));
+
+// Pastilles des onglets : nombre de tâches qui attendent une action de l'admin.
+function todoCounts({ guides, payoutList, paymentList, visits, adjustments, pixChecks, partnerList }) {
+  const openPix = (g) => pixChecks.some((c) => c.guideId === g.id && ['pending', 'sent'].includes(c.status) && !c.verifiedAt);
+  const late = new Set(visits.filter((v) => v.status === 'declared' && v.declaredAt && Date.now() - new Date(v.declaredAt) > 30 * 864e5).map((v) => v.partnerId));
+  return {
+    validations: guides.filter((g) => g.status === 'pending').length,
+    payments: paymentList.filter((p) => p.status === 'submitted').length,
+    payouts: payoutList.filter((p) => p.status === 'in_progress').length
+      + guides.filter((g) => visits.some((v) => v.guideId === g.id && v.status === 'received') && !blockReason(g, payoutList)).length,
+    pix: guides.filter((g) => g.status === 'validated' && g.pixStatus !== undefined
+      && (g.pixStatus === 'review' || pixChecks.some((c) => c.guideId === g.id && c.status === 'pending') || (g.pixStatus !== 'verified' && g.pixKey && !openPix(g)))).length,
+    transactions: visits.filter((v) => v.status === 'disputed').length + adjustments.filter((a) => a.partnerStatus !== 'settled').length,
+    partners: partnerList.filter((p) => p.status === 'active' && late.has(p.id)).length,
+  };
+}
 
 const sumOf = (list, key) => list.reduce((s, v) => s + (v[key] || 0), 0);
 const IN = (v, ...st) => st.includes(v.status);
@@ -123,8 +140,40 @@ async function dashboard({ guides, partnerList, visits, adjustments, cur, cityLi
   };
 }
 
-async function validations({ guides, city }) {
+// Fenêtre intérieure : le site du Cadastur ou une capture, sans quitter l'app.
+const CADASTUR_URL = 'https://cadastur.turismo.gov.br/hotsite/#!/public/sou-turista/inicio';
+function openSheet(title, inner) {
+  const o = document.createElement('div');
+  o.className = 'overlay';
+  o.innerHTML = `<div class="sheet"><div class="sheet-head"><b>${title}</b><span class="row" style="gap:6px">
+    <a class="btn ghost small" href="${CADASTUR_URL}" target="_blank" rel="noopener">${t('admin.cad.newwin')}</a>
+    <button class="btn small" data-close>${t('admin.cad.close')}</button></span></div>${inner}</div>`;
+  const close = () => o.remove();
+  o.querySelector('[data-close]').onclick = close;
+  o.onclick = (e) => { if (e.target === o) close(); };
+  document.body.appendChild(o);
+}
+const lastCheck = (cadChecks, gId) => cadChecks.find((c) => c.guideId === gId);
+
+async function validations({ guides, city, cadChecks }) {
   const pending = guides.filter((g) => g.status === 'pending');
+  const lang = getLang();
+  const today = new Date().toISOString().slice(0, 10);
+  const soon = new Date(Date.now() + 60 * 864e5).toISOString().slice(0, 10);
+  const expiring = guides.filter((g) => g.status === 'validated' && g.cadasturValidUntil !== undefined && (!g.cadasturValidUntil || g.cadasturValidUntil < soon));
+  const cadBlock = (g) => {
+    const c = lastCheck(cadChecks, g.id);
+    return `<div class="row" style="margin-top:8px;gap:6px;align-items:center">
+        <button class="btn small secondary" data-cad-open="${esc(g.id)}">${t('admin.cad.open')}</button>
+        ${c ? `<span class="hint">${t('admin.cad.done', { date: fmtDay(c.checkedAt.slice(0, 10), lang), until: fmtDay(c.validUntil, lang) })}</span>
+          <button class="btn ghost small" data-cad-proof="${esc(c.id)}">${t('admin.cad.proof')}</button>` : `<span class="hint">${t('admin.cad.none')}</span>`}
+      </div>
+      <form class="cadform row" data-id="${esc(g.id)}" style="align-items:flex-end;gap:6px;margin-top:6px">
+        <div class="field" style="margin:0"><label>${t('admin.cad.until')}</label><input type="date" name="until" min="${today}" required></div>
+        <div class="field" style="margin:0;flex:1"><label>${t('admin.cad.shot')}</label><input type="file" name="shot" accept="image/*" required></div>
+        <button class="btn small">${t('admin.cad.save')}</button>
+      </form>`;
+  };
   return {
     html: `<div class="card">
       <h2>${t('admin.val.title')}</h2>
@@ -132,13 +181,38 @@ async function validations({ guides, city }) {
         <div class="spread"><b>${esc(g.name)}</b><span class="hint">${esc(city(g.cityId)?.name || '')}</span></div>
         <div class="hint">${esc(g.email || '')} · ${esc(g.phone || '')} · ${esc(city(g.cityId)?.licenseLabel || '')} ${esc(g.license || '')}</div>
         <div class="hint">${t('admin.val.cpf')} ${g.cpf ? esc(fmtTaxId(g.cpf)) : `<b>${t('admin.missing')}</b>`} · ${t('admin.val.pix')} ${g.pixKey ? esc(g.pixKey) : `<b>${t('admin.missing')}</b>`}</div>
+        ${cadBlock(g)}
         <div class="row" style="margin-top:8px">
-          <button class="btn small" data-ok="${esc(g.id)}">${t('admin.val.accept')}</button>
+          ${(() => { const c = lastCheck(cadChecks, g.id); return c && c.validUntil >= today
+            ? `<button class="btn small" data-ok="${esc(g.id)}">${t('admin.val.accept')}</button>`
+            : `<button class="btn small" disabled title="${esc(tRaw('admin.cad.required'))}">${t('admin.val.accept')}</button><span class="hint">${t('admin.cad.required')}</span>`; })()}
           <button class="btn ghost small" data-no="${esc(g.id)}">${t('admin.val.refuse')}</button>
         </div></li>`).join('')}</ul>` : `<p class="hint">${t('admin.val.none')}</p>`}
       <p class="hint">${t('admin.val.hint')}</p>
-    </div>`,
+    </div>
+    ${expiring.length ? `<div class="card"><h2>${t('admin.cad.expiring')}</h2><ul class="list">${expiring.map((g) => `<li>
+      <div class="spread"><b>${esc(g.name)}</b><span class="badge ${g.cadasturValidUntil && g.cadasturValidUntil >= today ? 'warn' : 'bad'}">${g.cadasturValidUntil ? t('admin.cad.until.short', { date: fmtDay(g.cadasturValidUntil, lang) }) : t('admin.cad.never')}</span></div>
+      <div class="hint">${esc(city(g.cityId)?.licenseLabel || '')} ${esc(g.license || '')}</div>${cadBlock(g)}</li>`).join('')}</ul></div>` : ''}`,
     mount(root, ctx) {
+      root.querySelectorAll('[data-cad-open]').forEach((b) => { b.onclick = () => {
+        const g = guides.find((x) => x.id === b.dataset.cadOpen);
+        openSheet(`${esc(g.name)} · ${esc(g.license || '')}${g.cpf ? ` · CPF ${esc(fmtTaxId(g.cpf))}` : ''}`, `<iframe src="${CADASTUR_URL}" title="Cadastur"></iframe>`);
+      }; });
+      root.querySelectorAll('[data-cad-proof]').forEach((b) => { b.onclick = async () => {
+        const src = await store.cadasturProof(b.dataset.cadProof).catch(() => '');
+        if (!src) { notify(tRaw('err.generic')); return; }
+        openSheet(t('admin.cad.proof'), `<div class="sheet-body"><img src="${esc(src)}" alt=""></div>`);
+      }; });
+      root.querySelectorAll('form.cadform').forEach((f) => { f.onsubmit = async (e) => {
+        e.preventDefault();
+        const file = f.shot.files[0];
+        if (!file || !f.until.value) { notify(tRaw('admin.cad.required')); return; }
+        try {
+          const proof = await photoToJpeg(file, 1200, 0.72);
+          const r = await store.recordCadasturCheck(f.dataset.id, f.until.value, proof);
+          if (r && r.ok) ctx.refresh(tRaw('admin.cad.saved')); else notify(tRaw(r && r.reason === 'date' ? 'admin.cad.err.date' : 'err.generic'));
+        } catch { notify(tRaw('err.generic')); }
+      }; });
       root.querySelectorAll('[data-ok]').forEach((b) => { b.onclick = async () => { await store.setGuideStatus(b.dataset.ok, 'validated'); ctx.refresh(tRaw('admin.val.accepted')); }; });
       root.querySelectorAll('[data-no]').forEach((b) => { b.onclick = async () => { await store.setGuideStatus(b.dataset.no, 'refused'); ctx.refresh(tRaw('admin.val.refused')); }; });
     },

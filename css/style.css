@@ -167,3 +167,13 @@ th { color: var(--muted); font-weight: 600; border-top: 0; }
 .ios-steps { text-align: left; margin: 12px 0 0; padding: 12px 12px 12px 32px; background: var(--info-bg); border-radius: var(--radius-btn); }
 .ios-steps li + li { margin-top: 6px; }
 .ios-share { vertical-align: -3px; color: var(--link); }
+
+/* v31 : pastilles de tâches sur les onglets admin, fenêtre intérieure (Cadastur, captures) */
+.tabs a { position: relative; }
+.tabs .todo { position: absolute; top: -6px; right: -6px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; background: #d93025; color: #fff; font-size: .72rem; font-weight: 700; line-height: 18px; text-align: center; box-shadow: 0 0 0 2px #fff; }
+.overlay { position: fixed; inset: 0; z-index: 1000; background: rgba(0,0,0,.55); display: flex; align-items: center; justify-content: center; padding: 12px; }
+.overlay .sheet { background: #fff; border-radius: 14px; width: min(1000px, 100%); height: min(92vh, 900px); display: flex; flex-direction: column; overflow: hidden; }
+.overlay .sheet-head { display: flex; gap: 8px; align-items: center; justify-content: space-between; padding: 10px 14px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+.overlay iframe { flex: 1; width: 100%; border: 0; }
+.overlay .sheet-body { flex: 1; overflow: auto; padding: 12px; text-align: center; }
+.overlay .sheet-body img { max-width: 100%; height: auto; }
