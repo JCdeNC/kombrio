@@ -5,8 +5,9 @@ import { esc, money, cents, parseCents, fmtMoment, fmtDay, qrSvg, appLink, notif
 import * as store from '../store.js';
 import { forgotLink, mountForgot, resetView, statusBadge } from './shared.js';
 import { maskTaxId, photoToJpeg } from '../util.js';
+import { topicLabel, alertStatus } from './help.js';
 
-const TABS = ['dashboard', 'validations', 'payments', 'payouts', 'pix', 'referral', 'transactions', 'partners', 'cities', 'journal'];
+const TABS = ['dashboard', 'alertas', 'validations', 'payments', 'payouts', 'pix', 'referral', 'transactions', 'partners', 'cities', 'journal'];
 
 export async function adminView([tab = 'dashboard']) {
   if (store.inRecovery() && await store.hasSession()) return resetView();
@@ -23,7 +24,7 @@ export async function adminView([tab = 'dashboard']) {
   const data = await loadAll();
   const todo = todoCounts(data);
   const nav = `<nav class="tabs">${TABS.map((k) => `<a href="#/${k}" class="${k === tab ? 'on' : ''}">${t(`admin.tab.${k}`)}${todo[k] ? `<span class="todo" title="${esc(tRaw('admin.todo.hint'))}">${todo[k]}</span>` : ''}</a>`).join('')}</nav>`;
-  const view = await ({ dashboard, validations, payments, payouts, pix: pixAdmin, referral, transactions, partners, cities, journal })[tab](data);
+  const view = await ({ dashboard, alertas, validations, payments, payouts, pix: pixAdmin, referral, transactions, partners, cities, journal })[tab](data);
   return {
     html: `<div class="spread"><h1>${t('admin.title')}</h1>
         <span class="hint">${esc(me.email)} <button class="btn ghost small" id="logout">${t('common.logout')}</button></span></div>
@@ -79,25 +80,26 @@ function loginView() {
 const plural = (key, n) => tRaw(`${key}.${n === 1 ? 'one' : 'other'}`, { n });
 
 async function loadAll() {
-  const [cityList, guides, partnerList, visits, payoutList, paymentList, adjustments, pixChecks, expenses, cadChecks] = await Promise.all([
+  const [cityList, guides, partnerList, visits, payoutList, paymentList, adjustments, pixChecks, expenses, cadChecks, alerts] = await Promise.all([
     store.listCities(), store.listGuides(), store.listPartners(), store.listVisits(), store.listPayouts(), store.listPayments(),
-    store.listAdjustments(), store.listPixVerifications(), store.listExpenses(), store.listCadasturChecks(),
+    store.listAdjustments(), store.listPixVerifications(), store.listExpenses(), store.listCadasturChecks(), store.adminListAlerts(),
   ]);
   const city = (id) => cityList.find((c) => c.id === id);
   const guide = (id) => guides.find((g) => g.id === id);
   const partner = (id) => partnerList.find((p) => p.id === id);
   const cur = (n, cityId) => cents(n, city(cityId)?.currency || 'BRL', getLang());
-  return { cityList, guides, partnerList, visits, payoutList, paymentList, adjustments, pixChecks, expenses, cadChecks, city, guide, partner, cur };
+  return { cityList, guides, partnerList, visits, payoutList, paymentList, adjustments, pixChecks, expenses, cadChecks, alerts, city, guide, partner, cur };
 }
 // Corrections pas encore reversées et déjà dues au guide : une baisse tout de suite, une hausse une fois le complément reçu.
 const openAdjustments = (adjustments, guideId) => adjustments.filter((a) => (!guideId || a.guideId === guideId) && !a.payoutId
   && (a.guideDelta < 0 || a.partnerStatus === 'settled'));
 
 // Pastilles des onglets : nombre de tâches qui attendent une action de l'admin.
-function todoCounts({ guides, payoutList, paymentList, visits, adjustments, pixChecks, partnerList }) {
+function todoCounts({ guides, payoutList, paymentList, visits, adjustments, pixChecks, partnerList, alerts }) {
   const openPix = (g) => pixChecks.some((c) => c.guideId === g.id && ['pending', 'sent'].includes(c.status) && !c.verifiedAt);
   const late = new Set(visits.filter((v) => v.status === 'declared' && v.declaredAt && Date.now() - new Date(v.declaredAt) > 30 * 864e5).map((v) => v.partnerId));
   return {
+    alertas: alerts.filter((a) => a.status === 'new').length,
     validations: guides.filter((g) => g.status === 'pending').length,
     payments: paymentList.filter((p) => p.status === 'submitted').length,
     payouts: payoutList.filter((p) => p.status === 'in_progress').length
@@ -106,6 +108,52 @@ function todoCounts({ guides, payoutList, paymentList, visits, adjustments, pixC
       && (g.pixStatus === 'review' || pixChecks.some((c) => c.guideId === g.id && c.status === 'pending') || (g.pixStatus !== 'verified' && g.pixKey && !openPix(g)))).length,
     transactions: visits.filter((v) => v.status === 'disputed').length + adjustments.filter((a) => a.partnerStatus !== 'settled').length,
     partners: partnerList.filter((p) => p.status === 'active' && late.has(p.id)).length,
+  };
+}
+
+// Alertes (v33) : envoyées par les guides et les partenaires quand la FAQ ne suffit pas. L'autre partie ne les voit jamais.
+async function alertas({ alerts }) {
+  const lang = getLang();
+  const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0);
+  const faq = await store.adminFaqSolvedSince(monthStart.toISOString());
+  const c = (st) => alerts.filter((a) => a.status === st).length;
+  const resolvedMonth = alerts.filter((a) => a.status === 'resolved' && a.resolvedAt && new Date(a.resolvedAt) >= monthStart).length;
+  const order = { new: 0, in_progress: 1, resolved: 2 };
+  const list = [...alerts].sort((a, b) => order[a.status] - order[b.status] || new Date(b.createdAt) - new Date(a.createdAt));
+  const item = (a) => {
+    const kind = a.authorKind;
+    return `<li><div class="spread"><b>nº ${a.num} · ${esc(topicLabel(kind, a.topic))}</b>
+        <span class="badge ${a.status === 'resolved' ? 'ok' : a.status === 'new' ? 'bad' : 'warn'}">${esc(alertStatus(a.status))}</span></div>
+      <div class="hint"><span class="badge">${t(kind === 'guide' ? 'admin.al.guide' : 'admin.al.partner')}</span>
+        ${esc(kind === 'guide' ? a.guideName : a.partnerName)} · ${fmtMoment(a.createdAt, lang, 'America/Sao_Paulo')}${a.visitNum ? ` · ${esc(store.txNum(a.visitNum))}` : ''}</div>
+      <p style="margin:6px 0">${a.message ? esc(a.message) : `<span class="hint">${t('admin.al.empty')}</span>`}</p>
+      <form class="al-form" data-id="${esc(a.id)}">
+        <div class="field" style="margin:0 0 6px"><label>${t('admin.al.answer')}</label><textarea name="answer" rows="2" maxlength="1000" style="width:100%">${esc(a.answer)}</textarea></div>
+        <div class="row" style="gap:6px">
+          ${a.status === 'new' ? `<button class="btn small" data-st="in_progress">${t('admin.al.take')}</button>` : ''}
+          ${a.status !== 'resolved' ? `<button class="btn small secondary" data-st="${a.status}">${t('admin.al.save')}</button><button class="btn small ghost" data-st="resolved">${t('admin.al.close')}</button>`
+            : `<button class="btn small ghost" data-st="in_progress">${t('admin.al.reopen')}</button>`}
+        </div></form></li>`;
+  };
+  return {
+    html: `<div class="pd-kpis">
+        <div class="pd-kpi ${c('new') ? 'bad' : ''}"><span>${t('admin.al.new')}</span><b>${c('new')}</b><em>${t('admin.al.new.hint')}</em></div>
+        <div class="pd-kpi ${c('in_progress') ? 'warn' : ''}"><span>${t('admin.al.progress')}</span><b>${c('in_progress')}</b><em>${t('admin.al.progress.hint')}</em></div>
+        <div class="pd-kpi ok"><span>${t('admin.al.faq')}</span><b>${faq}</b><em>${t('admin.al.faq.hint')}</em></div>
+        <div class="pd-kpi"><span>${t('admin.al.resolved')}</span><b>${resolvedMonth}</b><em>${t('admin.al.resolved.hint')}</em></div>
+      </div>
+      <div class="card"><h2>${t('admin.al.list')}</h2>${list.length ? `<ul class="list">${list.map(item).join('')}</ul>` : `<p class="hint">${t('admin.al.none')}</p>`}</div>`,
+    mount(root, ctx) {
+      root.querySelectorAll('.al-form').forEach((f) => {
+        f.querySelectorAll('[data-st]').forEach((b) => {
+          b.onclick = async (e) => {
+            e.preventDefault(); b.disabled = true;
+            try { await store.adminSetAlert(f.dataset.id, b.dataset.st, f.answer.value); ctx.refresh(tRaw('common.saved')); }
+            catch { b.disabled = false; notify(tRaw('err.generic')); }
+          };
+        });
+      });
+    },
   };
 }
 

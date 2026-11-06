@@ -6,6 +6,7 @@ import { esc, money, cents, parseCents, fmtMoment, fmtDay, qrSvg, appLink, readF
 import * as store from '../store.js';
 import { statusBadge, notFound, forgotLink, mountForgot, resetView } from './shared.js';
 import { readPendingStay, clearPendingStay } from './scan.js';
+import { helpButton, problemLink, mountHelp, topicLabel, alertStatus } from './help.js';
 
 const MAX_RECEIPT = 1.5 * 1024 * 1024;
 export const TERMS_VERSION = 'v1 · 30/10/2026';
@@ -103,6 +104,7 @@ export async function partnerView([token, action, visitId], ctx) {
   try { localStorage.setItem(ME_KEY, token); } catch { /* rien */ }
   space.key = token;
   space.loggedIn = space.role === 'manager' && await store.hasSession();
+  space.alerts = space.role === 'manager' ? await store.partnerAlerts(token) : [];
 
   if (!action) {
     const pending = readPendingStay();
@@ -188,7 +190,7 @@ const readDone = (k) => { try { return new Set(JSON.parse(localStorage.getItem(k
 const saveDone = (k, s) => { try { localStorage.setItem(k, JSON.stringify([...s])); } catch { /* rien */ } };
 
 export function spaceView(space, tab = 'painel') {
-  const { partner, city, visits, payments, adjustments = [], key, role, loggedIn } = space;
+  const { partner, city, visits, payments, adjustments = [], alerts = [], key, role, loggedIn } = space;
   if (role !== 'manager') return counterView({ partner, city, visits, key });
   const lang = getLang();
   const c = (n) => cents(n, city.currency, lang);
@@ -215,6 +217,11 @@ export function spaceView(space, tab = 'painel') {
   else if (late >= 7) banner = `<div class="notice warn"><b>${t('pd.late7.title', { n: late })}</b><br>${t('pd.late7.text', { amount: c(payCents) })}</div>`;
   if (rejected) banner += `<div class="notice bad"><b>${t('pd.rejected.title', { num: rejected.num })}</b><br>${esc(rejected.note || '')} ${t('pd.rejected.text')}</div>`;
   if (fresh) banner += `<div class="notice">${t('pd.welcome')}</div>`;
+  // Alertes envoyées à Kombrio : en cours, ou résolues depuis moins de 7 jours avec une réponse.
+  alerts.filter((a) => a.status !== 'resolved' || (a.answer && ageDays(a.resolvedAt) < 7)).forEach((a) => {
+    banner += `<div class="notice ${a.status === 'resolved' ? 'ok' : ''}"><b>${t('alert.line', { num: a.num, topic: topicLabel('partner', a.topic), status: alertStatus(a.status) })}</b><br>${a.answer ? t('alert.answer', { text: a.answer }) : t('alert.wait')}</div>`;
+  });
+  const alertOf = (vId) => alerts.find((a) => a.visitId === vId && a.status !== 'resolved');
 
   // Une ligne de visite : case à cocher si une action est possible, addition à saisir si elle n'est pas déclarée.
   const row = (v) => {
@@ -225,7 +232,7 @@ export function spaceView(space, tab = 'painel') {
     return `<label class="pd-row" data-v="${v.status}">
       <span class="pd-c">${can ? `<input type="checkbox" data-sel="${esc(v.id)}" data-st="${v.status}" aria-label="${esc(v.client || '')}">` : ''}</span>
       <span class="pd-d">${fmtDay(v.at.slice(0, 10), lang)}</span>
-      <span class="pd-who"><b>${esc(v.client || '?')}</b><small>${esc(v.guideName || '?')} · ${t('scan.people', { n: v.peopleServed })} · ${esc(store.txNum(v.num))}${v.statusNote && ['disputed', 'cancelled'].includes(v.status) ? ` · ${esc(v.statusNote)}` : ''}</small></span>
+      <span class="pd-who"><b>${esc(v.client || '?')}</b><small>${esc(v.guideName || '?')} · ${t('scan.people', { n: v.peopleServed })} · ${esc(store.txNum(v.num))}${v.statusNote && ['disputed', 'cancelled'].includes(v.status) ? ` · ${esc(v.statusNote)}` : ''}</small>${alertOf(v.id) ? `<span class="badge">${t('alert.short', { num: alertOf(v.id).num, status: alertStatus(alertOf(v.id).status) })}</span>` : problemLink(v.id)}</span>
       <span class="pd-st">${statusBadge(v, 'partner')}</span>
       <span class="pd-i">${inv}</span>
       <span class="pd-num pd-com" data-com="${esc(v.id)}">${v.declaredCents == null ? '—' : c(v.declaredCents)}</span>
@@ -303,12 +310,15 @@ export function spaceView(space, tab = 'painel') {
       <a href="${base}/relatorio">${t('pd.tab.relatorio')}</a></nav>`;
 
   return {
-    html: `
+    html: `<div class="dash-wide">
       <div class="spread"><div><h1 style="margin-bottom:2px">${esc(partner.name)}</h1>
         <p class="hint" style="margin:0">${t(`ptype.${partner.type}`)}${partner.area ? ` · ${esc(partner.area)}` : ''} · ${t('pd.k.rate', { rate })}${partner.managerName ? ` · ${t('pm.hello', { name: partner.managerName })}` : ''}</p></div>
-        ${loggedIn ? `<button class="btn ghost small no-print" id="logout">${t('common.logout')}</button>` : ''}</div>
-      ${tabsNav}${banner}${body}`,
+        <div class="row" style="gap:6px">${helpButton()}${loggedIn ? `<button class="btn ghost small no-print" id="logout">${t('common.logout')}</button>` : ''}</div></div>
+      ${tabsNav}${banner}${body}</div>`,
     mount(root, ctx) {
+      mountHelp(root, { kind: 'partner', send: (topic, msg, vId) => store.partnerCreateAlert(key, topic, msg, vId),
+        label: (vId) => { const v = visits.find((x) => x.id === vId); return v ? `${v.client || ''} · ${fmtDay(v.at.slice(0, 10), getLang())} · ${store.txNum(v.num)}` : ''; },
+        onSent: () => ctx.refresh() });
       const out = root.querySelector('#logout');
       if (out) out.onclick = async () => { await store.signOut(); try { localStorage.removeItem(ME_KEY); } catch { /* rien */ } location.hash = ''; };
       root.querySelectorAll('[data-todo]').forEach((b) => { b.onchange = () => { b.checked ? done.add(b.dataset.todo) : done.delete(b.dataset.todo); saveDone(dk, done); b.parentElement.classList.toggle('pd-done', b.checked); }; });
@@ -637,7 +647,7 @@ function counterView({ partner, city, visits, key }) {
   const lang = getLang();
   return {
     html: `
-      <h1>${esc(partner.name)}</h1>
+      <div class="spread"><h1>${esc(partner.name)}</h1>${helpButton()}</div>
       <div class="notice ok">${t('counter.ready')}</div>
       ${partner.offer ? `<div class="card"><h2>${t('counter.offer')}</h2><div class="offer">${esc(partner.offer)}</div><p class="hint" style="margin-top:8px">${t('counter.offer.hint')}</p></div>` : ''}
       <div class="card">
@@ -649,6 +659,7 @@ function counterView({ partner, city, visits, key }) {
       <p class="hint">${t('counter.manager')}</p>
       <p class="hint">${t('partner.linked', { name: partner.name })} <a href="#" id="unlink">${t('partner.unlink')}</a></p>`,
     mount() {
+      mountHelp(root(), { kind: 'partner', send: (topic, msg, vId) => store.partnerCreateAlert(key, topic, msg, vId) });
       root().querySelector('#unlink').onclick = (e) => {
         e.preventDefault();
         try { localStorage.removeItem(ME_KEY); } catch { /* rien */ }

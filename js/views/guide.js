@@ -4,6 +4,7 @@ import { esc, money, cents, locale, fmtDay, fmtMoment, todayIn, addDays, stayIsV
 import * as store from '../store.js';
 import { validity, statusBadge, guideAmounts, notFound, forgotLink, mountForgot, resetView } from './shared.js';
 import { maskTaxId, qrCardBlob, shareOrDownload } from '../util.js';
+import { helpButton, problemLink, mountHelp, topicLabel, alertStatus } from './help.js';
 // Durée maximale d'un séjour (K-15, décidé le 06/11/2026) : les clients restent au plus une semaine. Même règle dans la base (script 014).
 const MAX_STAY_DAYS = 7;
 
@@ -28,6 +29,7 @@ export async function guideView(params, ctx) {
   if (params[0] === 'sejour') return stayView(me, city, params[1]);
   if (params[0] === 'releve') return statementView(me, city);
   if (params[0] === 'indicacao') return referralView(me, city);
+  if (['clientes', 'ganhos', 'conta'].includes(params[0])) return dashboardView(me, city, params[0]);
   return dashboardView(me, city);
 }
 
@@ -108,50 +110,136 @@ async function pendingView(me) {
   };
 }
 
-async function dashboardView(me, city) {
-  const lang = getLang();
-  const [stays, visits, adjustments, payouts, pixChecks] = await Promise.all([
+// Espace du guide (v33) : onglets Início, Clientes, Ganhos, Conta (+ Indicação). Mêmes données qu'avant, autre présentation.
+// Indépendance du guide (Portaria MTur 37/2021, art. 9 VI) : aucun classement des parceiros, aucun objectif de vente.
+const G_TABS = ['inicio', 'clientes', 'ganhos', 'conta'];
+const LATE_DAYS = 7;
+const ageDays = (iso) => (iso ? Math.floor((Date.now() - new Date(iso)) / 864e5) : 0);
+const gDoneKey = (id) => `kb-gtodo-${id}`;
+const readDone = (k) => { try { return new Set(JSON.parse(localStorage.getItem(k) || '[]')); } catch { return new Set(); } };
+const saveDone = (k, set) => { try { localStorage.setItem(k, JSON.stringify([...set])); } catch { /* rien */ } };
+const CASHED = ['received', 'payout_pending', 'paid'];
+
+// Suivi d'une commission, comme un colis : Visita → Declarada → Paga → Recebida → Repassada, avec déviation si retard ou contestation.
+const TRK_STEP = { visited: 1, declared: 2, verifying: 3, received: 4, payout_pending: 4, paid: 5 };
+function tracker(v) {
+  if (v.status === 'zero' || v.status === 'cancelled') return `<div class="g-trk-none">${statusBadge(v)}</div>`;
+  const late = v.status === 'declared' && ageDays(v.declaredAt) >= LATE_DAYS;
+  const dev = late ? 'bad' : v.status === 'disputed' ? 'wrn' : '';
+  const n = v.status === 'disputed' ? 1 : TRK_STEP[v.status] ?? 1;
+  const steps = ['visit', 'declared', 'paid', 'cashed', 'repaid'].map((k, i) => {
+    let c = 'off'; let mark = String(i + 1); let label = t(`g.trk.${k}`);
+    if (i < n) { c = 'on'; mark = '✓'; } else if (i === n) { c = dev || 'now'; if (dev) { mark = '!'; label = t(late ? 'g.trk.late' : 'g.trk.disputed'); } }
+    return `<span class="st ${c}" title="${esc(tRaw(`g.trk.${k}.hint`))}"><span class="c">${mark}</span>${label}</span>`;
+  }).join('');
+  const msg = late ? `<div class="g-dev bad">${t('g.dev.late', { n: ageDays(v.declaredAt) })}</div>`
+    : v.status === 'disputed' ? `<div class="g-dev wrn">${t('g.dev.disputed')}${v.statusNote ? ` (${esc(v.statusNote)})` : ''}</div>` : '';
+  return `<div class="g-trk">${steps}</div>${msg}`;
+}
+// Part du guide : réelle une fois encaissée, sinon estimée sur la déclaration (part figée au jour de la visite).
+const shareOf = (v) => (CASHED.includes(v.status) ? v.guideCents
+  : v.declaredCents == null ? null : Math.floor(v.declaredCents * (1 - (v.platformShare ?? 0.2))));
+
+async function loadGuide(me, city) {
+  const [stays, visits, adjustments, payouts, pixChecks, partners, alerts] = await Promise.all([
     store.listStays(me.id), store.listVisits({ guideId: me.id }), store.listAdjustments(me.id), store.listPayouts(me.id),
-    store.listPixVerifications(me.id)]);
+    store.listPixVerifications(me.id), store.publicPartners(city.id), store.listMyAlerts()]);
+  return { stays, visits, adjustments, payouts, pixChecks, partners, alerts };
+}
+
+async function dashboardView(me, city, tab = 'inicio') {
+  const lang = getLang();
+  const d = await loadGuide(me, city);
+  const { stays, visits, adjustments, payouts, pixChecks, partners, alerts } = d;
   const today = todayIn(city.timezone);
   const cur = (n) => cents(n, city.currency, lang);
+  const pname = (id) => partners.find((p) => p.id === id)?.name || '?';
+  const stayOf = (id) => stays.find((s) => s.id === id);
   const pick = (st, key) => visits.filter((v) => st.includes(v.status)).reduce((s, v) => s + (v[key] || 0), 0);
-  // Corrections (contre-écritures) : une baisse compte tout de suite, une hausse seulement une fois le complément reçu.
-  const openAdj = adjustments.filter((a) => !a.payoutId && (a.guideDelta < 0 || a.partnerStatus === 'settled'))
-    .reduce((s, a) => s + a.guideDelta, 0);
+  const openAdj = adjustments.filter((a) => !a.payoutId && (a.guideDelta < 0 || a.partnerStatus === 'settled')).reduce((s, a) => s + a.guideDelta, 0);
   const payoutSum = (st) => payouts.filter((p) => p.status === st).reduce((s, p) => s + (p.cents || 0), 0);
   const sum = {
-    expected: pick(['declared', 'verifying'], 'declaredCents'),
+    expected: visits.filter((v) => ['declared', 'verifying', 'disputed'].includes(v.status)).reduce((s, v) => s + (shareOf(v) || 0), 0),
     available: pick(['received'], 'guideCents') + payoutSum('in_progress') + openAdj,
     paid: payoutSum('paid'),
   };
+  const live = visits.filter((v) => v.status !== 'cancelled');
+  const openCheck = pixChecks.find((c) => c.status === 'sent' && !c.verifiedAt && c.confirmation === 'waiting' && c.keyVersion === me.pixKeyVersion);
+  const toConfirm = payouts.filter((p) => p.status === 'paid' && p.receivedStatus === 'waiting');
+  const pixOk = me.pixStatus === undefined || me.pixStatus === 'verified';
+  const blocked = !pixOk || toConfirm.length > 0;
+  const stayState = (s) => (stayIsValid(s, city) ? 'active' : s.start > today ? 'soon' : 'done');
+  const soonStays = stays.filter((s) => stayState(s) === 'soon');
+  const soon60 = addDays(today, 60);
+  const cad = me.cadasturValidUntil;
+  const alertOf = (vId) => alerts.find((a) => a.visitId === vId && a.status !== 'resolved');
+
+  // Bandeaux : Pix à confirmer, virement à confirmer, Pix suspendu, Cadastur, alertes en cours.
+  let banners = '';
+  if (openCheck) banners += `<div class="notice warn"><b>${t('pix.sent.msg')}</b>
+      <div class="row" style="margin-top:10px"><button class="btn small" data-pix-ok="${esc(openCheck.id)}">${t('pix.confirm')}</button>
+      <button class="btn small ghost" data-pix-no="${esc(openCheck.id)}">${t('pix.notreceived')}</button></div></div>`;
+  toConfirm.forEach((p) => { banners += `<div class="notice warn">${t('pix.payout.msg', { amount: cur(p.cents), ref: esc(p.reference || '') })}
+      <div class="row" style="margin-top:10px"><button class="btn small" data-po-ok="${esc(p.id)}">${t('pix.payout.ok')}</button>
+      <button class="btn small ghost" data-po-no="${esc(p.id)}">${t('pix.notreceived')}</button></div></div>`; });
+  if (!pixOk && !openCheck) banners += `<div class="notice bad">${t('pix.suspended')}</div>`;
+  if (cad && cad < today) banners += `<div class="notice bad">${t('g.cad.expired', { date: fmtDay(cad, lang) })}</div>`;
+  else if (cad && cad < soon60) banners += `<div class="notice warn">${t('g.cad.soon', { date: fmtDay(cad, lang) })}</div>`;
+  alerts.filter((a) => a.status !== 'resolved' || (a.answer && ageDays(a.resolvedAt) < 7)).forEach((a) => {
+    banners += `<div class="notice ${a.status === 'resolved' ? 'ok' : ''}"><b>${t('alert.line', { num: a.num, topic: topicLabel('guide', a.topic), status: alertStatus(a.status) })}</b>
+      ${a.answer ? `<br>${t('alert.answer', { text: a.answer })}` : `<br>${t('alert.wait')}`}</div>`;
+  });
+
+  // Une commission.
+  const txRow = (v) => {
+    const sh = shareOf(v); const a = alertOf(v.id);
+    return `<div class="g-tx" data-p="${esc(v.partnerId)}" data-s="${esc(v.status)}">
+      <div class="spread"><span><b>${esc(pname(v.partnerId))}</b> · ${esc(stayOf(v.stayId)?.client || '')}<br>
+        <span class="hint">${fmtDay(v.at.slice(0, 10), lang)} · ${esc(store.txNum(v.num))} · ${t('stay.people', { n: v.peopleServed })}</span></span>
+        <span class="g-amt">${sh == null ? `<span class="hint">${t('g.amt.none')}</span>` : CASHED.includes(v.status) ? `<b>${cur(sh)}</b>` : `<b>≈ ${cur(sh)}</b><br><span class="hint">${t('g.amt.est')}</span>`}</span></div>
+      ${tracker(v)}
+      <div class="g-tx-f">${a ? `<span class="badge">${t('alert.short', { num: a.num, status: alertStatus(a.status) })}</span>` : problemLink(v.id)}</div>
+    </div>`;
+  };
+  const txCard = (title, list, more) => `<div class="card g-card"><div class="spread"><h2 style="margin:0">${title}</h2>${more || ''}</div>
+      ${list.length ? list.map(txRow).join('') : `<p class="hint">${t('g.tx.none')}</p>`}</div>`;
 
   const stayItem = (s) => {
-    const count = visits.filter((v) => v.stayId === s.id).length;
-    return `<li><a href="#/sejour/${encodeURIComponent(s.id)}">
-      <div class="spread"><b>${esc(s.client)}</b>${validity(s, stayIsValid(s, city), lang)}</div>
-      <div class="hint">${t('stay.people', { n: s.people })} · ${fmtDay(s.start, lang)} → ${fmtDay(s.end, lang)} · ${t('stay.visits', { n: count })}</div>
-    </a></li>`;
+    const n = visits.filter((v) => v.stayId === s.id).length; const k = stayState(s);
+    return `<li><a href="#/sejour/${encodeURIComponent(s.id)}"><div class="spread"><b>${esc(s.client)}</b>
+      <span class="badge ${k === 'active' ? 'ok' : k === 'soon' ? '' : 'warn'}">${t(`g.stay.${k}`)}</span></div>
+      <div class="hint">${t('stay.people', { n: s.people })} · ${fmtDay(s.start, lang)} → ${fmtDay(s.end, lang)} · ${t('stay.visits', { n })}</div></a></li>`;
   };
+  const staysCard = (list, full) => `<div class="card"><div class="spread"><h2 style="margin:0">${t('guide.stays')}</h2>
+      ${full ? '' : `<a class="btn small" href="#/clientes">${t('g.newqr')}</a>`}</div>
+      ${list.length ? `<ul class="list">${list.map(stayItem).join('')}</ul>` : `<p class="hint">${t('g.stays.none')}</p>`}</div>`;
 
-  return {
-    html: `
-      <div class="spread"><h1>${t('guide.hello', { name: me.name })}</h1>${logoutButton()}</div>
-      <div class="stats">
-        <div class="stat"><b>${cur(sum.available)}</b><span>${t('guide.sum.available')}</span></div>
-        <div class="stat"><b>${cur(sum.paid)}</b><span>${t('guide.sum.paid')}</span></div>
-        <div class="stat"><b>${cur(sum.expected)}</b><span>${t('guide.sum.expected')}</span></div>
-      </div>
-      <p class="hint">${t('guide.sum.note', { pct: me.weeklyPayout ? 75 : 80 })} <a href="#/releve">${t('guide.statement.open')}</a></p>
+  // À faire (cases à cocher gardées sur l'appareil).
+  const dk = gDoneKey(me.id); const done = readDone(dk);
+  const todo = [];
+  if (!pixOk) todo.push([`pix-${me.pixKeyVersion}`, t(openCheck ? 'g.todo.pixconfirm' : 'g.todo.pix')]);
+  toConfirm.forEach((p) => todo.push([`po-${p.id}`, t('g.todo.payout', { amount: cur(p.cents) })]));
+  if (!stays.length) todo.push(['firstqr', t('g.todo.firstqr')]);
+  soonStays.forEach((s) => todo.push([`send-${s.id}`, t('g.todo.send', { client: s.client, date: fmtDay(s.start, lang) })]));
+  if (cad && cad < soon60) todo.push([`cad-${cad}`, t('g.todo.cad')]);
+  const left = todo.filter(([k]) => !done.has(k)).length;
+  const todoCard = `<div class="card"><div class="spread"><h2 style="margin:0">${t('pd.todo.title')}</h2><span class="hint">${t('pd.todo.left', { n: left })}</span></div>
+    <div class="pd-todo">${todo.length ? todo.map(([k, l]) => `<label class="${done.has(k) ? 'pd-done' : ''}"><input type="checkbox" data-todo="${esc(k)}"${done.has(k) ? ' checked' : ''}> ${l}</label>`).join('') : `<p class="hint">${t('g.todo.none')}</p>`}</div></div>`;
 
-      ${me.code ? `<p class="hint">${t('guide.code')} <b>${esc(me.code)}</b></p>` : ''}
-      ${me.referralEnabled ? `<a class="card" href="#/indicacao" style="display:block;text-decoration:none;color:inherit">
-        <b>${t('ref.card.title')}</b><span class="hint" style="display:block">${t('ref.card.hint')}</span></a>` : ''}
-      ${pixCard(me, pixChecks, payouts, cur, lang)}
-      <label class="card" style="display:block"><input type="checkbox" id="weekly"${me.weeklyPayout ? ' checked' : ''}> <b>${t('guide.weekly.title')}</b>
-        <span class="hint" style="display:block">${t('guide.weekly.hint')}</span></label>
+  const pct = me.weeklyPayout ? 75 : 80;
+  const nextCard = `<div class="card"><div class="spread"><h2 style="margin:0">${t('g.next.title')}</h2>
+      <span class="badge ${blocked ? 'bad' : sum.available > 0 ? 'ok' : ''}">${t(blocked ? 'g.next.blocked' : sum.available > 0 ? 'g.next.planned' : 'g.next.nothing')}</span></div>
+      <div class="spread" style="margin-top:8px"><span>${t(me.weeklyPayout ? 'g.next.weekly' : 'g.next.monthly')}</span><b>${cur(Math.max(0, sum.available))}</b></div>
+      <p class="hint" style="margin:4px 0 0">${t('g.next.hint', { pct })}</p></div>`;
 
-      <form class="card" id="new-stay">
+  const kpis = `<div class="pd-kpis">
+      <div class="pd-kpi ${sum.available > 0 && !blocked ? 'ok' : ''}"><span>${t('g.k.available')}</span><b>${cur(Math.max(0, sum.available))}</b><em>${t('g.k.available.hint')}</em></div>
+      <div class="pd-kpi"><span>${t('g.k.expected')}</span><b>≈ ${cur(sum.expected)}</b><em>${t('g.k.expected.hint')}</em></div>
+      <div class="pd-kpi"><span>${t('g.k.paid')}</span><b>${cur(sum.paid)}</b><em>${t('g.k.paid.hint')}</em></div>
+      <div class="pd-kpi"><span>${t('g.k.visits')}</span><b>${live.length}</b><em>${t('g.k.visits.hint', { n: new Set(live.map((v) => v.partnerId)).size })}</em></div>
+    </div>`;
+
+  const newStayForm = `<form class="card" id="new-stay">
         <h2>${t('guide.stay.new')}</h2>
         <div class="grid2">
           <div class="field"><label for="s-client">${t('guide.stay.client')}</label><input id="s-client" name="client" required placeholder="${t('guide.stay.client.ph')}"></div>
@@ -161,20 +249,67 @@ async function dashboardView(me, city) {
         </div>
         <p class="hint">${t('guide.stay.hint')}</p>
         <button class="btn block">${t('guide.stay.create')}</button>
-      </form>
+      </form>`;
 
-      <div class="card">
-        <h2>${t('guide.stays')}</h2>
-        ${stays.length ? `<ul class="list">${stays.map(stayItem).join('')}</ul>` : `<p class="hint">${t('guide.stays.none')}</p>`}
-      </div>`,
+  const statuses = ['visited', 'declared', 'verifying', 'received', 'paid', 'disputed', 'zero'];
+  const filters = `<div class="row" style="margin:8px 0">
+      <select id="g-fp" style="width:auto"><option value="">${t('g.f.allpartners')}</option>${[...new Set(visits.map((v) => v.partnerId))].map((id) => `<option value="${esc(id)}">${esc(pname(id))}</option>`).join('')}</select>
+      <select id="g-fs" style="width:auto"><option value="">${t('g.f.allstatus')}</option>${statuses.map((k) => `<option value="${k}">${t(`status.${k}`)}</option>`).join('')}</select></div>`;
+  const payoutsCard = `<div class="card"><h2>${t('g.payouts')}</h2>${payouts.length ? `<ul class="list">${payouts.map((p) => `<li><div class="spread"><b>${t('g.payout.line', { num: p.num, amount: cur(p.cents) })}</b>
+      <span class="badge ${p.status === 'paid' ? 'ok' : 'warn'}">${t(p.status === 'paid' ? 'g.payout.paid' : 'status.payout_pending')}</span></div>
+      <div class="hint">${fmtDay(String(p.paidAt || p.at).slice(0, 10), lang)}${p.reference ? ` · ${esc(p.reference)}` : ''}</div></li>`).join('')}</ul>` : `<p class="hint">${t('g.payouts.none')}</p>`}</div>`;
+  const adjCard = adjustments.length ? `<div class="card"><h2>${t('guide.adj.title')}</h2><ul class="list">${adjustments.map((a) => `<li><div class="spread"><span>${esc(store.adjNum(a.num))} · ${esc(a.reason)}</span><b>${cur(a.guideDelta)}</b></div>
+      <div class="hint">${t(a.payoutId ? 'g.adj.done' : 'g.adj.next')}</div></li>`).join('')}</ul></div>` : '';
+
+  const contaBody = `${pixCard(me, pixChecks, payouts, cur, lang)}
+      <label class="card" style="display:block"><input type="checkbox" id="weekly"${me.weeklyPayout ? ' checked' : ''}> <b>${t('guide.weekly.title')}</b>
+        <span class="hint" style="display:block">${t('guide.weekly.hint')}</span></label>
+      <div class="card"><div class="spread"><h2 style="margin:0">${t('g.cad.title')}</h2>
+        <span class="badge ${!cad ? '' : cad < today ? 'bad' : cad < soon60 ? 'warn' : 'ok'}">${t(!cad ? 'g.cad.unknown' : cad < today ? 'g.cad.st.expired' : cad < soon60 ? 'g.cad.st.soon' : 'g.cad.st.ok')}</span></div>
+        <p class="hint" style="margin:6px 0 0">${esc(me.license || '')}${cad ? ` · ${t('g.cad.until', { date: fmtDay(cad, lang) })}` : ''}</p></div>
+      <div class="card"><h2>${t('g.docs')}</h2><ul class="list">
+        <li><a href="#/releve"><div class="spread"><span>${t('guide.statement.title')}</span><span>→</span></div></a></li></ul>
+        <p class="hint">${t('g.docs.hint')}</p></div>
+      ${me.code ? `<p class="hint">${t('guide.code')} <b>${esc(me.code)}</b></p>` : ''}`;
+
+  const recent = visits.slice(0, 5);
+  const body = {
+    inicio: `${kpis}<div class="pd-cols"><div class="pd-side">${txCard(t('g.recent'), recent, visits.length > 5 ? `<a href="#/ganhos">${t('g.seeall')}</a>` : '')}
+        ${staysCard(stays.filter((s) => stayState(s) !== 'done').slice(0, 4), false)}</div>
+      <div class="pd-side">${todoCard}${nextCard}${me.referralEnabled ? `<a class="card" href="#/indicacao" style="display:block;text-decoration:none;color:inherit"><b>${t('ref.card.title')}</b><span class="hint" style="display:block">${t('ref.card.hint')}</span></a>` : ''}</div></div>`,
+    clientes: `<div class="pd-cols"><div class="pd-side">${staysCard(stays, true)}</div><div class="pd-side">${newStayForm}</div></div>`,
+    ganhos: `${kpis}<div class="pd-cols"><div class="pd-side"><div class="card g-card"><div class="spread"><h2 style="margin:0">${t('g.all')}</h2>
+        <span class="hint">${t('guide.sum.note', { pct })}</span></div>${filters}<div id="g-list">${visits.length ? visits.map(txRow).join('') : `<p class="hint">${t('g.tx.none')}</p>`}</div></div></div>
+      <div class="pd-side">${nextCard}${adjCard}${payoutsCard}<a class="card" href="#/releve" style="display:block;text-decoration:none;color:inherit"><b>${t('guide.statement.title')}</b><span class="hint" style="display:block">${t('g.statement.hint')}</span></a></div></div>`,
+    conta: `<div class="pd-cols"><div class="pd-side">${contaBody}</div><div class="pd-side">${nextCard}</div></div>`,
+  }[tab];
+
+  const counts = { inicio: todo.filter(([k]) => !done.has(k)).length, clientes: soonStays.length, ganhos: toConfirm.length, conta: !pixOk ? 1 : 0 };
+  const tabs = me.referralEnabled ? ['inicio', 'clientes', 'ganhos', 'indicacao', 'conta'] : G_TABS;
+  const nav = `<nav class="tabs no-print">${tabs.map((k) => `<a href="#/${k === 'inicio' ? '' : k}" class="${k === tab ? 'on' : ''}">${t(`g.tab.${k}`)}${counts[k] ? `<span class="todo">${counts[k]}</span>` : ''}</a>`).join('')}</nav>`;
+
+  return {
+    html: `<div class="dash-wide">
+      <div class="spread"><div><h1 style="margin-bottom:2px">${t('guide.hello', { name: me.name })}</h1>
+        <p class="hint" style="margin:0">${esc(city.name || '')}${me.code ? ` · ${esc(me.code)}` : ''}</p></div>
+        <div class="row" style="gap:6px">${helpButton()}${logoutButton()}</div></div>
+      ${nav}${banners}${body}</div>`,
     mount(root, ctx) {
       mountLogout(root, ctx);
       mountPix(root, ctx);
-      root.querySelector('#weekly').onchange = async (e) => {
-        await store.setWeeklyPayout(e.target.checked);
-        ctx.refresh(tRaw('common.saved'));
-      };
-      root.querySelector('#new-stay').onsubmit = async (e) => {
+      mountHelp(root, { kind: 'guide', send: (topic, msg, vId) => store.guideCreateAlert(topic, msg, vId),
+        label: (vId) => { const v = visits.find((x) => x.id === vId); return v ? `${pname(v.partnerId)} · ${stayOf(v.stayId)?.client || ''} · ${store.txNum(v.num)}` : ''; },
+        onSent: () => ctx.refresh() });
+      root.querySelectorAll('[data-todo]').forEach((b) => { b.onchange = () => { b.checked ? done.add(b.dataset.todo) : done.delete(b.dataset.todo); saveDone(dk, done); b.parentElement.classList.toggle('pd-done', b.checked); }; });
+      const fp = root.querySelector('#g-fp'); const fs = root.querySelector('#g-fs');
+      const filter = () => root.querySelectorAll('#g-list .g-tx').forEach((r) => {
+        r.hidden = (fp.value && r.dataset.p !== fp.value) || (fs.value && r.dataset.s !== fs.value && !(fs.value === 'paid' && r.dataset.s === 'payout_pending'));
+      });
+      if (fp) { fp.onchange = filter; fs.onchange = filter; }
+      const weekly = root.querySelector('#weekly');
+      if (weekly) weekly.onchange = async (e) => { await store.setWeeklyPayout(e.target.checked); ctx.refresh(tRaw('common.saved')); };
+      const form = root.querySelector('#new-stay');
+      if (form) form.onsubmit = async (e) => {
         e.preventDefault();
         const f = Object.fromEntries(new FormData(e.target));
         if (f.end < f.start) { notify(tRaw('guide.stay.err.dates')); return; }
@@ -193,19 +328,12 @@ function pixCard(me, checks, payouts, cur, lang) {
   if (me.pixStatus === undefined) return '';
   const open = checks.find((c) => c.status === 'sent' && !c.verifiedAt && c.confirmation === 'waiting' && c.keyVersion === me.pixKeyVersion);
   const masked = me.pixKey ? `${me.pixKey.slice(0, 2)}•••${me.pixKey.slice(-3)}` : '—';
-  const toConfirm = payouts.filter((p) => p.status === 'paid' && p.receivedStatus === 'waiting');
   return `<div class="card" id="pix-card">
       <h2>${t('pix.title')}</h2>
       <div class="spread"><span>${t('pix.key')} <b>${esc(masked)}</b>${me.pixKeyType ? ` · ${t(`pix.type.${me.pixKeyType}`)}` : ''}</span>
         <span class="badge ${me.pixStatus === 'verified' ? 'ok' : me.pixStatus === 'failed' ? 'bad' : 'warn'}">${t(`pix.st.${me.pixStatus}`)}</span></div>
       ${me.pixStatus === 'verified' && me.pixVerifiedAt ? `<p class="hint">${t('pix.verified.on', { date: fmtDay(me.pixVerifiedAt.slice(0, 10), lang) })}</p>` : ''}
-      ${me.pixStatus !== 'verified' ? `<div class="notice warn">${t('pix.suspended')}</div>` : ''}
-      ${open ? `<div class="notice">${t('pix.sent.msg')}
-        <div class="row" style="margin-top:10px"><button class="btn small" data-pix-ok="${esc(open.id)}">${t('pix.confirm')}</button>
-        <button class="btn small ghost" data-pix-no="${esc(open.id)}">${t('pix.notreceived')}</button></div></div>` : ''}
-      ${toConfirm.map((p) => `<div class="notice">${t('pix.payout.msg', { amount: cur(p.cents), ref: esc(p.reference || '') })}
-        <div class="row" style="margin-top:10px"><button class="btn small" data-po-ok="${esc(p.id)}">${t('pix.payout.ok')}</button>
-        <button class="btn small ghost" data-po-no="${esc(p.id)}">${t('pix.notreceived')}</button></div></div>`).join('')}
+      ${open ? `<p class="hint">${t('g.pix.seebanner')}</p>` : ''}
       <details style="margin-top:8px"><summary class="hint">${t('pix.change')}</summary>
         <form id="pix-form" style="margin-top:8px">
           <div class="grid2">
@@ -219,15 +347,14 @@ function pixCard(me, checks, payouts, cur, lang) {
     </div>`;
 }
 function mountPix(root, ctx) {
-  const card = root.querySelector('#pix-card');
-  if (!card) return;
+  const card = root;
   const act = async (fn, okMsg) => { try { const r = await fn(); if (r === false || r?.ok === false) { notify(tRaw('err.generic')); return; } ctx.refresh(tRaw(okMsg)); } catch { notify(tRaw('err.generic')); } };
   card.querySelectorAll('[data-pix-ok]').forEach((b) => { b.onclick = () => act(() => store.confirmPixVerification(b.dataset.pixOk, true), 'pix.done.ok'); });
   card.querySelectorAll('[data-pix-no]').forEach((b) => { b.onclick = () => act(() => store.confirmPixVerification(b.dataset.pixNo, false), 'pix.done.no'); });
   card.querySelectorAll('[data-po-ok]').forEach((b) => { b.onclick = () => act(() => store.confirmPayoutReceived(b.dataset.poOk, true), 'pix.done.ok'); });
   card.querySelectorAll('[data-po-no]').forEach((b) => { b.onclick = () => act(() => store.confirmPayoutReceived(b.dataset.poNo, false), 'pix.done.no'); });
   const f = card.querySelector('#pix-form');
-  f.onsubmit = async (e) => {
+  if (f) f.onsubmit = async (e) => {
     e.preventDefault();
     const ok = await store.setMyPixKey(f.key.value.trim(), f.type.value).catch(() => false);
     if (ok) ctx.refresh(tRaw('pix.changed')); else notify(tRaw('pix.err.key'));

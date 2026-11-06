@@ -429,3 +429,40 @@ export async function closeReferralMonth(month) { return check(await sb.rpc('clo
 export async function setReferralReward(id, action, text = null) {
   return check(await sb.rpc('set_referral_reward', { p_reward: id, p_action: action, p_text: text }));
 }
+
+/* ---------- Aide et alertes (v33, script 017) ---------- */
+// L'alerte va uniquement à Kombrio. Un problème réglé par la FAQ est seulement compté (sujet).
+const toAlert = (r) => r && ({
+  id: r.id, num: num(r.num), authorKind: r.author_kind, guideId: r.guide_id, partnerId: r.partner_id, visitId: r.visit_id,
+  topic: r.topic, message: r.message || '', status: r.status, answer: r.answer || '', createdAt: r.created_at, resolvedAt: r.resolved_at || '',
+  guideName: r.guides?.name || '', partnerName: r.partners?.name || '', visitNum: num(r.visits?.num),
+});
+export async function guideCreateAlert(topic, message, visitId = null) {
+  return check(await sb.rpc('guide_create_alert', { p_topic: topic, p_message: message, p_visit: visitId }));
+}
+export async function partnerCreateAlert(token, topic, message, visitId = null) {
+  return check(await sb.rpc('partner_create_alert', { p_token: token, p_topic: topic, p_message: message, p_visit: visitId }));
+}
+// Tant que le script 017 n'est pas lancé, ces lectures renvoient une liste vide (l'app reste utilisable).
+export async function listMyAlerts() {
+  const { data, error } = await sb.from('alerts').select('*').order('created_at', { ascending: false }).limit(20);
+  return error ? [] : data.map(toAlert);
+}
+export async function partnerAlerts(token) {
+  const { data, error } = await sb.rpc('partner_alerts', { p_token: token });
+  return error ? [] : (data || []).map(toAlert);
+}
+export async function countFaqSolved(kind, topic) {
+  try { await sb.rpc('count_faq_solved', { p_kind: kind, p_topic: topic }); } catch { /* simple compteur */ }
+}
+export async function adminListAlerts() {
+  const { data, error } = await sb.from('alerts').select('*, guides(name), partners(name), visits(num)').order('created_at', { ascending: false }).limit(200);
+  return error ? [] : data.map(toAlert);
+}
+export async function adminFaqSolvedSince(iso) {
+  const { count, error } = await sb.from('faq_solved').select('id', { count: 'exact', head: true }).gte('at', iso);
+  return error ? 0 : count || 0;
+}
+export async function adminSetAlert(id, status, answer = null) {
+  return check(await sb.rpc('admin_set_alert', { p_alert: id, p_status: status, p_answer: answer }));
+}
