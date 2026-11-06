@@ -179,7 +179,7 @@ function txLine(v, city, lang) {
   </li>`;
 }
 
-function spaceView({ partner, city, visits, payments, key, role, loggedIn }) {
+function spaceView({ partner, city, visits, payments, adjustments = [], key, role, loggedIn }) {
   if (role !== 'manager') return counterView({ partner, city, visits, key });
   const lang = getLang();
   const c = (n) => cents(n, city.currency, lang);
@@ -202,6 +202,7 @@ function spaceView({ partner, city, visits, payments, key, role, loggedIn }) {
       ${payments.length ? `<div class="card"><h2>${t('partner.payments')}</h2><ul class="list">${payments.map((y) => `<li>
           <div class="spread"><b>${t('partner.payment.line', { num: y.num, amount: c(y.cents) })}</b><span class="badge ${y.status === 'verified' ? 'ok' : y.status === 'rejected' ? 'bad' : 'warn'}">${t(`payment.${y.status}`)}</span></div>
           <div class="hint">${fmtMoment(y.submittedAt, lang, city.timezone)}${y.note ? ` · ${esc(y.note)}` : ''}</div></li>`).join('')}</ul></div>` : ''}
+      ${adjustmentsCard(adjustments, city, lang)}
       <div class="card no-print">
         <h2>${t('report.card')}</h2>
         <p class="hint">${t('report.card.hint')}</p>
@@ -390,7 +391,17 @@ const monthLabel = (m, lang) => new Intl.DateTimeFormat(locale(lang), { month: '
 const PAID = ['received', 'payout_pending', 'paid'];
 const shortMoment = (iso, lang, tz) => new Intl.DateTimeFormat(locale(lang), { dateStyle: 'short', timeStyle: 'short', timeZone: tz }).format(new Date(iso));
 
-function reportBlock({ partner, city, visits }, month, base) {
+// Corrections après encaissement (contre-écritures) vues par le partenaire.
+function adjustmentsCard(adjustments, city, lang, month) {
+  const list = month ? adjustments.filter((a) => monthOf(a.createdAt, city.timezone) === month) : adjustments;
+  if (!list.length) return '';
+  return `<div class="card"><h2>${t('pm.adj.title')}</h2><ul class="list">${list.map((a) => `<li>
+      <div class="spread"><b>${esc(store.adjNum(a.num))} · ${esc(store.txNum(a.visitNum))} · ${cents(a.deltaCents, city.currency, lang)}</b>
+        <span class="badge ${a.partnerStatus === 'settled' ? 'ok' : 'warn'}">${t(`pm.adj.${a.partnerStatus}`)}</span></div>
+      <div class="hint">${fmtMoment(a.createdAt, lang, city.timezone)} · ${esc(a.reason)}</div></li>`).join('')}</ul></div>`;
+}
+
+function reportBlock({ partner, city, visits, adjustments = [] }, month, base) {
   const lang = getLang();
   const months = [...new Set([monthOf(new Date().toISOString(), city.timezone), ...visits.map((v) => monthOf(v.at, city.timezone))])].sort().reverse();
   const m = months.includes(month) ? month : months[0];
@@ -426,7 +437,8 @@ function reportBlock({ partner, city, visits }, month, base) {
         <button type="button" class="btn ghost" id="pdf">${t('report.print')}</button>
       </div>
       <p class="hint" style="margin-top:10px">kombrio · ${t('report.generated', { date: fmtDay(new Date().toISOString().slice(0, 10), lang) })}</p>
-    </div>`;
+    </div>
+    ${adjustmentsCard(adjustments, city, lang, m)}`;
   const mount = (root, ctx) => {
     root.querySelector('#month').onchange = (e) => ctx.go(`${base}/${e.target.value}`);
     root.querySelector('#pdf').onclick = () => window.print();

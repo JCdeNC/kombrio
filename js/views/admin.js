@@ -78,20 +78,24 @@ function loginView() {
 const plural = (key, n) => tRaw(`${key}.${n === 1 ? 'one' : 'other'}`, { n });
 
 async function loadAll() {
-  const [cityList, guides, partnerList, visits, payoutList, paymentList] = await Promise.all([
+  const [cityList, guides, partnerList, visits, payoutList, paymentList, adjustments] = await Promise.all([
     store.listCities(), store.listGuides(), store.listPartners(), store.listVisits(), store.listPayouts(), store.listPayments(),
+    store.listAdjustments(),
   ]);
   const city = (id) => cityList.find((c) => c.id === id);
   const guide = (id) => guides.find((g) => g.id === id);
   const partner = (id) => partnerList.find((p) => p.id === id);
   const cur = (n, cityId) => cents(n, city(cityId)?.currency || 'BRL', getLang());
-  return { cityList, guides, partnerList, visits, payoutList, paymentList, city, guide, partner, cur };
+  return { cityList, guides, partnerList, visits, payoutList, paymentList, adjustments, city, guide, partner, cur };
 }
+// Corrections pas encore reversées et déjà dues au guide : une baisse tout de suite, une hausse une fois le complément reçu.
+const openAdjustments = (adjustments, guideId) => adjustments.filter((a) => (!guideId || a.guideId === guideId) && !a.payoutId
+  && (a.guideDelta < 0 || a.partnerStatus === 'settled'));
 
 const sumOf = (list, key) => list.reduce((s, v) => s + (v[key] || 0), 0);
 const IN = (v, ...st) => st.includes(v.status);
 
-async function dashboard({ guides, partnerList, visits, cur, cityList }) {
+async function dashboard({ guides, partnerList, visits, adjustments, cur, cityList }) {
   const cityId = cityList[0]?.id;
   const live = visits.filter((v) => v.status !== 'cancelled');
   const declared = live.filter((v) => IN(v, 'declared', 'verifying', 'received', 'payout_pending', 'paid'));
@@ -109,8 +113,8 @@ async function dashboard({ guides, partnerList, visits, cur, cityList }) {
         <div class="stat"><b>${cur(sumOf(live.filter((v) => IN(v, 'declared', 'verifying')), 'declaredCents'), cityId)}</b><span>${t('admin.stat.awaiting')}</span></div>
       </div>
       <div class="stats">
-        <div class="stat"><b>${cur(sumOf(cashed, 'kombrioCents'), cityId)}</b><span>${t('admin.stat.platform')}</span></div>
-        <div class="stat"><b>${cur(sumOf(live.filter((v) => IN(v, 'received')), 'guideCents'), cityId)}</b><span>${t('admin.stat.topay')}</span></div>
+        <div class="stat"><b>${cur(sumOf(cashed, 'kombrioCents') + sumOf(adjustments, 'kombrioDelta'), cityId)}</b><span>${t('admin.stat.platform')}</span></div>
+        <div class="stat"><b>${cur(sumOf(live.filter((v) => IN(v, 'received')), 'guideCents') + sumOf(openAdjustments(adjustments), 'guideDelta'), cityId)}</b><span>${t('admin.stat.topay')}</span></div>
         <div class="stat"><b>${cur(sumOf(live.filter((v) => IN(v, 'paid')), 'guideCents'), cityId)}</b><span>${t('admin.stat.guidepaid')}</span></div>
       </div>
       <div class="card">
@@ -289,22 +293,23 @@ async function referral({ cur, guide }) {
   };
 }
 
-async function payouts({ guides, visits, payoutList, cur, guide }) {
+async function payouts({ guides, visits, payoutList, adjustments, cur, guide }) {
   const lang = getLang();
   const due = guides.map((g) => {
     const items = visits.filter((v) => v.guideId === g.id && v.status === 'received');
-    return { g, items, total: sumOf(items, 'guideCents') };
-  }).filter((x) => x.items.length);
+    const adj = sumOf(openAdjustments(adjustments, g.id), 'guideDelta');
+    return { g, items, adj, total: sumOf(items, 'guideCents') + adj };
+  }).filter((x) => x.total > 0);
   const running = payoutList.filter((p) => p.status === 'in_progress');
   const paid = payoutList.filter((p) => p.status === 'paid');
   return {
     html: `<div class="card">
       <h2>${t('admin.out.title')}</h2>
       <p class="hint">${t('admin.out.hint2')}</p>
-      ${due.length ? `<ul class="list">${due.map(({ g, items, total }) => `<li>
+      ${due.length ? `<ul class="list">${due.map(({ g, items, adj, total }) => `<li>
         <div class="spread"><b>${esc(g.name)}</b><b>${cur(total, g.cityId)}</b></div>
         <div class="hint">${t('admin.out.line', { n: items.length, pix: g.pixKey || tRaw('admin.missing'), cpf: g.cpf ? fmtTaxId(g.cpf) : tRaw('admin.missing') })}</div>
-        <div class="hint">${items.map((v) => esc(store.txNum(v.num))).join(' · ')}</div>
+        <div class="hint">${items.map((v) => esc(store.txNum(v.num))).join(' · ')}${adj ? ` · ${t('admin.out.adj', { amount: cur(adj, g.cityId) })}` : ''}</div>
         <button class="btn small" style="margin-top:8px" data-start="${esc(g.id)}">${t('admin.out.start')}</button>
       </li>`).join('')}</ul>` : `<p class="hint">${t('admin.out.none')}</p>`}
     </div>
@@ -340,12 +345,13 @@ async function payouts({ guides, visits, payoutList, cur, guide }) {
 }
 
 // Toutes les transactions : déclaré / encaissé / parts, corrections tracées (motif obligatoire).
-async function transactions({ visits, guide, partner, cur, city }) {
+async function transactions({ visits, adjustments, guide, partner, cur, city }) {
   const lang = getLang();
   const rows = visits.slice(0, 300);
   const actions = (v) => {
     const a = [];
     if (IN(v, 'zero', 'declared')) a.push('correct');
+    if (IN(v, 'received', 'payout_pending', 'paid')) a.push('adjust');
     if (!IN(v, 'paid', 'cancelled', 'disputed')) a.push('dispute');
     if (IN(v, 'disputed')) a.push('resolve');
     if (IN(v, 'visited', 'zero', 'declared') || (IN(v, 'disputed') && ['visited', 'zero', 'declared'].includes(v.prevStatus || 'visited'))) a.push('cancel');
@@ -374,8 +380,37 @@ async function transactions({ visits, guide, partner, cur, city }) {
                 </form></details>` : ''}</td></tr>`;
         }).join('')}
       </table></div>` : `<p class="hint">${t('admin.tx.none')}</p>`}
+    </div>
+    <div class="card">
+      <h2>${t('admin.adj.title')}</h2>
+      <p class="hint">${t('admin.adj.hint')}</p>
+      ${adjustments.length ? `<div class="table-wrap"><table>
+        <tr><th>ID</th><th>${t('common.date')}</th><th>${t('admin.part.title')}</th><th>${t('common.guide')}</th><th>${t('guide.col.diff')}</th><th>${t('common.guide')}</th><th>Kombrio</th><th>${t('guide.col.reason')}</th><th>${t('admin.col.status')}</th></tr>
+        ${adjustments.map((a) => {
+          const p = partner(a.partnerId);
+          const v = visits.find((x) => x.id === a.visitId);
+          const c = (n) => cur(n, p?.cityId);
+          return `<tr><td style="white-space:nowrap">${esc(store.adjNum(a.num))}<div class="hint">${esc(store.txNum(v?.num))}</div></td>
+            <td style="white-space:nowrap">${fmtMoment(a.createdAt, lang, city(p?.cityId)?.timezone)}</td>
+            <td>${esc(p?.name || '?')}</td><td>${esc(guide(a.guideId)?.name || '?')}</td>
+            <td>${c(a.deltaCents)}</td><td>${c(a.guideDelta)}</td><td>${c(a.kombrioDelta)}</td><td>${esc(a.reason)}</td>
+            <td>${t(`admin.adj.${a.partnerStatus}`)}${a.partnerRef ? `<div class="hint">${esc(a.partnerRef)}</div>` : ''}
+              ${a.partnerStatus !== 'settled' ? `<form class="adjsettle" data-id="${esc(a.id)}" style="margin-top:6px;min-width:200px">
+                <input name="ref" placeholder="${t('admin.adj.ref')}" required>
+                <button class="btn small" style="margin-top:4px">${t('admin.adj.settle')}</button>
+              </form>` : ''}</td></tr>`;
+        }).join('')}
+      </table></div>` : `<p class="hint">${t('admin.adj.none')}</p>`}
     </div>`,
     mount(root, ctx) {
+      root.querySelectorAll('form.adjsettle').forEach((f) => {
+        f.onsubmit = async (e) => {
+          e.preventDefault();
+          if (!f.ref.value.trim()) { notify(tRaw('admin.err.ref')); return; }
+          const ok = await store.settleAdjustment(f.dataset.id, f.ref.value.trim()).catch(() => false);
+          if (ok) ctx.refresh(tRaw('common.saved')); else notify(tRaw('err.generic'));
+        };
+      });
       root.querySelectorAll('form.txact').forEach((f) => {
         f.onsubmit = async (e) => {
           e.preventDefault();
@@ -388,6 +423,10 @@ async function transactions({ visits, guide, partner, cur, city }) {
               const cts = parseCents(f.cents.value);
               if (cts == null) { notify(tRaw('admin.err.amount')); return; }
               ok = await store.correctCommission(id, cts, reason);
+            } else if (f.act.value === 'adjust') {
+              const cts = parseCents(f.cents.value);
+              if (cts == null) { notify(tRaw('admin.err.amount')); return; }
+              ok = Boolean(await store.adjustCommission(id, cts, reason));
             } else if (f.act.value === 'dispute') ok = await store.disputeVisit(id, reason);
             else if (f.act.value === 'resolve') ok = await store.resolveDispute(id, reason);
             else if (f.act.value === 'cancel') ok = await store.cancelVisit(id, reason);

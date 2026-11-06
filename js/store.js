@@ -50,7 +50,8 @@ const toVisit = (r) => r && ({
   id: r.id, num: num(r.num), stayId: r.stay_id, partnerId: r.partner_id, guideId: r.guide_id, at: r.at,
   people: r.people, peopleServed: r.people_served ?? r.people, offerGiven: r.offer_given, status: r.status,
   declaredCents: num(r.declared_cents), receivedCents: num(r.received_cents), guideCents: num(r.guide_cents),
-  kombrioCents: num(r.kombrio_cents), invoiceCents: num(r.invoice_cents), rate: r.commission_rate == null ? null : Number(r.commission_rate), paymentId: r.payment_id, payoutId: r.payout_id, prevStatus: r.prev_status,
+  kombrioCents: num(r.kombrio_cents), invoiceCents: num(r.invoice_cents), rate: r.commission_rate == null ? null : Number(r.commission_rate),
+  platformShare: r.platform_share == null ? null : Number(r.platform_share), paymentId: r.payment_id, payoutId: r.payout_id, prevStatus: r.prev_status,
   statusNote: r.status_note, declaredAt: r.declared_at, receivedAt: r.received_at, client: r.client, guideName: r.guide_name,
 });
 const toPayout = (r) => r && ({
@@ -62,6 +63,13 @@ const toPayment = (r) => r && ({
   receipt: r.receipt || null, status: r.status, receivedCents: num(r.received_cents), note: r.note,
   submittedAt: r.submitted_at, verifiedAt: r.verified_at,
 });
+// Correction après encaissement (contre-écriture) : l'original ne bouge pas, l'écart est ajouté.
+const toAdjustment = (r) => r && ({
+  id: r.id, num: num(r.num), visitId: r.visit_id, visitNum: num(r.visit_num), guideId: r.guide_id, partnerId: r.partner_id,
+  deltaCents: num(r.delta_cents), guideDelta: num(r.guide_delta), kombrioDelta: num(r.kombrio_delta), reason: r.reason,
+  partnerStatus: r.partner_status, partnerRef: r.partner_ref, settledAt: r.settled_at, payoutId: r.payout_id, createdAt: r.created_at,
+});
+export const adjNum = (n) => (n == null ? '' : `KC-${String(n).padStart(6, '0')}`);
 export const txNum = (n) => (n == null ? '' : `KB-${String(n).padStart(6, '0')}`);
 
 /* ---------- Villes ---------- */
@@ -240,13 +248,15 @@ export async function renewPartnerToken(partnerId) {
 export async function partnerSpace(token) {
   const d = check(await sb.rpc('partner_space', { p_token: token }));
   if (!d) return null;
-  return { role: d.role, partner: toPartner(d.partner), city: toCity(d.city), visits: (d.visits || []).map(toVisit), payments: (d.payments || []).map(toPayment) };
+  return { role: d.role, partner: toPartner(d.partner), city: toCity(d.city), visits: (d.visits || []).map(toVisit), payments: (d.payments || []).map(toPayment),
+    adjustments: (d.adjustments || []).map(toAdjustment) };
 }
 // Relevé du comptable (lecture seule), à partir de son lien. null si le lien n'est pas reconnu.
 export async function partnerReport(reportToken) {
   const d = check(await sb.rpc('partner_report', { p_token: reportToken }));
   if (!d) return null;
-  return { partner: toPartner(d.partner), city: toCity(d.city), visits: (d.visits || []).map(toVisit), payments: (d.payments || []).map(toPayment) };
+  return { partner: toPartner(d.partner), city: toCity(d.city), visits: (d.visits || []).map(toVisit), payments: (d.payments || []).map(toPayment),
+    adjustments: (d.adjustments || []).map(toAdjustment) };
 }
 export async function renewReportToken(partnerToken) {
   return check(await sb.rpc('renew_report_token', { p_partner_token: partnerToken }));
@@ -322,6 +332,19 @@ export async function listPayouts(guideId) {
   let q = sb.from('payouts').select('*').order('at', { ascending: false });
   if (guideId) q = q.eq('guide_id', guideId);
   return check(await q).map(toPayout);
+}
+// Corrections après encaissement. Liste vide si la base n'a pas encore le script 013 (lot 0).
+export async function listAdjustments(guideId) {
+  let q = sb.from('adjustments').select('*').order('created_at', { ascending: false });
+  if (guideId) q = q.eq('guide_id', guideId);
+  const { data, error } = await q;
+  return error ? [] : (data || []).map(toAdjustment);
+}
+export async function adjustCommission(visitId, cents, reason) {
+  return check(await sb.rpc('adjust_commission', { p_visit: visitId, p_new_cents: cents, p_reason: reason }));
+}
+export async function settleAdjustment(adjustmentId, ref) {
+  return check(await sb.rpc('settle_adjustment', { p_adjustment: adjustmentId, p_ref: ref }));
 }
 export async function startPayout(guideId) {
   return check(await sb.rpc('start_payout', { p_guide: guideId }));
