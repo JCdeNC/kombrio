@@ -83,6 +83,7 @@ export default {
   'app.client': 'Client',
   'app.partner': 'Partner',
   'app.guide': 'Guide',
+  'app.verify': 'Verification',
   'app.admin': 'Administrator',
   'home.client.desc': 'The client shows their QR at partners and sees their offers.',
   'client.home': 'Open the link sent by your guide to display your QR.',

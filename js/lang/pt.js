@@ -290,6 +290,7 @@ export default {
   'app.client': 'Cliente',
   'app.partner': 'Parceiro',
   'app.guide': 'Guia',
+  'app.verify': 'Verificação',
   'app.admin': 'Administrador',
   'home.client.desc': 'O cliente mostra o seu QR nos parceiros e vê as ofertas deles.',
   'home.install': 'Cada aplicativo tem o seu próprio link e pode ser instalado na tela inicial do celular (menu do navegador › « Adicionar à tela de início »).',
