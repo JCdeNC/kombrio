@@ -1,4 +1,4 @@
--- Kombrio · tests automatiques du socle financier (v27 : facture × taux + lot 0 de l'audit du 06/11/2026).
+-- Kombrio · tests automatiques du socle financier (v27 : facture × taux + lot 0 de l'audit du 06/11/2026 ; v30 : module Pix).
 -- À coller dans Supabase › SQL Editor APRÈS le script 013_lot0_socle.sql.
 -- Tout se passe dans une transaction annulée à la fin : la base n'est pas modifiée.
 -- Le résultat s'affiche comme une erreur « RÉSULTATS : … » (c'est voulu : c'est ce qui annule tout).
@@ -23,6 +23,8 @@ begin
   values (g, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'test-guide@kombrio.test',
           '{"role":"guide","name":"Guia Teste","city_id":"rio"}', now(), now());
   update guides set status = 'validated' where id = g;
+  -- Depuis le module Pix (v30) : un virement exige CPF et clé Pix vérifiée.
+  update guides set cpf = '33333333333', pix_key = 'teste@kombrio.test', pix_status = 'verified' where id = g;
   insert into partners (id, city_id, type, name, token, manager_token, offer, commission_rate) values
     (p1, 'rio', 'restaurant', 'Parceiro Teste 1', 'P-TEST1', 'G-TEST1', 'Um suco', 0.10),
     (p2, 'rio', 'shop', 'Parceiro Teste 2', 'P-TEST2', 'G-TEST2', null, 0.10);
@@ -106,6 +108,13 @@ begin
   select count(*) into n from visits where payout_id = po and status = 'paid';
   if ok and n = 2 and (select status from payouts where id = po) = 'paid'
     then pass := pass + 1; else fail := fail + 1; out := out || format(' [15 virement confirmé ok=%s payées=%s] ', ok, n); end if;
+
+  -- Depuis le module Pix (v30) : le guide confirme la réception du virement avant le suivant.
+  perform set_config('request.jwt.claims', json_build_object('sub', g, 'role', 'authenticated')::text, true);
+  perform set_config('request.jwt.claim.sub', g::text, true);
+  perform confirm_payout_received(po, true);
+  perform set_config('request.jwt.claims', json_build_object('sub', admin_id, 'role', 'authenticated')::text, true);
+  perform set_config('request.jwt.claim.sub', admin_id::text, true);
 
   -- 16. L'ancienne correction reste interdite après paiement ; l'annulation aussi.
   if not correct_commission(v2, 100, 'test') and not cancel_visit(v2, 'test') then pass := pass + 1; else fail := fail + 1; out := out || ' [16 pas de correction directe après paiement] '; end if;

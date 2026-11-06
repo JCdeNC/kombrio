@@ -6,7 +6,7 @@ import * as store from '../store.js';
 import { forgotLink, mountForgot, resetView, statusBadge } from './shared.js';
 import { maskTaxId, photoToJpeg } from '../util.js';
 
-const TABS = ['dashboard', 'validations', 'payments', 'payouts', 'referral', 'transactions', 'partners', 'cities', 'journal'];
+const TABS = ['dashboard', 'validations', 'payments', 'payouts', 'pix', 'referral', 'transactions', 'partners', 'cities', 'journal'];
 
 export async function adminView([tab = 'dashboard']) {
   if (store.inRecovery() && await store.hasSession()) return resetView();
@@ -22,7 +22,7 @@ export async function adminView([tab = 'dashboard']) {
   if (!TABS.includes(tab)) tab = 'dashboard';
   const nav = `<nav class="tabs">${TABS.map((k) => `<a href="#/${k}" class="${k === tab ? 'on' : ''}">${t(`admin.tab.${k}`)}</a>`).join('')}</nav>`;
   const data = await loadAll();
-  const view = await ({ dashboard, validations, payments, payouts, referral, transactions, partners, cities, journal })[tab](data);
+  const view = await ({ dashboard, validations, payments, payouts, pix: pixAdmin, referral, transactions, partners, cities, journal })[tab](data);
   return {
     html: `<div class="spread"><h1>${t('admin.title')}</h1>
         <span class="hint">${esc(me.email)} <button class="btn ghost small" id="logout">${t('common.logout')}</button></span></div>
@@ -78,15 +78,15 @@ function loginView() {
 const plural = (key, n) => tRaw(`${key}.${n === 1 ? 'one' : 'other'}`, { n });
 
 async function loadAll() {
-  const [cityList, guides, partnerList, visits, payoutList, paymentList, adjustments] = await Promise.all([
+  const [cityList, guides, partnerList, visits, payoutList, paymentList, adjustments, pixChecks, expenses] = await Promise.all([
     store.listCities(), store.listGuides(), store.listPartners(), store.listVisits(), store.listPayouts(), store.listPayments(),
-    store.listAdjustments(),
+    store.listAdjustments(), store.listPixVerifications(), store.listExpenses(),
   ]);
   const city = (id) => cityList.find((c) => c.id === id);
   const guide = (id) => guides.find((g) => g.id === id);
   const partner = (id) => partnerList.find((p) => p.id === id);
   const cur = (n, cityId) => cents(n, city(cityId)?.currency || 'BRL', getLang());
-  return { cityList, guides, partnerList, visits, payoutList, paymentList, adjustments, city, guide, partner, cur };
+  return { cityList, guides, partnerList, visits, payoutList, paymentList, adjustments, pixChecks, expenses, city, guide, partner, cur };
 }
 // Corrections pas encore reversées et déjà dues au guide : une baisse tout de suite, une hausse une fois le complément reçu.
 const openAdjustments = (adjustments, guideId) => adjustments.filter((a) => (!guideId || a.guideId === guideId) && !a.payoutId
@@ -293,6 +293,14 @@ async function referral({ cur, guide }) {
   };
 }
 
+// Pourquoi un virement de commissions est bloqué (même règle que la base, payout_block_reason).
+const blockReason = (g, payoutList) => {
+  if (g.pixStatus === undefined) return null;
+  if (!g.cpf) return 'cpf';
+  if (g.pixStatus !== 'verified') return 'pix';
+  if (payoutList.some((p) => p.guideId === g.id && p.status === 'paid' && ['waiting', 'not_received'].includes(p.receivedStatus))) return 'receipt';
+  return null;
+};
 async function payouts({ guides, visits, payoutList, adjustments, cur, guide }) {
   const lang = getLang();
   const due = guides.map((g) => {
@@ -310,7 +318,8 @@ async function payouts({ guides, visits, payoutList, adjustments, cur, guide }) 
         <div class="spread"><b>${esc(g.name)}</b><b>${cur(total, g.cityId)}</b></div>
         <div class="hint">${t('admin.out.line', { n: items.length, pix: g.pixKey || tRaw('admin.missing'), cpf: g.cpf ? fmtTaxId(g.cpf) : tRaw('admin.missing') })}</div>
         <div class="hint">${items.map((v) => esc(store.txNum(v.num))).join(' · ')}${adj ? ` · ${t('admin.out.adj', { amount: cur(adj, g.cityId) })}` : ''}</div>
-        <button class="btn small" style="margin-top:8px" data-start="${esc(g.id)}">${t('admin.out.start')}</button>
+        ${blockReason(g, payoutList) ? `<div class="notice warn" style="margin-top:8px">${t(`admin.out.blocked.${blockReason(g, payoutList)}`)}</div>`
+          : `<button class="btn small" style="margin-top:8px" data-start="${esc(g.id)}">${t('admin.out.start')}</button>`}
       </li>`).join('')}</ul>` : `<p class="hint">${t('admin.out.none')}</p>`}
     </div>
     ${running.length ? `<div class="card"><h2>${t('admin.out.running')}</h2><ul class="list">${running.map((p) => `<li>
@@ -324,12 +333,13 @@ async function payouts({ guides, visits, payoutList, adjustments, cur, guide }) 
       <h2>${t('admin.out.history')}</h2>
       ${paid.length ? `<div class="table-wrap"><table>
         <tr><th>N°</th><th>${t('common.date')}</th><th>${t('common.guide')}</th><th>${t('common.amount')}</th><th>${t('admin.out.ref')}</th></tr>
-        ${paid.map((p) => `<tr><td>${p.num}</td><td>${fmtMoment(p.paidAt || p.at, lang)}</td><td>${esc(guide(p.guideId)?.name)}</td><td>${cur(p.cents, guide(p.guideId)?.cityId)}</td><td>${esc(p.reference || '')}</td></tr>`).join('')}
+        ${paid.map((p) => `<tr><td>${p.num}</td><td>${fmtMoment(p.paidAt || p.at, lang)}</td><td>${esc(guide(p.guideId)?.name)}</td><td>${cur(p.cents, guide(p.guideId)?.cityId)}</td><td>${esc(p.reference || '')}${p.receivedStatus ? `<div class="hint">${t(`admin.out.rcv.${p.receivedStatus}`)}</div>` : ''}</td></tr>`).join('')}
       </table></div>` : `<p class="hint">${t('admin.out.history.none')}</p>`}
     </div>`,
     mount(root, ctx) {
       root.querySelectorAll('[data-start]').forEach((b) => confirmTwice(b, tRaw('admin.out.start.confirm'), async () => {
-        await store.startPayout(b.dataset.start);
+        const r = await store.startPayout(b.dataset.start);
+        if (r && r.blocked) { notify(tRaw(`admin.out.blocked.${r.blocked}`)); return; }
         ctx.refresh(tRaw('admin.out.started'));
       }, tRaw('err.generic')));
       root.querySelectorAll('form.confirm').forEach((f) => {
@@ -340,6 +350,89 @@ async function payouts({ guides, visits, payoutList, adjustments, cur, guide }) 
           if (ok) ctx.refresh(tRaw('admin.out.done')); else notify(tRaw('err.generic'));
         };
       });
+    },
+  };
+}
+
+// Validations Pix (v30, V1 manuelle) : le 1 R$ est envoyé depuis l'app de la banque, puis saisi ici. Dépense Kombrio, jamais une commission.
+async function pixAdmin({ guides, pixChecks, expenses, cur, guide }) {
+  const lang = getLang();
+  if (guides.length && guides[0].pixStatus === undefined) return { html: `<div class="notice warn">${t('admin.pix.notinstalled')}</div>` };
+  const sumCat = (c) => expenses.filter((e) => e.category === c).reduce((s, e) => s + e.cents, 0);
+  const sent = sumCat('pix_validation'), fees = sumCat('bank_fee'), back = sumCat('pix_validation_return');
+  const verifiedGuides = guides.filter((g) => g.pixStatus === 'verified').length;
+  const retries = guides.filter((g) => pixChecks.filter((c) => c.guideId === g.id).length > 1).length;
+  const net = sent + fees + back;
+  const open = (g) => pixChecks.find((c) => c.guideId === g.id && ['pending', 'sent'].includes(c.status) && !c.verifiedAt);
+  const list = guides.filter((g) => g.status === 'validated');
+  const order = { review: 0, failed: 1, sent: 2, pending: 3, unverified: 4, verified: 5 };
+  list.sort((a, b) => (order[a.pixStatus] ?? 9) - (order[b.pixStatus] ?? 9));
+  const masked = (k) => (k ? `${k.slice(0, 2)}•••${k.slice(-3)}` : t('admin.missing'));
+  const row = (g) => {
+    const o = open(g);
+    let actions = '';
+    if (g.pixStatus !== 'verified' && !o && g.pixKey) actions = `<button class="btn small" data-pix-start="${esc(g.id)}">${t('admin.pix.start')}</button>`;
+    if (o && o.status === 'pending') actions = `<form class="pixsent row" data-id="${esc(o.id)}" style="align-items:flex-end;gap:6px">
+        <div class="field" style="margin:0;flex:2"><label>${t('admin.pix.e2e')}</label><input name="e2e" placeholder="E2E…" required></div>
+        <div class="field" style="margin:0;flex:1"><label>${t('admin.pix.fee')}</label><input name="fee" inputmode="decimal" placeholder="0,00"></div>
+        <button class="btn small">${t('admin.pix.sent')}</button></form>`;
+    if (o) actions += `<form class="pixfail row" data-id="${esc(o.id)}" style="align-items:flex-end;gap:6px;margin-top:6px">
+        <div class="field" style="margin:0;flex:1"><input name="reason" placeholder="${t('admin.pix.reason')}" required></div>
+        <button class="btn small ghost">${t('admin.pix.fail')}</button></form>`;
+    return `<li><div class="spread"><b>${esc(g.name)}${g.isTest ? ` <span class="badge">${t('admin.pix.test')}</span>` : ''}</b>
+        <span class="badge ${g.pixStatus === 'verified' ? 'ok' : ['failed', 'review'].includes(g.pixStatus) ? 'bad' : 'warn'}">${t(`pix.st.${g.pixStatus}`)}</span></div>
+      <div class="hint">Pix ${esc(masked(g.pixKey))}${g.pixKeyType ? ` · ${t(`pix.type.${g.pixKeyType}`)}` : ''} · v${g.pixKeyVersion ?? 1}${g.pixStatus === 'review' ? ` · <b>${t('admin.pix.incident')}</b>` : ''}</div>
+      <div style="margin-top:6px">${actions}</div>
+      <label class="hint" style="display:block;margin-top:6px"><input type="checkbox" data-test="${esc(g.id)}"${g.isTest ? ' checked' : ''}> ${t('admin.pix.test.toggle')}</label></li>`;
+  };
+  return {
+    html: `<div class="stats">
+        <div class="stat"><b>${pixChecks.length}</b><span>${t('admin.pix.k.started')}</span></div>
+        <div class="stat"><b>${pixChecks.filter((c) => c.sentAt).length}</b><span>${t('admin.pix.k.sent')}</span></div>
+        <div class="stat"><b>${verifiedGuides}</b><span>${t('admin.pix.k.verified')}</span></div>
+        <div class="stat"><b>${pixChecks.filter((c) => c.status === 'failed' || c.status === 'returned').length}</b><span>${t('admin.pix.k.failed')}</span></div>
+        <div class="stat"><b>${retries}</b><span>${t('admin.pix.k.retries')}</span></div>
+      </div>
+      <div class="stats">
+        <div class="stat"><b>${cur(sent)}</b><span>${t('admin.pix.k.gross')}</span></div>
+        <div class="stat"><b>${cur(fees)}</b><span>${t('admin.pix.k.fees')}</span></div>
+        <div class="stat"><b>${cur(-back)}</b><span>${t('admin.pix.k.returns')}</span></div>
+        <div class="stat"><b>${cur(net)}</b><span>${t('admin.pix.k.net')}</span></div>
+        <div class="stat"><b>${verifiedGuides ? cur(Math.round(net / verifiedGuides)) : '—'}</b><span>${t('admin.pix.k.avg')}</span></div>
+      </div>
+      <div class="card"><h2>${t('admin.pix.title')}</h2><p class="hint">${t('admin.pix.hint')}</p>
+        ${list.length ? `<ul class="list">${list.map(row).join('')}</ul>` : `<p class="hint">${t('admin.pix.none')}</p>`}</div>
+      <div class="card"><h2>${t('admin.pix.history')}</h2>
+        ${pixChecks.length ? `<div class="table-wrap"><table>
+          <tr><th>N°</th><th>${t('common.date')}</th><th>${t('common.guide')}</th><th>${t('admin.pix.keycol')}</th><th>${t('admin.col.status')}</th><th>${t('admin.pix.guidecol')}</th><th>E2E</th><th></th></tr>
+          ${pixChecks.map((c) => `<tr><td>${c.num}</td><td style="white-space:nowrap">${fmtMoment(c.sentAt || c.initiatedAt, lang)}</td><td>${esc(guide(c.guideId)?.name || '?')}</td>
+            <td>${esc(c.keyMasked)} · v${c.keyVersion}</td><td>${t(`admin.pix.s.${c.status}`)}${c.failureReason ? `<div class="hint">${esc(c.failureReason)}</div>` : ''}</td>
+            <td>${t(`admin.pix.c.${c.confirmation}`)}</td><td>${esc(c.e2e)}</td>
+            <td>${c.e2e && ['sent', 'failed'].includes(c.status) && !expenses.some((e) => e.verificationId === c.id && e.category === 'pix_validation_return')
+              ? `<form class="pixret" data-id="${esc(c.id)}" style="min-width:180px"><input name="ref" placeholder="${t('admin.pix.retref')}" required><button class="btn small ghost" style="margin-top:4px">${t('admin.pix.ret')}</button></form>` : ''}</td></tr>`).join('')}
+        </table></div>` : `<p class="hint">${t('admin.pix.none')}</p>`}</div>`,
+    mount(root, ctx) {
+      const done = (ok, msg) => (ok ? ctx.refresh(tRaw(msg || 'common.saved')) : notify(tRaw('err.generic')));
+      root.querySelectorAll('[data-pix-start]').forEach((b) => confirmTwice(b, tRaw('admin.pix.start.confirm'), async () => {
+        const r = await store.startPixVerification(b.dataset.pixStart); done(r && r.ok, 'admin.pix.started');
+      }, tRaw('err.generic')));
+      root.querySelectorAll('form.pixsent').forEach((f) => { f.onsubmit = async (e) => {
+        e.preventDefault();
+        const fee = f.fee.value.trim() ? parseCents(f.fee.value) : 0;
+        if (fee == null) { notify(tRaw('admin.err.amount')); return; }
+        const r = await store.recordPixSent(f.dataset.id, f.e2e.value.trim(), fee).catch(() => null);
+        if (r && r.reason === 'duplicate') { notify(tRaw('admin.pay.err.duplicate')); return; }
+        done(r && r.ok, 'admin.pix.recorded');
+      }; });
+      root.querySelectorAll('form.pixfail').forEach((f) => { f.onsubmit = async (e) => {
+        e.preventDefault(); done(await store.failPixVerification(f.dataset.id, f.reason.value.trim()).catch(() => false));
+      }; });
+      root.querySelectorAll('form.pixret').forEach((f) => { f.onsubmit = async (e) => {
+        e.preventDefault(); done(await store.recordPixReturn(f.dataset.id, f.ref.value.trim()).catch(() => false));
+      }; });
+      root.querySelectorAll('[data-test]').forEach((c) => { c.onchange = async () => {
+        done(await store.setGuideTest(c.dataset.test, c.checked).catch(() => false));
+      }; });
     },
   };
 }

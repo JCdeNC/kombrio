@@ -33,6 +33,9 @@ const toGuide = (r) => r && ({
   id: r.id, cityId: r.city_id, name: r.name, phone: r.phone, license: r.license, photo: r.photo,
   status: r.status, email: r.email, cpf: r.cpf, pixKey: r.pix_key, createdAt: r.created_at, weeklyPayout: !!r.weekly_payout, code: r.code || '',
   referralEnabled: !!r.referral_enabled,
+  // Module Pix (v30) : undefined tant que le script 015 n'est pas lancé.
+  pixKeyType: r.pix_key_type || '', pixKeyVersion: r.pix_key_version ?? null, pixStatus: r.pix_status, pixVerifiedAt: r.pix_verified_at || '',
+  isTest: !!r.is_test,
 });
 const toPartner = (r) => r && ({
   id: r.id, cityId: r.city_id, type: r.type, name: r.name, area: r.area, offer: r.offer || '', token: r.token, status: r.status, taxId: r.tax_id,
@@ -56,7 +59,17 @@ const toVisit = (r) => r && ({
 });
 const toPayout = (r) => r && ({
   id: r.id, num: num(r.num), guideId: r.guide_id, cents: num(r.amount_cents), status: r.status, reference: r.reference,
-  at: r.at, paidAt: r.paid_at,
+  at: r.at, paidAt: r.paid_at, receivedStatus: r.received_status || null, receivedAt: r.received_at || '',
+});
+// Vérification Pix de 1 R$ (dépense Kombrio, jamais une commission).
+const toPixVerif = (r) => r && ({
+  id: r.id, num: num(r.num), guideId: r.guide_id, keyVersion: r.pix_key_version, keyMasked: r.pix_key_masked || '',
+  status: r.status, e2e: r.end_to_end_id || '', confirmation: r.guide_confirmation, failureReason: r.failure_reason || '',
+  initiatedAt: r.initiated_at, sentAt: r.sent_at || '', confirmedAt: r.guide_confirmed_at || '', verifiedAt: r.verified_at || '',
+});
+const toExpense = (r) => r && ({
+  id: r.id, num: num(r.num), category: r.category, cents: num(r.amount_cents), verificationId: r.verification_id,
+  reference: r.reference || '', createdAt: r.created_at,
 });
 const toPayment = (r) => r && ({
   id: r.id, num: num(r.num), partnerId: r.partner_id, cents: num(r.amount_cents), method: r.method, pixRef: r.pix_ref,
@@ -333,6 +346,32 @@ export async function listPayouts(guideId) {
   if (guideId) q = q.eq('guide_id', guideId);
   return check(await q).map(toPayout);
 }
+/* ---------- Validation Pix 1 R$ (v30) ---------- */
+export async function listPixVerifications(guideId) {
+  let q = sb.from('pix_verifications').select('*').order('initiated_at', { ascending: false });
+  if (guideId) q = q.eq('guide_id', guideId);
+  const { data, error } = await q;
+  return error ? [] : (data || []).map(toPixVerif);
+}
+export async function listExpenses() {
+  const { data, error } = await sb.from('kombrio_expenses').select('*').order('created_at', { ascending: false });
+  return error ? [] : (data || []).map(toExpense);
+}
+export async function setMyPixKey(key, type) { return check(await sb.rpc('set_my_pix_key', { p_key: key, p_type: type })); }
+export async function startPixVerification(guideId) { return check(await sb.rpc('start_pix_verification', { p_guide: guideId })); }
+export async function recordPixSent(verifId, e2e, feeCents) {
+  return check(await sb.rpc('record_pix_sent', { p_verification: verifId, p_e2e: e2e, p_receipt: null, p_fee_cents: feeCents || 0 }));
+}
+export async function failPixVerification(verifId, reason) { return check(await sb.rpc('fail_pix_verification', { p_verification: verifId, p_reason: reason })); }
+export async function recordPixReturn(verifId, ref) { return check(await sb.rpc('record_pix_return', { p_verification: verifId, p_ref: ref })); }
+export async function confirmPixVerification(verifId, received) {
+  return check(await sb.rpc('confirm_pix_verification', { p_verification: verifId, p_received: received }));
+}
+export async function confirmPayoutReceived(payoutId, received) {
+  return check(await sb.rpc('confirm_payout_received', { p_payout: payoutId, p_received: received }));
+}
+export async function setGuideTest(guideId, on) { return check(await sb.rpc('set_guide_test', { p_guide: guideId, p_on: on })); }
+
 // Corrections après encaissement. Liste vide si la base n'a pas encore le script 013 (lot 0).
 export async function listAdjustments(guideId) {
   let q = sb.from('adjustments').select('*').order('created_at', { ascending: false });

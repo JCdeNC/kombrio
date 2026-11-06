@@ -110,8 +110,9 @@ async function pendingView(me) {
 
 async function dashboardView(me, city) {
   const lang = getLang();
-  const [stays, visits, adjustments, payouts] = await Promise.all([
-    store.listStays(me.id), store.listVisits({ guideId: me.id }), store.listAdjustments(me.id), store.listPayouts(me.id)]);
+  const [stays, visits, adjustments, payouts, pixChecks] = await Promise.all([
+    store.listStays(me.id), store.listVisits({ guideId: me.id }), store.listAdjustments(me.id), store.listPayouts(me.id),
+    store.listPixVerifications(me.id)]);
   const today = todayIn(city.timezone);
   const cur = (n) => cents(n, city.currency, lang);
   const pick = (st, key) => visits.filter((v) => st.includes(v.status)).reduce((s, v) => s + (v[key] || 0), 0);
@@ -146,6 +147,7 @@ async function dashboardView(me, city) {
       ${me.code ? `<p class="hint">${t('guide.code')} <b>${esc(me.code)}</b></p>` : ''}
       ${me.referralEnabled ? `<a class="card" href="#/indicacao" style="display:block;text-decoration:none;color:inherit">
         <b>${t('ref.card.title')}</b><span class="hint" style="display:block">${t('ref.card.hint')}</span></a>` : ''}
+      ${pixCard(me, pixChecks, payouts, cur, lang)}
       <label class="card" style="display:block"><input type="checkbox" id="weekly"${me.weeklyPayout ? ' checked' : ''}> <b>${t('guide.weekly.title')}</b>
         <span class="hint" style="display:block">${t('guide.weekly.hint')}</span></label>
 
@@ -167,6 +169,7 @@ async function dashboardView(me, city) {
       </div>`,
     mount(root, ctx) {
       mountLogout(root, ctx);
+      mountPix(root, ctx);
       root.querySelector('#weekly').onchange = async (e) => {
         await store.setWeeklyPayout(e.target.checked);
         ctx.refresh(tRaw('common.saved'));
@@ -180,6 +183,54 @@ async function dashboardView(me, city) {
         ctx.go(`sejour/${s.id}`, tRaw('guide.stay.created'));
       };
     },
+  };
+}
+
+// Dados bancários / Pix (v30) : statut de la clé, confirmation du test de 1 R$ et des virements reçus.
+// Le 1 R$ n'apparaît jamais dans le solde : c'est une dépense de la Kombrio.
+const PIX_TYPES = ['random', 'email', 'phone', 'cpf', 'cnpj'];
+function pixCard(me, checks, payouts, cur, lang) {
+  if (me.pixStatus === undefined) return '';
+  const open = checks.find((c) => c.status === 'sent' && !c.verifiedAt && c.confirmation === 'waiting' && c.keyVersion === me.pixKeyVersion);
+  const masked = me.pixKey ? `${me.pixKey.slice(0, 2)}•••${me.pixKey.slice(-3)}` : '—';
+  const toConfirm = payouts.filter((p) => p.status === 'paid' && p.receivedStatus === 'waiting');
+  return `<div class="card" id="pix-card">
+      <h2>${t('pix.title')}</h2>
+      <div class="spread"><span>${t('pix.key')} <b>${esc(masked)}</b>${me.pixKeyType ? ` · ${t(`pix.type.${me.pixKeyType}`)}` : ''}</span>
+        <span class="badge ${me.pixStatus === 'verified' ? 'ok' : me.pixStatus === 'failed' ? 'bad' : 'warn'}">${t(`pix.st.${me.pixStatus}`)}</span></div>
+      ${me.pixStatus === 'verified' && me.pixVerifiedAt ? `<p class="hint">${t('pix.verified.on', { date: fmtDay(me.pixVerifiedAt.slice(0, 10), lang) })}</p>` : ''}
+      ${me.pixStatus !== 'verified' ? `<div class="notice warn">${t('pix.suspended')}</div>` : ''}
+      ${open ? `<div class="notice">${t('pix.sent.msg')}
+        <div class="row" style="margin-top:10px"><button class="btn small" data-pix-ok="${esc(open.id)}">${t('pix.confirm')}</button>
+        <button class="btn small ghost" data-pix-no="${esc(open.id)}">${t('pix.notreceived')}</button></div></div>` : ''}
+      ${toConfirm.map((p) => `<div class="notice">${t('pix.payout.msg', { amount: cur(p.cents), ref: esc(p.reference || '') })}
+        <div class="row" style="margin-top:10px"><button class="btn small" data-po-ok="${esc(p.id)}">${t('pix.payout.ok')}</button>
+        <button class="btn small ghost" data-po-no="${esc(p.id)}">${t('pix.notreceived')}</button></div></div>`).join('')}
+      <details style="margin-top:8px"><summary class="hint">${t('pix.change')}</summary>
+        <form id="pix-form" style="margin-top:8px">
+          <div class="grid2">
+            <div class="field"><label for="pix-type">${t('pix.type')}</label><select id="pix-type" name="type">${PIX_TYPES.map((k) => `<option value="${k}"${k === me.pixKeyType ? ' selected' : ''}>${t(`pix.type.${k}`)}</option>`).join('')}</select></div>
+            <div class="field"><label for="pix-key">${t('pix.newkey')}</label><input id="pix-key" name="key" required autocomplete="off"></div>
+          </div>
+          <p class="hint">${t('pix.change.hint')}</p>
+          <button class="btn small">${t('common.save')}</button>
+        </form>
+      </details>
+    </div>`;
+}
+function mountPix(root, ctx) {
+  const card = root.querySelector('#pix-card');
+  if (!card) return;
+  const act = async (fn, okMsg) => { try { const r = await fn(); if (r === false || r?.ok === false) { notify(tRaw('err.generic')); return; } ctx.refresh(tRaw(okMsg)); } catch { notify(tRaw('err.generic')); } };
+  card.querySelectorAll('[data-pix-ok]').forEach((b) => { b.onclick = () => act(() => store.confirmPixVerification(b.dataset.pixOk, true), 'pix.done.ok'); });
+  card.querySelectorAll('[data-pix-no]').forEach((b) => { b.onclick = () => act(() => store.confirmPixVerification(b.dataset.pixNo, false), 'pix.done.no'); });
+  card.querySelectorAll('[data-po-ok]').forEach((b) => { b.onclick = () => act(() => store.confirmPayoutReceived(b.dataset.poOk, true), 'pix.done.ok'); });
+  card.querySelectorAll('[data-po-no]').forEach((b) => { b.onclick = () => act(() => store.confirmPayoutReceived(b.dataset.poNo, false), 'pix.done.no'); });
+  const f = card.querySelector('#pix-form');
+  f.onsubmit = async (e) => {
+    e.preventDefault();
+    const ok = await store.setMyPixKey(f.key.value.trim(), f.type.value).catch(() => false);
+    if (ok) ctx.refresh(tRaw('pix.changed')); else notify(tRaw('pix.err.key'));
   };
 }
 
