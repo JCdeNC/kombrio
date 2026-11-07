@@ -18,6 +18,8 @@ export async function guideView(params, ctx) {
     if (await store.hasSession()) {
       // Le message dépend du compte connecté : administrateur ou partenaire.
       const who = await store.currentAdmin().catch(() => null);
+      // Compte supprimé (plus de profil) : on ferme cette ancienne session et on montre l'inscription.
+      if (who && !who.role) { await store.signOut(); return loginView(); }
       const admin = Boolean(who && who.isAdmin);
       return {
         html: `<div class="card"><p>${admin ? t('guide.notguide.admin', { email: who.email }) : t('guide.notguide')}</p>

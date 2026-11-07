@@ -217,7 +217,7 @@ export async function currentAdmin() {
   const user = await currentUser();
   if (!user) return null;
   const profile = check(await sb.from('profiles').select('role').eq('id', user.id).maybeSingle());
-  return { email: user.email, isAdmin: profile?.role === 'admin' };
+  return { email: user.email, isAdmin: profile?.role === 'admin', role: profile?.role || null };
 }
 
 /* ---------- Guides (administrateur) ---------- */
