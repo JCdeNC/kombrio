@@ -35,13 +35,13 @@ const toGuide = (r) => r && ({
   referralEnabled: !!r.referral_enabled,
   // Module Pix (v30) : undefined tant que le script 015 n'est pas lancé.
   pixKeyType: r.pix_key_type || '', pixKeyVersion: r.pix_key_version ?? null, pixStatus: r.pix_status, pixVerifiedAt: r.pix_verified_at || '',
-  isTest: !!r.is_test, cadasturValidUntil: r.cadastur_valid_until || '',
+  isTest: !!r.is_test, cadasturValidUntil: r.cadastur_valid_until || '', cadasturNumber: r.cadastur_number || '', cadasturCategory: r.cadastur_category || '',
 });
 const toPartner = (r) => r && ({
   id: r.id, cityId: r.city_id, type: r.type, name: r.name, area: r.area, offer: r.offer || '', token: r.token, status: r.status, taxId: r.tax_id,
   photo: r.photo || '', address: r.address || '', reportToken: r.report_token || '', managerToken: r.manager_token || '',
   activationCode: r.activation_code || '', managerName: r.manager_name || '', managerEmail: r.manager_email || '',
-  managerPhone: r.manager_phone || '', commissionRate: r.commission_rate == null ? 0.1 : Number(r.commission_rate), termsVersion: r.terms_version || '', termsAcceptedAt: r.terms_accepted_at || '',
+  managerPhone: r.manager_phone || '', commissionRate: r.commission_rate == null ? 0.1 : Number(r.commission_rate), termsVersion: r.terms_version || '', termsAcceptedAt: r.terms_accepted_at || '', termsSha: r.terms_sha256 || '',
 });
 const toStay = (r) => r && ({
   id: r.id, guideId: r.guide_id, client: r.client, people: r.people, start: r.start_day, end: r.end_day,
@@ -50,7 +50,7 @@ const toStay = (r) => r && ({
 const num = (x) => (x == null ? null : Number(x));
 // Une transaction (passage) : montants en centavos, jamais en nombres à virgule.
 const toVisit = (r) => r && ({
-  id: r.id, num: num(r.num), stayId: r.stay_id, partnerId: r.partner_id, guideId: r.guide_id, at: r.at,
+  id: r.id, num: num(r.num), code: r.code || '', stayId: r.stay_id, partnerId: r.partner_id, guideId: r.guide_id, at: r.at,
   people: r.people, peopleServed: r.people_served ?? r.people, offerGiven: r.offer_given, status: r.status,
   declaredCents: num(r.declared_cents), receivedCents: num(r.received_cents), guideCents: num(r.guide_cents),
   kombrioCents: num(r.kombrio_cents), invoiceCents: num(r.invoice_cents), rate: r.commission_rate == null ? null : Number(r.commission_rate),
@@ -84,6 +84,11 @@ const toAdjustment = (r) => r && ({
 });
 export const adjNum = (n) => (n == null ? '' : `KC-${String(n).padStart(6, '0')}`);
 export const txNum = (n) => (n == null ? '' : `KB-${String(n).padStart(6, '0')}`);
+// Code de passage (v41) : 6 consonnes, affiché « KTR-BMX ». À citer en cas de réclamation.
+export const fmtCode = (c) => (c && c.length === 6 ? `${c.slice(0, 3)}-${c.slice(3)}` : '');
+export const normCode = (s) => String(s || '').toUpperCase().replace(/[^A-Z]/g, '');
+// Référence d'un passage à l'écran : le code s'il existe, sinon le numéro KB.
+export const visitRef = (v) => (v ? fmtCode(v.code) || txNum(v.num) : '');
 
 /* ---------- Villes ---------- */
 export async function listCities() {
@@ -261,7 +266,8 @@ export async function renewPartnerToken(partnerId) {
 export async function partnerSpace(token) {
   const d = check(await sb.rpc('partner_space', { p_token: token }));
   if (!d) return null;
-  return { role: d.role, partner: toPartner(d.partner), city: toCity(d.city), visits: (d.visits || []).map(toVisit), payments: (d.payments || []).map(toPayment),
+  const codes = await sb.rpc('partner_visit_codes', { p_token: token }).then((x) => x.data || {}, () => ({}));
+  return { role: d.role, partner: toPartner(d.partner), city: toCity(d.city), visits: (d.visits || []).map((v) => toVisit({ ...v, code: codes[v.id] })), payments: (d.payments || []).map(toPayment),
     adjustments: (d.adjustments || []).map(toAdjustment) };
 }
 // Relevé du comptable (lecture seule), à partir de son lien. null si le lien n'est pas reconnu.
@@ -373,14 +379,15 @@ export async function confirmPayoutReceived(payoutId, received) {
 /* ---------- Vérification Cadastur (v31) ---------- */
 // La liste ne charge jamais les captures (lourdes) : une capture se charge seulement quand on l'ouvre.
 export async function listCadasturChecks() {
-  const { data, error } = await sb.from('guide_cadastur_checks').select('id, num, guide_id, valid_until, checked_at').order('checked_at', { ascending: false });
-  return error ? [] : (data || []).map((r) => ({ id: r.id, num: num(r.num), guideId: r.guide_id, validUntil: r.valid_until, checkedAt: r.checked_at }));
+  const { data, error } = await sb.from('guide_cadastur_checks').select('id, num, guide_id, valid_until, checked_at, cadastur_number, category').order('checked_at', { ascending: false });
+  return error ? [] : (data || []).map((r) => ({ id: r.id, num: num(r.num), guideId: r.guide_id, validUntil: r.valid_until, checkedAt: r.checked_at,
+    number: r.cadastur_number || '', category: r.category || '' }));
 }
 export async function cadasturProof(checkId) {
   return check(await sb.from('guide_cadastur_checks').select('proof').eq('id', checkId).maybeSingle())?.proof || '';
 }
-export async function recordCadasturCheck(guideId, validUntil, proof) {
-  return check(await sb.rpc('record_cadastur_check', { p_guide: guideId, p_valid_until: validUntil, p_proof: proof }));
+export async function recordCadasturCheck(guideId, validUntil, proof, number, category) {
+  return check(await sb.rpc('record_cadastur_check', { p_guide: guideId, p_valid_until: validUntil, p_proof: proof, p_number: number, p_category: category }));
 }
 export async function setGuideTest(guideId, on) { return check(await sb.rpc('set_guide_test', { p_guide: guideId, p_on: on })); }
 
@@ -435,7 +442,7 @@ export async function setReferralReward(id, action, text = null) {
 const toAlert = (r) => r && ({
   id: r.id, num: num(r.num), authorKind: r.author_kind, guideId: r.guide_id, partnerId: r.partner_id, visitId: r.visit_id,
   topic: r.topic, message: r.message || '', status: r.status, answer: r.answer || '', createdAt: r.created_at, resolvedAt: r.resolved_at || '',
-  guideName: r.guides?.name || '', partnerName: r.partners?.name || '', visitNum: num(r.visits?.num),
+  guideName: r.guides?.name || '', partnerName: r.partners?.name || '', visitNum: num(r.visits?.num), visitCode: r.visits?.code || '',
 });
 export async function guideCreateAlert(topic, message, visitId = null) {
   return check(await sb.rpc('guide_create_alert', { p_topic: topic, p_message: message, p_visit: visitId }));
@@ -456,7 +463,7 @@ export async function countFaqSolved(kind, topic) {
   try { await sb.rpc('count_faq_solved', { p_kind: kind, p_topic: topic }); } catch { /* simple compteur */ }
 }
 export async function adminListAlerts() {
-  const { data, error } = await sb.from('alerts').select('*, guides(name), partners(name), visits(num)').order('created_at', { ascending: false }).limit(200);
+  const { data, error } = await sb.from('alerts').select('*, guides(name), partners(name), visits(num, code)').order('created_at', { ascending: false }).limit(200);
   return error ? [] : data.map(toAlert);
 }
 export async function adminFaqSolvedSince(iso) {
@@ -490,4 +497,9 @@ export async function adminSetGuideStatus(guideId, status, reason = null) {
 }
 export async function adminSetPartnerStatus(partnerId, status, reason = null) {
   return check(await sb.rpc('admin_set_partner_status', { p_partner: partnerId, p_status: status, p_reason: reason }));
+}
+
+/* ---------- Conditions acceptées (v41) : texte gardé en base avec son empreinte ---------- */
+export async function termsText(kind, version = null) {
+  return check(await sb.rpc('terms_text', { p_kind: kind, p_version: version }));
 }

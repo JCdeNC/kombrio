@@ -125,7 +125,7 @@ async function alertas({ alerts }) {
     return `<li><div class="spread"><b>nº ${a.num} · ${esc(topicLabel(kind, a.topic))}</b>
         <span class="badge ${a.status === 'resolved' ? 'ok' : a.status === 'new' ? 'bad' : 'warn'}">${esc(alertStatus(a.status))}</span></div>
       <div class="hint"><span class="badge">${t(kind === 'guide' ? 'admin.al.guide' : 'admin.al.partner')}</span>
-        ${esc(kind === 'guide' ? a.guideName : a.partnerName)} · ${fmtMoment(a.createdAt, lang, 'America/Sao_Paulo')}${a.visitNum ? ` · ${esc(store.txNum(a.visitNum))}` : ''}</div>
+        ${esc(kind === 'guide' ? a.guideName : a.partnerName)} · ${fmtMoment(a.createdAt, lang, 'America/Sao_Paulo')}${a.visitNum ? ` · ${esc(store.fmtCode(a.visitCode) || store.txNum(a.visitNum))}` : ''}</div>
       <p style="margin:6px 0">${a.message ? esc(a.message) : `<span class="hint">${t('admin.al.empty')}</span>`}</p>
       <form class="al-form" data-id="${esc(a.id)}">
         <div class="field" style="margin:0 0 6px"><label>${t('admin.al.answer')}</label><textarea name="answer" rows="2" maxlength="1000" style="width:100%">${esc(a.answer)}</textarea></div>
@@ -213,10 +213,13 @@ async function validations({ guides, city, cadChecks }) {
     const c = lastCheck(cadChecks, g.id);
     return `<div class="row" style="margin-top:8px;gap:6px;align-items:center">
         <button class="btn small secondary" data-cad-open="${esc(g.id)}">${t('admin.cad.open')}</button>
-        ${c ? `<span class="hint">${t('admin.cad.done', { date: fmtDay(c.checkedAt.slice(0, 10), lang), until: fmtDay(c.validUntil, lang) })}</span>
+        ${c ? `<span class="hint">${t('admin.cad.done', { date: fmtDay(c.checkedAt.slice(0, 10), lang), until: fmtDay(c.validUntil, lang) })}${c.number ? ` · nº ${esc(c.number)} · ${t(`cad.cat.${c.category}`)}` : ''}</span>
           <button class="btn ghost small" data-cad-proof="${esc(c.id)}">${t('admin.cad.proof')}</button>` : `<span class="hint">${t('admin.cad.none')}</span>`}
       </div>
       <form class="cadform row" data-id="${esc(g.id)}" style="align-items:flex-end;gap:6px;margin-top:6px">
+        <div class="field" style="margin:0"><label>${t('admin.cad.number')}</label><input name="number" maxlength="40" required autocomplete="off" placeholder="21.123456.10-1"></div>
+        <div class="field" style="margin:0"><label>${t('admin.cad.category')}</label><select name="category" required><option value=""></option>
+          ${['regional', 'nacional', 'internacional', 'atrativo'].map((k) => `<option value="${k}">${t(`cad.cat.${k}`)}</option>`).join('')}</select></div>
         <div class="field" style="margin:0"><label>${t('admin.cad.until')}</label><input type="date" name="until" min="${today}" required></div>
         <div class="field" style="margin:0;flex:1"><label>${t('admin.cad.shot')}</label><input type="file" name="shot" accept="image/*" required></div>
         <button class="btn small">${t('admin.cad.save')}</button>
@@ -255,11 +258,12 @@ async function validations({ guides, city, cadChecks }) {
       root.querySelectorAll('form.cadform').forEach((f) => { f.onsubmit = async (e) => {
         e.preventDefault();
         const file = f.shot.files[0];
-        if (!file || !f.until.value) { notify(tRaw('admin.cad.required')); return; }
+        if (!file || !f.until.value || !f.number.value.trim() || !f.category.value) { notify(tRaw('admin.cad.required')); return; }
         try {
           const proof = await photoToJpeg(file, 1200, 0.72);
-          const r = await store.recordCadasturCheck(f.dataset.id, f.until.value, proof);
-          if (r && r.ok) ctx.refresh(tRaw('admin.cad.saved')); else notify(tRaw(r && r.reason === 'date' ? 'admin.cad.err.date' : 'err.generic'));
+          const r = await store.recordCadasturCheck(f.dataset.id, f.until.value, proof, f.number.value.trim(), f.category.value);
+          const errs = { date: 'admin.cad.err.date', number: 'admin.cad.err.number', category: 'admin.cad.err.category', cpf: 'admin.cad.err.cpf' };
+          if (r && r.ok) ctx.refresh(tRaw('admin.cad.saved')); else notify(tRaw(errs[r && r.reason] || 'err.generic'));
         } catch { notify(tRaw('err.generic')); }
       }; });
       mountActive(root, ctx);
@@ -578,13 +582,14 @@ async function transactions({ visits, adjustments, guide, partner, cur, city }) 
     html: `<div class="card">
       <h2>${t('admin.tx.title')}</h2>
       <p class="hint">${t('admin.tx.hint')}</p>
+      <div class="field"><label for="tx-find">${t('admin.tx.find')}</label><input id="tx-find" autocomplete="off" spellcheck="false" placeholder="KTR-BMX · KB-000123" style="max-width:260px"></div>
       ${rows.length ? `<div class="table-wrap"><table>
         <tr><th>ID</th><th>${t('common.date')}</th><th>${t('admin.part.title')}</th><th>${t('common.guide')}</th><th>${t('admin.tx.people')}</th><th>${t('admin.tx.declared')}</th><th>${t('admin.tx.received')}</th><th>Kombrio</th><th>${t('common.guide')}</th><th>${t('admin.col.status')}</th></tr>
         ${rows.map((v) => {
           const p = partner(v.partnerId);
           const c = (n) => (n == null ? '—' : cur(n, p?.cityId));
           const acts = actions(v);
-          return `<tr><td style="white-space:nowrap">${esc(store.txNum(v.num))}</td><td style="white-space:nowrap">${fmtMoment(v.at, lang, city(p?.cityId)?.timezone)}</td>
+          return `<tr data-find="${esc(`${v.code} ${store.txNum(v.num).replace('-', '')}`)}"><td style="white-space:nowrap">${esc(store.txNum(v.num))}${v.code ? `<div class="hint">${esc(store.fmtCode(v.code))}</div>` : ''}</td><td style="white-space:nowrap">${fmtMoment(v.at, lang, city(p?.cityId)?.timezone)}</td>
             <td>${esc(p?.name || '?')}</td><td>${esc(guide(v.guideId)?.name || '?')}</td><td>${v.peopleServed}</td>
             <td>${c(v.declaredCents)}</td><td>${c(v.receivedCents)}</td><td>${c(v.kombrioCents)}</td><td>${c(v.guideCents)}</td>
             <td>${statusBadge(v)}${v.statusNote ? `<div class="hint">${esc(v.statusNote)}</div>` : ''}
@@ -620,6 +625,11 @@ async function transactions({ visits, adjustments, guide, partner, cur, city }) 
       </table></div>` : `<p class="hint">${t('admin.adj.none')}</p>`}
     </div>`,
     mount(root, ctx) {
+      const find = root.querySelector('#tx-find');
+      if (find) find.oninput = () => {
+        const q = find.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+        root.querySelectorAll('tr[data-find]').forEach((r) => { r.hidden = Boolean(q) && !r.dataset.find.replace(/[^A-Z0-9 ]/g, '').split(' ').some((x) => x.includes(q)); });
+      };
       root.querySelectorAll('form.adjsettle').forEach((f) => {
         f.onsubmit = async (e) => {
           e.preventDefault();
@@ -662,7 +672,7 @@ async function journal({ visits, paymentList, payoutList }) {
   const lang = getLang();
   const rows = await store.listLedger(300);
   const ref = (r) => {
-    if (r.visit_id) return store.txNum(visits.find((v) => v.id === r.visit_id)?.num) || '';
+    if (r.visit_id) return store.visitRef(visits.find((v) => v.id === r.visit_id)) || '';
     if (r.payment_id) return t('admin.pay.num', { num: paymentList.find((y) => y.id === r.payment_id)?.num ?? '?' });
     if (r.payout_id) return t('admin.out.num', { num: payoutList.find((p) => p.id === r.payout_id)?.num ?? '?' });
     return '';
@@ -736,7 +746,7 @@ async function partners({ partnerList, cityList, city }) {
         </details>
         <details style="margin-top:8px" ${p.managerName ? '' : 'open'}><summary>${t('admin.part.access')}</summary>
           ${p.managerName
-            ? `<p class="hint" style="margin-top:8px">${t('admin.part.activated', { name: p.managerName, email: p.managerEmail, phone: p.managerPhone, terms: p.termsVersion, date: fmtMoment(p.termsAcceptedAt, getLang(), city(p.cityId)?.timezone) })}</p>`
+            ? `<p class="hint" style="margin-top:8px">${t('admin.part.activated', { name: p.managerName, email: p.managerEmail, phone: p.managerPhone, terms: p.termsVersion, date: fmtMoment(p.termsAcceptedAt, getLang(), city(p.cityId)?.timezone) })}${p.termsSha ? `<br>${t('admin.part.sha', { sha: p.termsSha.slice(0, 16) })}` : ''}</p>`
             : `<p class="hint" style="margin-top:8px">${t('admin.part.access.hint')}</p>
               ${p.activationCode ? `<p style="font-size:1.4rem;font-weight:700;letter-spacing:.04em;margin:6px 0">${esc(p.activationCode)}</p>
                 <div class="row">

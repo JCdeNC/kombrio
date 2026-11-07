@@ -33,7 +33,8 @@ export const helpButton = () => `<button type="button" class="btn ghost small no
 export const problemLink = (visitId) => `<button type="button" class="link-btn no-print" data-help-open="${esc(visitId)}">${t('help.problem')}</button>`;
 
 // Ouvre la fenêtre d'aide. send(topic, message, visitId) renvoie { ok, num, reason }.
-export function openHelp({ kind, about = '', visitId = null, send, onSent }) {
+// findCode(code) renvoie l'id du passage qui porte ce code (KTR-BMX), ou null.
+export function openHelp({ kind, about = '', visitId = null, send, onSent, findCode = null }) {
   const st = { step: 'ask', q: '', topic: null, num: null };
   const o = document.createElement('div');
   o.className = 'overlay';
@@ -58,6 +59,8 @@ export function openHelp({ kind, about = '', visitId = null, send, onSent }) {
           ${HELP_TOPICS[kind].map((k) => `<option value="${k}"${k === f ? ' selected' : ''}>${t(`${pre(kind)}${k}.l`)}</option>`).join('')}
           <option value="other"${f ? '' : ' selected'}>${t('help.topic.other')}</option></select></div>
         <div class="field"><label for="help-msg">${t('help.message')}</label><textarea id="help-msg" rows="3" maxlength="1000" placeholder="${t('help.msg.ph')}">${esc(st.q)}</textarea></div>
+        ${!visitId && findCode ? `<div class="field"><label for="help-code">${t('help.code')}</label>
+          <input id="help-code" maxlength="9" autocapitalize="characters" autocomplete="off" spellcheck="false" placeholder="KTR-BMX" style="text-transform:uppercase;letter-spacing:1px"></div>` : ''}
         <p class="hint">${t(`help.only.${kind}`)}</p>
         <button class="btn block" data-h="send">${t('help.send')}</button>`;
     } else {
@@ -81,8 +84,14 @@ export function openHelp({ kind, about = '', visitId = null, send, onSent }) {
     else if (h === 'send') {
       b.disabled = true;
       const topic = o.querySelector('#help-topic').value; const msg = o.querySelector('#help-msg').value.trim();
+      let vId = visitId;
+      const typed = store.normCode(o.querySelector('#help-code')?.value);
+      if (!vId && typed) {
+        vId = typed.length === 6 ? findCode(typed) : null;
+        if (!vId) { b.disabled = false; alertBox(o, 'help.code.bad'); return; }
+      }
       try {
-        const r = await send(topic, msg, visitId);
+        const r = await send(topic, msg, vId);
         if (!r || !r.ok) { b.disabled = false; alertBox(o, r && r.reason === 'quota' ? 'help.quota' : 'err.generic'); return; }
         st.num = r.num; st.step = 'sent'; draw();
       } catch { b.disabled = false; alertBox(o, 'err.generic'); }
@@ -99,8 +108,8 @@ function alertBox(o, key) {
 }
 
 // Relie les boutons « Ajuda » et « Um problema? » d'un écran. label(visitId) donne le texte « à propos de ».
-export function mountHelp(root, { kind, send, label = () => '', onSent }) {
+export function mountHelp(root, { kind, send, label = () => '', onSent, findCode = null }) {
   root.querySelectorAll('[data-help-open]').forEach((b) => {
-    b.onclick = (e) => { e.preventDefault(); e.stopPropagation(); const v = b.dataset.helpOpen || null; openHelp({ kind, visitId: v, about: v ? label(v) : '', send, onSent }); };
+    b.onclick = (e) => { e.preventDefault(); e.stopPropagation(); const v = b.dataset.helpOpen || null; openHelp({ kind, visitId: v, about: v ? label(v) : '', send, onSent, findCode }); };
   });
 }

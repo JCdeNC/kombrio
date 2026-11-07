@@ -1,3 +1,3 @@
 // Numéro de version affiché en bas de chaque page. À augmenter à chaque changement.
-export const VERSION = 'v40';
-export const VERSION_DATE = '06/11/2026';
+export const VERSION = 'v41';
+export const VERSION_DATE = '07/11/2026';

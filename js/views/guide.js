@@ -197,7 +197,7 @@ async function dashboardView(me, city, tab = 'inicio') {
     const sh = shareOf(v); const a = alertOf(v.id);
     return `<div class="g-tx" data-p="${esc(v.partnerId)}" data-s="${esc(v.status)}">
       <div class="spread"><span><b>${esc(pname(v.partnerId))}</b> · ${esc(stayOf(v.stayId)?.client || '')}<br>
-        <span class="hint">${fmtDay(v.at.slice(0, 10), lang)} · ${esc(store.txNum(v.num))} · ${t('stay.people', { n: v.peopleServed })}</span></span>
+        <span class="hint">${fmtDay(v.at.slice(0, 10), lang)} · ${esc(store.visitRef(v))} · ${t('stay.people', { n: v.peopleServed })}</span></span>
         <span class="g-amt">${sh == null ? `<span class="hint">${t('g.amt.none')}</span>` : CASHED.includes(v.status) ? `<b>${cur(sh)}</b>` : `<b>≈ ${cur(sh)}</b><br><span class="hint">${t('g.amt.est')}</span>`}</span></div>
       ${tracker(v)}
       <div class="g-tx-f">${a ? `<span class="badge">${t('alert.short', { num: a.num, status: alertStatus(a.status) })}</span>` : problemLink(v.id)}</div>
@@ -302,7 +302,8 @@ async function dashboardView(me, city, tab = 'inicio') {
       mountLogout(root, ctx);
       mountPix(root, ctx);
       mountHelp(root, { kind: 'guide', send: (topic, msg, vId) => store.guideCreateAlert(topic, msg, vId),
-        label: (vId) => { const v = visits.find((x) => x.id === vId); return v ? `${pname(v.partnerId)} · ${stayOf(v.stayId)?.client || ''} · ${store.txNum(v.num)}` : ''; },
+        findCode: (c) => visits.find((x) => x.code === c)?.id || null,
+        label: (vId) => { const v = visits.find((x) => x.id === vId); return v ? `${pname(v.partnerId)} · ${stayOf(v.stayId)?.client || ''} · ${store.visitRef(v)}` : ''; },
         onSent: () => ctx.refresh() });
       root.querySelectorAll('[data-todo]').forEach((b) => { b.onchange = () => { b.checked ? done.add(b.dataset.todo) : done.delete(b.dataset.todo); saveDone(dk, done); b.parentElement.classList.toggle('pd-done', b.checked); }; });
       const fp = root.querySelector('#g-fp'); const fs = root.querySelector('#g-fs');
@@ -511,7 +512,7 @@ async function statementView(me, city) {
           <tr><th>ID</th><th>${t('report.col.date')}</th><th>${t('guide.col.partner')}</th><th>${t('report.col.people')}</th><th>${t('guide.col.declared')}</th><th>${t('guide.col.cashed')}</th><th>Kombrio</th><th>${t('guide.col.share')}</th><th>${t('report.col.status')}</th><th>${t('guide.col.payout')}</th></tr>
           ${visits.map((v) => {
             const po = v.payoutId && payout(v.payoutId);
-            return `<tr><td style="white-space:nowrap">${esc(store.txNum(v.num))}</td><td>${short(v.at)}</td><td>${esc(pname(v.partnerId))}</td><td>${v.peopleServed}</td>
+            return `<tr><td style="white-space:nowrap">${esc(store.visitRef(v))}</td><td>${short(v.at)}</td><td>${esc(pname(v.partnerId))}</td><td>${v.peopleServed}</td>
               <td>${cur(v.declaredCents)}</td><td>${cashed(v) ? cur(v.receivedCents) : cur(v.declaredCents == null ? null : 0)}</td>
               <td>${cashed(v) ? cur(v.kombrioCents) : '—'}</td><td>${cashed(v) ? `<b>${cur(v.guideCents)}</b>` : '—'}</td>
               <td>${statusBadge(v)}</td><td>${po && po.status === 'paid' ? `${short(po.paidAt || po.at)} · ${esc(po.reference || '')}` : po ? t('status.payout_pending') : '—'}</td></tr>`;

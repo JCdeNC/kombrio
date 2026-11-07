@@ -147,7 +147,7 @@ function scannedView({ partner, city, key, role }, visit, action) {
       <div class="notice ${fresh ? 'ok' : 'warn'}"><b>${t(fresh ? 'partner.visit.saved' : 'partner.visit.duplicate')}</b></div>
       ${offer}
       <div class="card">
-        <div class="spread"><h2>${esc(visit.client)}</h2><span class="hint">${esc(store.txNum(visit.num))}</span></div>
+        <div class="spread"><h2>${esc(visit.client)}</h2><span class="hint">${esc(store.visitRef(visit))}</span></div>
         <p class="hint">${t('partner.visit.guide', { guide: visit.guideName })} · ${fmtMoment(visit.at, lang, city.timezone)}</p>
         ${visit.status === 'visited' ? `<form id="people" class="row" style="align-items:flex-end;margin-top:8px">
             <div class="field" style="margin:0;flex:1"><label for="p-n">${t('partner.people.served')}</label>
@@ -176,7 +176,7 @@ function txLine(v, city, lang) {
   const c = (n) => cents(n, city.currency, lang);
   return `<li>
     <div class="spread"><b>${esc(v.client || '?')}</b>${statusBadge(v, 'partner')}</div>
-    <div class="hint">${esc(store.txNum(v.num))} · ${fmtMoment(v.at, lang, city.timezone)} · ${t('scan.people', { n: v.peopleServed })} · ${t('partner.visit.guide', { guide: v.guideName || '?' })}</div>
+    <div class="hint">${esc(store.visitRef(v))} · ${fmtMoment(v.at, lang, city.timezone)} · ${t('scan.people', { n: v.peopleServed })} · ${t('partner.visit.guide', { guide: v.guideName || '?' })}</div>
     ${v.declaredCents != null ? `<div>${t('partner.visit.declared', { amount: c(v.declaredCents) })}</div>` : ''}
     ${v.statusNote && ['disputed', 'cancelled'].includes(v.status) ? `<div class="hint">${esc(v.statusNote)}</div>` : ''}
   </li>`;
@@ -232,7 +232,7 @@ export function spaceView(space, tab = 'painel') {
     return `<label class="pd-row" data-v="${v.status}">
       <span class="pd-c">${can ? `<input type="checkbox" data-sel="${esc(v.id)}" data-st="${v.status}" aria-label="${esc(v.client || '')}">` : ''}</span>
       <span class="pd-d">${fmtDay(v.at.slice(0, 10), lang)}</span>
-      <span class="pd-who"><b>${esc(v.client || '?')}</b><small>${esc(v.guideName || '?')} · ${t('scan.people', { n: v.peopleServed })} · ${esc(store.txNum(v.num))}${v.statusNote && ['disputed', 'cancelled'].includes(v.status) ? ` · ${esc(v.statusNote)}` : ''}</small>${alertOf(v.id) ? `<span class="badge">${t('alert.short', { num: alertOf(v.id).num, status: alertStatus(alertOf(v.id).status) })}</span>` : problemLink(v.id)}</span>
+      <span class="pd-who"><b>${esc(v.client || '?')}</b><small>${esc(v.guideName || '?')} · ${t('scan.people', { n: v.peopleServed })} · ${esc(store.visitRef(v))}${v.statusNote && ['disputed', 'cancelled'].includes(v.status) ? ` · ${esc(v.statusNote)}` : ''}</small>${alertOf(v.id) ? `<span class="badge">${t('alert.short', { num: alertOf(v.id).num, status: alertStatus(alertOf(v.id).status) })}</span>` : problemLink(v.id)}</span>
       <span class="pd-st">${statusBadge(v, 'partner')}</span>
       <span class="pd-i">${inv}</span>
       <span class="pd-num pd-com" data-com="${esc(v.id)}">${v.declaredCents == null ? '—' : c(v.declaredCents)}</span>
@@ -318,7 +318,8 @@ export function spaceView(space, tab = 'painel') {
       ${tabsNav}${banner}${body}</div>`,
     mount(root, ctx) {
       mountHelp(root, { kind: 'partner', send: (topic, msg, vId) => store.partnerCreateAlert(key, topic, msg, vId),
-        label: (vId) => { const v = visits.find((x) => x.id === vId); return v ? `${v.client || ''} · ${fmtDay(v.at.slice(0, 10), getLang())} · ${store.txNum(v.num)}` : ''; },
+        findCode: (c) => visits.find((x) => x.code === c)?.id || null,
+        label: (vId) => { const v = visits.find((x) => x.id === vId); return v ? `${v.client || ''} · ${fmtDay(v.at.slice(0, 10), getLang())} · ${store.visitRef(v)}` : ''; },
         onSent: () => ctx.refresh() });
       const out = root.querySelector('#logout');
       if (out) out.onclick = async () => { await store.signOut(); try { localStorage.removeItem(ME_KEY); } catch { /* rien */ } location.hash = ''; };
@@ -403,7 +404,7 @@ function declareManyView({ partner, city, visits, key }) {
         <p class="hint">${t('bill.rule')}</p>
         <ul class="list">${todo.map((v) => `<li>
           <div class="spread" style="align-items:center">
-            <span><b>${esc(v.client || '?')}</b><br><span class="hint">${esc(store.txNum(v.num))} · ${fmtDay(v.at.slice(0, 10), lang)} · ${t('scan.people', { n: v.peopleServed })} · ${t('partner.visit.guide', { guide: v.guideName || '?' })}</span></span>
+            <span><b>${esc(v.client || '?')}</b><br><span class="hint">${esc(store.visitRef(v))} · ${fmtDay(v.at.slice(0, 10), lang)} · ${t('scan.people', { n: v.peopleServed })} · ${t('partner.visit.guide', { guide: v.guideName || '?' })}</span></span>
             <span class="row" style="gap:6px;align-items:center">
               <input name="a-${esc(v.id)}" inputmode="decimal" placeholder="${esc(city.currency)}" style="width:110px" aria-label="${t('partner.declare.amount', { currency: city.currency })}">
               <label style="font-weight:400;margin:0;white-space:nowrap"><input type="checkbox" name="z-${esc(v.id)}" style="width:auto"> ${t('partner.declare.zero')}</label>
@@ -423,7 +424,7 @@ function declareManyView({ partner, city, visits, key }) {
           if (zero) { items.push({ visit: v.id, cents: 0 }); continue; }
           if (raw.trim() === '') continue;
           const cts = parseCents(raw);
-          if (cts == null) { notify(tRaw('partner.declare.badamount', { num: store.txNum(v.num) })); return; }
+          if (cts == null) { notify(tRaw('partner.declare.badamount', { num: store.visitRef(v) })); return; }
           items.push({ visit: v.id, cents: cts });
         }
         if (!items.length) { notify(tRaw('partner.declare.none')); return; }
@@ -462,7 +463,7 @@ function payView({ partner, city, visits, key }) {
         <ul class="list">${todo.map((v) => `<li>
           <label class="spread" style="font-weight:400;align-items:center">
             <span><input type="checkbox" name="sel" value="${esc(v.id)}"${!pre || pre.includes(v.id) ? ' checked' : ''} style="width:auto;margin-right:8px"><b>${esc(v.client || '?')}</b>
-              <span class="hint"> · ${esc(store.txNum(v.num))} · ${fmtDay(v.at.slice(0, 10), lang)}</span></span>
+              <span class="hint"> · ${esc(store.visitRef(v))} · ${fmtDay(v.at.slice(0, 10), lang)}</span></span>
             <b>${c(v.declaredCents)}</b>
           </label></li>`).join('')}</ul>
         <div class="stat" style="margin:12px 0"><span>${t('partner.pay.total')}</span><b id="total">${c(0)}</b></div>
@@ -655,13 +656,14 @@ function counterView({ partner, city, visits, key }) {
       <div class="card">
         <h2>${t('counter.today')}</h2>
         ${visits.length ? `<ul class="list">${visits.map((v) => `<li><div class="spread"><b>${esc(v.client || '?')}</b><span class="hint">${fmtMoment(v.at, lang, city.timezone)}</span></div>
-          <div class="hint">${esc(store.txNum(v.num))} · ${t('scan.people', { n: v.peopleServed })} · ${t('partner.visit.guide', { guide: v.guideName || '?' })}</div></li>`).join('')}</ul>`
+          <div class="hint">${esc(store.visitRef(v))} · ${t('scan.people', { n: v.peopleServed })} · ${t('partner.visit.guide', { guide: v.guideName || '?' })}</div></li>`).join('')}</ul>`
           : `<p class="hint">${t('partner.visits.none')}</p>`}
       </div>
       <p class="hint">${t('counter.manager')}</p>
       <p class="hint">${t('partner.linked', { name: partner.name })} <a href="#" id="unlink">${t('partner.unlink')}</a></p>`,
     mount() {
-      mountHelp(root(), { kind: 'partner', send: (topic, msg, vId) => store.partnerCreateAlert(key, topic, msg, vId) });
+      mountHelp(root(), { kind: 'partner', send: (topic, msg, vId) => store.partnerCreateAlert(key, topic, msg, vId),
+        findCode: (c) => visits.find((x) => x.code === c)?.id || null });
       root().querySelector('#unlink').onclick = (e) => {
         e.preventDefault();
         try { localStorage.removeItem(ME_KEY); } catch { /* rien */ }
@@ -675,33 +677,15 @@ const root = () => document.getElementById('app');
 
 // Conditions générales du partenaire (brouillon v1, à faire relire par un avocat avant le pilote).
 export async function termsView() {
+  // Le texte vient de la base (v41) : c'est exactement celui dont l'empreinte est gardée à l'acceptation.
+  const tx = await store.termsText('partner', TERMS_VERSION).catch(() => null);
   return {
     html: `<article class="card terms">
       <h1>Termos de uso · Parceiro Kombrio</h1>
       <p class="hint">Versão ${esc(TERMS_VERSION)} · <b>rascunho, em revisão jurídica</b></p>
-      <h3>1. O serviço</h3>
-      <p>A Kombrio conecta guias de turismo cadastrados e estabelecimentos parceiros (restaurantes, lojas). O guia recomenda o parceiro ao seu cliente; o cliente apresenta o QR Kombrio no estabelecimento; a visita é registrada pelo parceiro.</p>
-      <h3>2. Cadastro e acesso</h3>
-      <p>O acesso do gerente é pessoal, com e-mail e senha. O responsável informado no primeiro acesso representa o estabelecimento perante a Kombrio. O QR da caixa serve apenas para registrar as visitas e não dá acesso aos pagamentos.</p>
-      <h3>3. Registro das visitas</h3>
-      <p>O parceiro se compromete a escanear o QR de cada cliente Kombrio atendido e a conceder, quando houver, a oferta anunciada, uma vez por grupo e por estadia.</p>
-      <h3>4. Comissão</h3>
-      <p>Para cada visita registrada, o parceiro declara livremente o valor da comissão que paga pela recomendação. A comissão é paga à Kombrio por Pix ou transferência, com o comprovante, de uma vez ou agrupada (por exemplo, mensalmente).</p>
-      <h3>5. Prazo de pagamento</h3>
-      <p>As comissões do mês devem ser declaradas e pagas até o dia 10 do mês seguinte. A Kombrio pode enviar lembretes ao responsável (WhatsApp ou e-mail).</p>
-      <h3>6. Repasse ao guia</h3>
-      <p>A Kombrio repassa 80 % de cada comissão recebida ao guia que fez a recomendação e conserva 20 % pelo serviço. O parceiro não paga nada ao guia diretamente.</p>
-      <h3>7. Oferta</h3>
-      <p>A oferta aos clientes Kombrio é opcional, definida e alterada pelo próprio parceiro no seu espaço.</p>
-      <h3>8. Dados pessoais (LGPD)</h3>
-      <p>A Kombrio trata apenas os dados necessários ao serviço (nome do cliente ou grupo, número de pessoas, data da visita, valores e comprovantes) e não os vende nem os cede a terceiros. O parceiro pode pedir acesso, correção ou exclusão dos seus dados.</p>
-      <h3>9. Relatórios</h3>
-      <p>O parceiro tem acesso aos relatórios mensais e pode compartilhar um link somente leitura com o seu contador.</p>
-      <h3>10. Duração e encerramento</h3>
-      <p>Prazo indeterminado. Qualquer uma das partes pode encerrar a parceria a qualquer momento, com as comissões das visitas já registradas devidas.</p>
-      <h3>11. Alterações</h3>
-      <p>A Kombrio pode atualizar estes termos; uma nova versão será apresentada ao parceiro para aceite.</p>
+      ${tx && tx.body ? tx.body : `<div class="notice bad">${t('err.generic')}</div>`}
       <p class="hint" style="margin-top:16px">Kombrio · Rio de Janeiro · contato pelo WhatsApp do seu interlocutor Kombrio.</p>
+      ${tx && tx.sha256 ? `<p class="hint" style="word-break:break-all">${t('terms.sha', { sha: tx.sha256 })}</p>` : ''}
     </article>`,
   };
 }
