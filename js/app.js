@@ -74,7 +74,7 @@ async function render() {
 
   root.innerHTML = `
     <header class="top">
-      <a class="brand" href="#/"><img src="${ICON}" alt="">kombrio<i></i>${APP === 'hub' ? '' : ` <small>${t(`app.${APP}`)}</small>`}</a>
+      <a class="brand" href="#/"><img src="${ICON}" alt=""><span class="brand-word">kombrio<i></i></span>${APP === 'hub' ? '' : `<span class="brand-app">${t(`app.${APP}`)}</span>`}</a>
       <select id="lang" aria-label="${t('common.language')}">
         ${langs.map(([code, label]) => `<option value="${code}" ${code === getLang() ? 'selected' : ''}>${label}</option>`).join('')}
       </select>

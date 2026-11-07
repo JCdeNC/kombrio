@@ -37,12 +37,27 @@ p { margin: 0 0 .75rem; }
 
 .top {
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
-  padding: 12px 16px; background: var(--deep); color: #fff;
+  padding: 12px 18px; background: var(--deep); color: #fff;
+  border-bottom: 3px solid var(--brand-light);
 }
-.brand { display: inline-flex; align-items: center; gap: 8px; color: #fff; text-decoration: none; font-family: var(--font-title); font-weight: 800; font-size: 1.3rem; letter-spacing: -.02em; }
-.brand img { width: 30px; height: 30px; display: block; }
-.brand i { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); margin: -12px 0 0 -6px; }
-.brand small { font-family: var(--font-body); font-weight: 500; font-size: .9rem; color: #BFE9DD; margin-left: 2px; letter-spacing: 0; }
+/* Bandeau : icône, mot « kombrio » avec son point jaune, puis le nom de l'espace dans une pastille. */
+.brand { display: inline-flex; align-items: center; gap: 10px; color: #fff; text-decoration: none; line-height: 1; }
+.brand img { width: 32px; height: 32px; display: block; border-radius: 8px; }
+.brand-word { position: relative; padding-right: 9px; font-family: var(--font-title); font-weight: 800; font-size: 1.35rem; letter-spacing: -.03em; }
+.brand-word i { position: absolute; top: 0; right: 0; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); }
+.brand-app {
+  margin-left: 4px; padding: 5px 10px; border-radius: 999px;
+  font-family: var(--font-body); font-weight: 700; font-size: .7rem; letter-spacing: .09em; text-transform: uppercase;
+  color: #BFE9DD; background: rgba(0, 168, 135, .16); border: 1px solid rgba(0, 168, 135, .5);
+}
+@media (max-width: 420px) {
+  .top { padding: 10px 14px; }
+  .brand { gap: 8px; }
+  .brand img { width: 28px; height: 28px; }
+  .brand-word { font-size: 1.2rem; }
+  .brand-app { margin-left: 2px; padding: 4px 8px; font-size: .62rem; }
+  .top select { padding: 5px 4px; font-size: .9rem; }
+}
 .logo-big { display: inline-flex; align-items: center; gap: 12px; font-family: var(--font-title); font-weight: 800; font-size: 2.2rem; letter-spacing: -.03em; color: var(--ink); }
 .logo-big img { width: 56px; height: 56px; }
 .logo-big i { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: var(--accent); margin: -22px 0 0 -10px; }
