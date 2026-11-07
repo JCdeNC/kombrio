@@ -278,6 +278,7 @@ async function validations({ guides, city, cadChecks }) {
         } catch { notify(tRaw('err.generic')); }
       }; });
       mountActive(root, ctx);
+      mountPlus(root, ctx);
       root.querySelectorAll('[data-ok]').forEach((b) => { b.onclick = async () => { await store.setGuideStatus(b.dataset.ok, 'validated'); ctx.refresh(tRaw('admin.val.accepted')); }; });
       root.querySelectorAll('[data-no]').forEach((b) => { b.onclick = async () => { await store.setGuideStatus(b.dataset.no, 'refused'); ctx.refresh(tRaw('admin.val.refused')); }; });
     },
@@ -706,11 +707,44 @@ const isOn = (kind, x) => (kind === 'guide' ? x.status === 'validated' : x.statu
 const activeToggle = (kind, x) => `<span class="row" style="gap:6px;align-items:center">
     <span class="badge ${isOn(kind, x) ? 'ok' : 'bad'}">${t(isOn(kind, x) ? 'admin.act.on' : 'admin.act.off')}</span>
     <button type="button" class="btn small ${isOn(kind, x) ? 'ghost' : ''}" data-act-kind="${kind}" data-act-id="${esc(x.id)}" data-act-on="${isOn(kind, x) ? '0' : '1'}" data-act-name="${esc(x.name)}">${t(isOn(kind, x) ? 'admin.act.suspend' : 'admin.act.reactivate')}</button></span>`;
+// Parrainage par guide (v52) : même réglage que l'onglet Parrainage, directement sur la fiche.
+const refToggle = (g) => `<button type="button" class="btn small ${g.referralEnabled ? 'secondary' : 'ghost'}" data-ref-id="${esc(g.id)}" data-ref-on="${g.referralEnabled ? '0' : '1'}"
+    title="${esc(tRaw('admin.ref.btn.hint'))}">${t(g.referralEnabled ? 'admin.ref.btn.on' : 'admin.ref.btn.off')}</button>`;
+// Cercle Kombrio et Parceiro Fundador (v52), sur chaque partenaire.
+const partnerPlus = (p, today) => {
+  const founder = p.founderUntil && p.founderUntil >= today;
+  return `<div class="row" style="gap:6px;margin-top:6px;align-items:center">
+    <button type="button" class="btn small ${p.circleEnabled ? 'secondary' : 'ghost'}" data-circle-id="${esc(p.id)}" data-circle-on="${p.circleEnabled ? '0' : '1'}">${t(p.circleEnabled ? 'admin.circle.on' : 'admin.circle.off')}</button>
+    <button type="button" class="btn small ${founder ? 'secondary' : 'ghost'}" data-founder-id="${esc(p.id)}" data-founder-until="${esc(p.founderUntil || '')}">${founder ? t('admin.founder.on', { date: fmtDay(p.founderUntil, getLang()) }) : t('admin.founder.off')}</button></div>`;
+};
+function mountPlus(root, ctx) {
+  root.querySelectorAll('[data-ref-id]').forEach((b) => { b.onclick = async () => {
+    b.disabled = true;
+    try { await store.setReferralEnabled(b.dataset.refId, b.dataset.refOn === '1'); ctx.refresh(tRaw('common.saved')); }
+    catch { b.disabled = false; notify(tRaw('err.generic')); }
+  }; });
+  root.querySelectorAll('[data-circle-id]').forEach((b) => { b.onclick = async () => {
+    b.disabled = true;
+    try { await store.setPartnerCircle(b.dataset.circleId, b.dataset.circleOn === '1'); ctx.refresh(tRaw('common.saved')); }
+    catch { b.disabled = false; notify(tRaw('err.generic')); }
+  }; });
+  root.querySelectorAll('[data-founder-id]').forEach((b) => { b.onclick = async () => {
+    const def = b.dataset.founderUntil || new Date(Date.now() + 90 * 864e5).toISOString().slice(0, 10);
+    const v = prompt(tRaw('admin.founder.prompt'), def);
+    if (v === null) return;
+    const until = v.trim();
+    if (until && !/^\d{4}-\d{2}-\d{2}$/.test(until)) { notify(tRaw('admin.founder.bad')); return; }
+    b.disabled = true;
+    try { await store.setPartnerFounder(b.dataset.founderId, until); ctx.refresh(tRaw('common.saved')); }
+    catch { b.disabled = false; notify(tRaw('err.generic')); }
+  }; });
+}
 function activeCard(list, kind) {
   if (!list.length) return '';
   const sorted = [...list].sort((a, b) => Number(isOn(kind, a)) - Number(isOn(kind, b)) || a.name.localeCompare(b.name));
   return `<div class="card"><h2>${t(kind === 'guide' ? 'admin.act.guides' : 'admin.act.partners')}</h2><p class="hint">${t(`admin.act.hint.${kind}`)}</p>
-    <ul class="list">${sorted.map((x) => `<li><div class="spread"><span><b>${esc(x.name)}</b>${x.code ? ` <span class="hint">${esc(x.code)}</span>` : ''}</span>${activeToggle(kind, x)}</div></li>`).join('')}</ul></div>`;
+    <ul class="list">${sorted.map((x) => `<li><div class="spread"><span><b>${esc(x.name)}</b>${x.code ? ` <span class="hint">${esc(x.code)}</span>` : ''}</span>
+      <span class="row" style="gap:6px;align-items:center">${kind === 'guide' ? refToggle(x) : ''}${activeToggle(kind, x)}</span></div></li>`).join('')}</ul></div>`;
 }
 function mountActive(root, ctx) {
   root.querySelectorAll('[data-act-kind]').forEach((b) => {
@@ -742,6 +776,7 @@ async function partners({ partnerList, cityList, city }) {
       <button type="button" class="btn ghost small" id="suspend-late">${t('admin.part.late')}</button>
       <ul class="list">${partnerList.map((p) => `<li>
         <div class="spread"><b>${esc(p.name)}</b>${activeToggle('partner', p)}</div>
+        ${partnerPlus(p, new Date().toISOString().slice(0, 10))}
         <div class="hint">${t(`ptype.${p.type}`)} · ${esc(p.area || '')} · ${esc(city(p.cityId)?.name || '')}</div>
         <div class="hint">${t('admin.part.taxid')} ${p.taxId ? esc(fmtTaxId(p.taxId)) : `<b>${t('admin.missing')}</b>`}</div>
         ${p.offer ? `<div class="offer">${esc(p.offer)}</div>` : `<div class="hint">${t('admin.part.nooffer')}</div>`}
@@ -799,6 +834,7 @@ async function partners({ partnerList, cityList, city }) {
     </form>`,
     mount(root, ctx) {
       mountActive(root, ctx);
+      mountPlus(root, ctx);
       maskTaxId(root.querySelector('#p-tax'));
       root.querySelectorAll('.pdetails').forEach((form) => {
         form.onsubmit = async (e) => {

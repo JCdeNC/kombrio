@@ -41,7 +41,7 @@ const toPartner = (r) => r && ({
   id: r.id, cityId: r.city_id, type: r.type, name: r.name, area: r.area, offer: r.offer || '', token: r.token, status: r.status, taxId: r.tax_id,
   photo: r.photo || '', address: r.address || '', reportToken: r.report_token || '', managerToken: r.manager_token || '',
   activationCode: r.activation_code || '', managerName: r.manager_name || '', managerEmail: r.manager_email || '',
-  managerPhone: r.manager_phone || '', commissionRate: r.commission_rate == null ? 0.1 : Number(r.commission_rate), termsVersion: r.terms_version || '', termsAcceptedAt: r.terms_accepted_at || '', termsSha: r.terms_sha256 || '',
+  managerPhone: r.manager_phone || '', commissionRate: r.commission_rate == null ? 0.1 : Number(r.commission_rate), termsVersion: r.terms_version || '', termsAcceptedAt: r.terms_accepted_at || '', termsSha: r.terms_sha256 || '', circleEnabled: !!r.circle_enabled, founderUntil: r.founder_until || '',
 });
 const toStay = (r) => r && ({
   id: r.id, guideId: r.guide_id, client: r.client, people: r.people, start: r.start_day, end: r.end_day,
@@ -235,6 +235,13 @@ export async function setGuideStatus(guideId, status) {
 }
 
 /* ---------- Partenaires ---------- */
+// Cercle Kombrio et Parceiro Fundador (v52) : réglages admin par partenaire (journalisés par le trigger d'audit).
+export async function setPartnerCircle(partnerId, on) {
+  check(await sb.from('partners').update({ circle_enabled: on }).eq('id', partnerId));
+}
+export async function setPartnerFounder(partnerId, until) {
+  check(await sb.from('partners').update({ founder_until: until || null }).eq('id', partnerId));
+}
 export async function listPartners() {
   return check(await sb.from('partners').select('*').order('name')).map(toPartner);
 }
