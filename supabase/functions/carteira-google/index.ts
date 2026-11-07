@@ -20,10 +20,10 @@ const CORS = {
 };
 
 const LABELS: Record<string, Record<string, string>> = {
-  pt: { lang: 'pt-BR', sub: 'Cliente', until: 'Válido até', people: 'Pessoas', guide: 'Guia', link: 'Parceiros e ofertas' },
-  en: { lang: 'en', sub: 'Client', until: 'Valid until', people: 'People', guide: 'Guide', link: 'Partners and offers' },
-  es: { lang: 'es', sub: 'Cliente', until: 'Válido hasta', people: 'Personas', guide: 'Guía', link: 'Socios y ofertas' },
-  fr: { lang: 'fr', sub: 'Client', until: 'Valable jusqu\'au', people: 'Personnes', guide: 'Guide', link: 'Partenaires et offres' },
+  pt: { lang: 'pt-BR', sub: 'Cliente', until: 'Válido até', people: 'Pessoas', guide: 'Guia', link: 'Parceiros e ofertas', scan: 'Mostre no caixa' },
+  en: { lang: 'en', sub: 'Client', until: 'Valid until', people: 'People', guide: 'Guide', link: 'Partners and offers', scan: 'Show at checkout' },
+  es: { lang: 'es', sub: 'Cliente', until: 'Válido hasta', people: 'Personas', guide: 'Guía', link: 'Socios y ofertas', scan: 'Muéstralo en caja' },
+  fr: { lang: 'fr', sub: 'Client', until: 'Valable jusqu\'au', people: 'Personnes', guide: 'Guide', link: 'Partenaires et offres', scan: 'À montrer en caisse' },
 };
 
 function json(body: unknown, status = 200) {
@@ -110,7 +110,8 @@ async function handle(req: Request) {
       { id: 'pessoas', header: L.people, body: String(stay.people) },
       { id: 'guia', header: L.guide, body: guide?.name ?? '' },
     ],
-    barcode: { type: 'QR_CODE', value: `${APP}/partner/#/s/${token}` },
+    // Texte court sous le QR (sinon Google affiche l'adresse coupée).
+    barcode: { type: 'QR_CODE', value: `${APP}/partner/#/s/${token}`, alternateText: L.scan },
     validTimeInterval: {
       start: { date: `${stay.start_day}T00:00:00${offset(tz, stay.start_day)}` },
       end: { date: `${stay.end_day}T23:59:59${offset(tz, stay.end_day)}` },
