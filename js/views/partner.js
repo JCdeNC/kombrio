@@ -2,7 +2,7 @@
 // Sans passage en attente, le même QR ouvre son espace (historique, offre, QR à imprimer).
 // Pas de compte : tout passe par le code secret du QR Partenaire, vérifié par la base.
 import { t, tRaw, getLang } from '../i18n.js';
-import { esc, money, cents, parseCents, fmtMoment, fmtDay, qrSvg, appLink, readFileAsDataUrl, notify, pixPayload, pixKeyOf, photoToJpeg, confirmTwice, fmtTaxId, locale } from '../util.js';
+import { esc, money, cents, parseCents, fmtMoment, fmtDay, qrSvg, appLink, readFileAsDataUrl, notify, pixPayload, pixKeyOf, photoToJpeg, confirmTwice, fmtTaxId, locale, phoneField, phoneValue } from '../util.js';
 import * as store from '../store.js';
 import { statusBadge, notFound, forgotLink, mountForgot, resetView } from './shared.js';
 import { readPendingStay, clearPendingStay } from './scan.js';
@@ -61,7 +61,7 @@ export async function activateView([code = ''], ctx) {
         <div class="field"><label for="a-code">${t('pm.code')}</label><input id="a-code" name="code" required value="${esc(code)}" placeholder="RIO-KP-12345 / 12345" autocapitalize="characters" style="text-transform:uppercase"></div>
         <div class="grid2">
           <div class="field"><label for="a-name">${t('pm.name')}</label><input id="a-name" name="name" required autocomplete="name"></div>
-          <div class="field"><label for="a-phone">${t('guide.signup.phone')}</label><input id="a-phone" name="phone" type="tel" required autocomplete="tel"></div>
+          ${phoneField('a-phone', t('guide.signup.phone'), t('phone.other'))}
         </div>
         <div class="field"><label for="a-email">${t('auth.email')}</label><input id="a-email" name="email" type="email" required autocomplete="email"></div>
         <div class="grid2">
@@ -79,11 +79,13 @@ export async function activateView([code = ''], ctx) {
         e.preventDefault();
         const f = Object.fromEntries(new FormData(e.target));
         if (f.password !== f.password2) { notify(tRaw('auth.err.mismatch')); return; }
+        const phone = phoneValue(e.target, 'a-phone');
+        if (!phone) { notify(tRaw('phone.err')); return; }
         const button = e.target.querySelector('button');
         button.disabled = true;
         try {
           const ready = await store.signUpPartner({
-            email: f.email.trim(), password: f.password, code: f.code, name: f.name.trim(), phone: f.phone.trim(), terms: TERMS_VERSION,
+            email: f.email.trim(), password: f.password, code: f.code, name: f.name.trim(), phone, terms: TERMS_VERSION,
           });
           ctx.go('', tRaw(ready ? 'pm.activate.done' : 'pm.activate.confirm'));
         } catch (err) {

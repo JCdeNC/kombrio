@@ -1,6 +1,6 @@
 // Espace du guide : connexion, séjours, QR, suivi des passages et de ses gains.
 import { t, tRaw, getLang } from '../i18n.js';
-import { esc, money, cents, locale, fmtDay, fmtMoment, todayIn, addDays, stayIsValid, qrSvg, appLink, notify, validCpf, validCnpj, onlyDigits, maskCadastur, validCadastur, validPixKey } from '../util.js';
+import { esc, money, cents, locale, fmtDay, fmtMoment, todayIn, addDays, stayIsValid, qrSvg, appLink, notify, validCpf, validCnpj, onlyDigits, maskCadastur, validCadastur, validPixKey, phoneField, phoneValue } from '../util.js';
 import * as store from '../store.js';
 import { validity, statusBadge, guideAmounts, notFound, forgotLink, mountForgot, resetView } from './shared.js';
 import { maskTaxId, qrCardBlob, shareOrDownload, photoToJpeg } from '../util.js';
@@ -57,7 +57,7 @@ async function loginView() {
         <h3 class="su-step">1. ${t('su.s.you')}</h3>
         <div class="field"><label for="g-name">${t('guide.signup.name')}</label><input id="g-name" name="name" required autocomplete="name"></div>
         <div class="grid2">
-          <div class="field"><label for="g-phone">${t('guide.signup.phone')}</label><input id="g-phone" name="phone" type="tel" required autocomplete="tel" placeholder="(21) 90000-0000"></div>
+          ${phoneField('g-phone', t('guide.signup.phone'), t('phone.other'))}
           <div class="field"><label for="g-city">${t('guide.signup.city')}</label>
             <select id="g-city" name="cityId">${cities.map((c) => `<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('')}</select></div>
         </div>
@@ -121,6 +121,8 @@ async function loginView() {
         e.preventDefault();
         const f = Object.fromEntries(new FormData(e.target));
         if (f.password !== f.password2) { notify(tRaw('auth.err.mismatch')); return; }
+        const phone = phoneValue(e.target, 'g-phone');
+        if (!phone) { notify(tRaw('phone.err')); return; }
         const cnpj = f.taxKind === 'cnpj';
         if (cnpj ? !validCnpj(f.cpf) : !validCpf(f.cpf)) { notify(tRaw(cnpj ? 'guide.signup.err.cnpj' : 'guide.signup.err.cpf')); return; }
         const lic = onlyDigits(f.license);
@@ -129,7 +131,7 @@ async function loginView() {
         if ((f.pixHolder || '').trim().length < 3) { notify(tRaw('su.pix.holder.err')); return; }
         try {
           const ready = await store.signUpGuide({
-            email: f.email.trim(), password: f.password, name: f.name.trim(), phone: f.phone.trim(),
+            email: f.email.trim(), password: f.password, name: f.name.trim(), phone,
             license: f.license.trim(), cityId: f.cityId, cpf: onlyDigits(f.cpf), taxKind: cnpj ? 'cnpj' : 'cpf', pixKey: f.pixKey.trim(), pixType: f.pixType, pixHolder: f.pixHolder.trim().replace(/\s+/g, ' '), refCode: (f.refCode || '').trim(),
           });
           ctx.refresh(tRaw(ready ? 'guide.signup.done' : 'auth.confirm'));

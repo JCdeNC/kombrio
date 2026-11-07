@@ -123,6 +123,8 @@ export default {
   'guide.signup.title': 'Devenir guide Kombrio',
   'guide.signup.name': 'Nom complet',
   'guide.signup.phone': 'Téléphone (WhatsApp)',
+  'phone.other': 'Autre',
+  'phone.err': 'Téléphone invalide. Choisissez l\'indicatif du pays et indiquez le numéro (ou +indicatif et numéro).',
   'guide.signup.city': 'Ville',
   'guide.signup.license': 'Numéro Cadastur',
   'guide.signup.cpf': 'CPF',

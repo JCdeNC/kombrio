@@ -303,3 +303,8 @@ th { color: var(--muted); font-weight: 600; border-top: 0; }
 /* Inscription du guide (v47) : étapes numérotées */
 .su-step { font-size: 1rem; margin: 18px 0 8px; padding-top: 12px; border-top: 1px solid var(--line); color: var(--brand); }
 #signup h2 + .su-step { border-top: 0; padding-top: 0; margin-top: 4px; }
+
+/* Téléphone international (v49) : indicatif + numéro sur une ligne */
+.phone-row { display: flex; gap: 6px; }
+.phone-row select { flex: 0 0 auto; width: auto; max-width: 42%; }
+.phone-row input { flex: 1 1 auto; min-width: 0; }

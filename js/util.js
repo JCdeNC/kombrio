@@ -275,3 +275,38 @@ export function validPixKey(type, key) {
   if (type === 'random') return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(k.toLowerCase());
   return false;
 }
+
+/* ---------- Téléphone international (WhatsApp) ---------- */
+// Indicatifs proposés (Brésil par défaut). « Outro » : le guide tape lui-même +indicatif.
+export const DIAL_CODES = [
+  ['BR', '55'], ['AR', '54'], ['UY', '598'], ['PY', '595'], ['CL', '56'], ['BO', '591'], ['PE', '51'], ['CO', '57'],
+  ['VE', '58'], ['EC', '593'], ['MX', '52'], ['US', '1'], ['CA', '1'], ['PT', '351'], ['FR', '33'], ['ES', '34'],
+  ['IT', '39'], ['DE', '49'], ['GB', '44'], ['BE', '32'], ['CH', '41'], ['NL', '31'], ['IE', '353'], ['IL', '972'],
+  ['ZA', '27'], ['AO', '244'], ['MZ', '258'], ['CN', '86'], ['JP', '81'], ['KR', '82'], ['IN', '91'], ['AU', '61'],
+];
+const flag = (cc) => cc.replace(/./g, (c) => String.fromCodePoint(127397 + c.charCodeAt(0)));
+// Champ « indicatif + numéro ». name : nom du champ final (ex. « phone »), lu ensuite avec phoneValue().
+export function phoneField(id, label, otherLabel = 'Outro') {
+  return `<div class="field"><label for="${id}">${label}</label>
+    <div class="phone-row"><select id="${id}-cc" name="${id}-cc" aria-label="${label}">
+      ${DIAL_CODES.map(([cc, code]) => `<option value="${code}">${flag(cc)} +${code}</option>`).join('')}
+      <option value="">${otherLabel} (+…)</option></select>
+    <input id="${id}" name="${id}" type="tel" required autocomplete="tel-national" inputmode="tel" placeholder="21 90000-0000"></div></div>`;
+}
+// Numéro au format international « +55 21900000000 », ou '' s'il n'est pas valable (8 à 15 chiffres au total).
+export function phoneValue(form, id) {
+  const cc = form.querySelector(`#${id}-cc`).value;
+  const raw = form.querySelector(`#${id}`).value.trim();
+  let code = cc; let num = onlyDigits(raw);
+  if (!cc || raw.startsWith('+')) {
+    const d = onlyDigits(raw);
+    const known = DIAL_CODES.map(([, c]) => c).sort((a, b) => b.length - a.length).find((c) => d.startsWith(c));
+    code = known || d.slice(0, 2); num = d.slice(code.length);
+  }
+  // Le 0 national (ex. 06… en France, 021… au Brésil) ne s'écrit pas en international, sauf en Italie.
+  if (code !== '39') num = num.replace(/^0+/, '');
+  const total = code.length + num.length;
+  return code && num.length >= 6 && total >= 8 && total <= 15 ? `+${code} ${num}` : '';
+}
+// Lien WhatsApp direct vers un numéro enregistré.
+export const waLink = (phone) => { const d = onlyDigits(phone); return d.length >= 8 ? `https://wa.me/${d}` : ''; };

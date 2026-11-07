@@ -4,7 +4,7 @@ import { t, tRaw, getLang } from '../i18n.js';
 import { esc, money, cents, parseCents, fmtMoment, fmtDay, qrSvg, appLink, notify, confirmTwice, validTaxId, fmtTaxId, onlyDigits } from '../util.js';
 import * as store from '../store.js';
 import { forgotLink, mountForgot, resetView, statusBadge } from './shared.js';
-import { maskTaxId, photoToJpeg, fmtCadastur, maskCadastur, cadasturLink } from '../util.js';
+import { maskTaxId, photoToJpeg, fmtCadastur, maskCadastur, cadasturLink, waLink } from '../util.js';
 import { topicLabel, alertStatus } from './help.js';
 
 const TABS = ['dashboard', 'alertas', 'validations', 'payments', 'payouts', 'pix', 'referral', 'transactions', 'partners', 'cities', 'journal'];
@@ -230,7 +230,7 @@ async function validations({ guides, city, cadChecks }) {
       <h2>${t('admin.val.title')}</h2>
       ${pending.length ? `<ul class="list">${pending.map((g) => `<li>
         <div class="spread"><b>${esc(g.name)}</b><span class="hint">${esc(city(g.cityId)?.name || '')}</span></div>
-        <div class="hint">${esc(g.email || '')} · ${esc(g.phone || '')} · ${esc(city(g.cityId)?.licenseLabel || '')} ${esc(g.license || '')}</div>
+        <div class="hint">${esc(g.email || '')} · ${waLink(g.phone) ? `<a href="${waLink(g.phone)}" target="_blank" rel="noopener">${esc(g.phone)}</a>` : esc(g.phone || '')} · ${esc(city(g.cityId)?.licenseLabel || '')} ${esc(g.license || '')}</div>
         <div class="hint">${g.taxKind === 'cnpj' ? 'CNPJ' : 'CPF'} ${g.cpf ? esc(fmtTaxId(g.cpf)) : `<b>${t('admin.missing')}</b>`} · ${t('admin.val.pix')} ${g.pixKey ? esc(g.pixKey) : `<b>${t('admin.missing')}</b>`}${g.pixHolder ? ` · ${t('su.pix.holder')} : <b>${esc(g.pixHolder)}</b>` : ''}</div>
         ${cadBlock(g)}
         <div class="row" style="margin-top:8px">
