@@ -231,7 +231,7 @@ async function validations({ guides, city, cadChecks }) {
       ${pending.length ? `<ul class="list">${pending.map((g) => `<li>
         <div class="spread"><b>${esc(g.name)}</b><span class="hint">${esc(city(g.cityId)?.name || '')}</span></div>
         <div class="hint">${esc(g.email || '')} · ${esc(g.phone || '')} · ${esc(city(g.cityId)?.licenseLabel || '')} ${esc(g.license || '')}</div>
-        <div class="hint">${g.taxKind === 'cnpj' ? 'CNPJ' : 'CPF'} ${g.cpf ? esc(fmtTaxId(g.cpf)) : `<b>${t('admin.missing')}</b>`} · ${t('admin.val.pix')} ${g.pixKey ? esc(g.pixKey) : `<b>${t('admin.missing')}</b>`}</div>
+        <div class="hint">${g.taxKind === 'cnpj' ? 'CNPJ' : 'CPF'} ${g.cpf ? esc(fmtTaxId(g.cpf)) : `<b>${t('admin.missing')}</b>`} · ${t('admin.val.pix')} ${g.pixKey ? esc(g.pixKey) : `<b>${t('admin.missing')}</b>`}${g.pixHolder ? ` · ${t('su.pix.holder')} : <b>${esc(g.pixHolder)}</b>` : ''}</div>
         ${cadBlock(g)}
         <div class="row" style="margin-top:8px">
           ${(() => { const c = lastCheck(cadChecks, g.id); return c && c.validUntil >= today

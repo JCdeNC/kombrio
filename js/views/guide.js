@@ -1,6 +1,6 @@
 // Espace du guide : connexion, séjours, QR, suivi des passages et de ses gains.
 import { t, tRaw, getLang } from '../i18n.js';
-import { esc, money, cents, locale, fmtDay, fmtMoment, todayIn, addDays, stayIsValid, qrSvg, appLink, notify, validCpf, validCnpj, onlyDigits, maskCadastur, validCadastur } from '../util.js';
+import { esc, money, cents, locale, fmtDay, fmtMoment, todayIn, addDays, stayIsValid, qrSvg, appLink, notify, validCpf, validCnpj, onlyDigits, maskCadastur, validCadastur, validPixKey } from '../util.js';
 import * as store from '../store.js';
 import { validity, statusBadge, guideAmounts, notFound, forgotLink, mountForgot, resetView } from './shared.js';
 import { maskTaxId, qrCardBlob, shareOrDownload, photoToJpeg } from '../util.js';
@@ -54,29 +54,37 @@ async function loginView() {
       </form>
       <form class="card" id="signup">
         <h2>${t('guide.signup.title')}</h2>
+        <h3 class="su-step">1. ${t('su.s.you')}</h3>
         <div class="field"><label for="g-name">${t('guide.signup.name')}</label><input id="g-name" name="name" required autocomplete="name"></div>
         <div class="grid2">
-          <div class="field"><label for="g-phone">${t('guide.signup.phone')}</label><input id="g-phone" name="phone" type="tel" required autocomplete="tel"></div>
+          <div class="field"><label for="g-phone">${t('guide.signup.phone')}</label><input id="g-phone" name="phone" type="tel" required autocomplete="tel" placeholder="(21) 90000-0000"></div>
           <div class="field"><label for="g-city">${t('guide.signup.city')}</label>
             <select id="g-city" name="cityId">${cities.map((c) => `<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('')}</select></div>
         </div>
-        <div class="field"><label for="g-license">${t('guide.signup.license')}</label><input id="g-license" name="license" required inputmode="numeric" placeholder="00.000000.00-0"></div>
-        <p class="hint" style="margin-top:-6px">${t('guide.signup.license.hint')}</p>
+        <h3 class="su-step">2. ${t('su.s.id')}</h3>
         <div class="field" role="radiogroup" aria-label="${t('guide.signup.taxkind')}"><span class="hint">${t('guide.signup.taxkind')}</span>
           <div class="row" style="gap:18px;margin-top:4px">
             <label style="display:flex;gap:6px;align-items:center;font-weight:400;margin:0"><input type="radio" name="taxKind" value="cpf" checked style="width:auto">${t('guide.signup.kind.cpf')}</label>
             <label style="display:flex;gap:6px;align-items:center;font-weight:400;margin:0"><input type="radio" name="taxKind" value="cnpj" style="width:auto">${t('guide.signup.kind.cnpj')}</label></div></div>
         <div class="grid2">
           <div class="field"><label for="g-cpf" id="g-cpf-l">${t('guide.signup.cpf')}</label><input id="g-cpf" name="cpf" required inputmode="numeric" placeholder="000.000.000-00"></div>
-          <div class="field"><label for="g-pix">${t('guide.signup.pix')}</label><input id="g-pix" name="pixKey" required></div>
+          <div class="field"><label for="g-license">${t('guide.signup.license')}</label><input id="g-license" name="license" required inputmode="numeric" placeholder="00.000000.00-0"></div>
         </div>
-        <p class="hint">${t('guide.signup.pix.hint')}</p>
+        <p class="hint" style="margin-top:-6px">${t('guide.signup.license.hint')}</p>
+        <h3 class="su-step">3. ${t('su.s.pix')}</h3>
         <div class="grid2">
-          <div class="field"><label for="g-email">${t('auth.email')}</label><input id="g-email" name="email" type="email" required autocomplete="email"></div>
-          <div class="field"><label for="g-pass">${t('auth.password.new')}</label><input id="g-pass" name="password" type="password" required minlength="8" autocomplete="new-password"></div>
+          <div class="field"><label for="g-ptype">${t('pix.type')}</label><select id="g-ptype" name="pixType">${PIX_TYPES.map((k) => `<option value="${k}"${k === 'cpf' ? ' selected' : ''}>${t(`pix.type.${k}`)}</option>`).join('')}</select></div>
+          <div class="field"><label for="g-pix">${t('guide.signup.pix')}</label><input id="g-pix" name="pixKey" required autocomplete="off"></div>
         </div>
-        <div class="field"><label for="g-pass2">${t('auth.password.confirm')}</label><input id="g-pass2" name="password2" type="password" required minlength="8" autocomplete="new-password"></div>
-        <div class="field"><label for="g-ref">${t('guide.signup.ref')}</label><input id="g-ref" name="refCode" autocomplete="off" placeholder="RIO-KG-00000" value="${esc(refFromUrl())}"></div>
+        <div class="field"><label for="g-holder">${t('su.pix.holder')}</label><input id="g-holder" name="pixHolder" required minlength="3" maxlength="120" autocomplete="off"></div>
+        <p class="hint" style="margin-top:-6px">${t('su.pix.holder.hint')}</p>
+        <h3 class="su-step">4. ${t('su.s.access')}</h3>
+        <div class="field"><label for="g-email">${t('auth.email')}</label><input id="g-email" name="email" type="email" required autocomplete="email"></div>
+        <div class="grid2">
+          <div class="field"><label for="g-pass">${t('auth.password.new')}</label><input id="g-pass" name="password" type="password" required minlength="8" autocomplete="new-password"></div>
+          <div class="field"><label for="g-pass2">${t('auth.password.confirm')}</label><input id="g-pass2" name="password2" type="password" required minlength="8" autocomplete="new-password"></div>
+        </div>
+        ${refFromUrl() ? `<p class="notice">${t('su.ref.from', { code: refFromUrl() })}</p><input type="hidden" name="refCode" value="${esc(refFromUrl())}">` : ''}
         <p class="hint">${t('guide.signup.hint')}</p>
         <button class="btn block">${t('guide.signup.submit')}</button>
       </form>`,
@@ -93,6 +101,12 @@ async function loginView() {
         taxIn.focus();
       }; });
       maskCadastur(root.querySelector('#g-license'));
+      // Clé Pix CPF / CNPJ : reprise du numéro saisi plus haut (modifiable).
+      const pType = root.querySelector('#g-ptype'); const pKey = root.querySelector('#g-pix');
+      const fillKey = () => { if (['cpf', 'cnpj'].includes(pType.value) && !pKey.value) pKey.value = taxIn.value; };
+      pType.onchange = () => { pKey.value = ''; fillKey(); pKey.placeholder = tRaw(`su.pix.ph.${pType.value}`); };
+      pKey.placeholder = tRaw('su.pix.ph.cpf');
+      pKey.onfocus = fillKey;
       root.querySelector('#login').onsubmit = async (e) => {
         e.preventDefault();
         const f = Object.fromEntries(new FormData(e.target));
@@ -104,11 +118,13 @@ async function loginView() {
         if (f.password !== f.password2) { notify(tRaw('auth.err.mismatch')); return; }
         const cnpj = f.taxKind === 'cnpj';
         if (cnpj ? !validCnpj(f.cpf) : !validCpf(f.cpf)) { notify(tRaw(cnpj ? 'guide.signup.err.cnpj' : 'guide.signup.err.cpf')); return; }
-        if (!validCadastur(f.license) || onlyDigits(f.license) === onlyDigits(f.cpf)) { notify(tRaw('guide.signup.err.license')); return; }
+        if (!validCadastur(f.license) || (onlyDigits(f.license).length === 11 && onlyDigits(f.license) === onlyDigits(f.cpf))) { notify(tRaw('guide.signup.err.license')); return; }
+        if (!validPixKey(f.pixType, f.pixKey)) { notify(tRaw('pix.err.key')); return; }
+        if ((f.pixHolder || '').trim().length < 3) { notify(tRaw('su.pix.holder.err')); return; }
         try {
           const ready = await store.signUpGuide({
             email: f.email.trim(), password: f.password, name: f.name.trim(), phone: f.phone.trim(),
-            license: f.license.trim(), cityId: f.cityId, cpf: onlyDigits(f.cpf), taxKind: cnpj ? 'cnpj' : 'cpf', pixKey: f.pixKey.trim(), refCode: (f.refCode || '').trim(),
+            license: f.license.trim(), cityId: f.cityId, cpf: onlyDigits(f.cpf), taxKind: cnpj ? 'cnpj' : 'cpf', pixKey: f.pixKey.trim(), pixType: f.pixType, pixHolder: f.pixHolder.trim().replace(/\s+/g, ' '), refCode: (f.refCode || '').trim(),
           });
           ctx.refresh(tRaw(ready ? 'guide.signup.done' : 'auth.confirm'));
         } catch (err) { notify(tRaw(err.message === 'exists' ? 'auth.err.exists' : 'auth.err.signup')); }
@@ -356,7 +372,7 @@ function pixCard(me, checks, payouts, cur, lang) {
   const masked = me.pixKey ? `${me.pixKey.slice(0, 2)}•••${me.pixKey.slice(-3)}` : '—';
   return `<div class="card" id="pix-card">
       <h2>${t('pix.title')}</h2>
-      <div class="spread"><span>${t('pix.key')} <b>${esc(masked)}</b>${me.pixKeyType ? ` · ${t(`pix.type.${me.pixKeyType}`)}` : ''}</span>
+      <div class="spread"><span>${t('pix.key')} <b>${esc(masked)}</b>${me.pixKeyType ? ` · ${t(`pix.type.${me.pixKeyType}`)}` : ''}${me.pixHolder ? `<br><span class="hint">${t('su.pix.holder')} : ${esc(me.pixHolder)}</span>` : ''}</span>
         <span class="badge ${me.pixStatus === 'verified' ? 'ok' : me.pixStatus === 'failed' ? 'bad' : 'warn'}">${t(`pix.st.${me.pixStatus}`)}</span></div>
       ${me.pixStatus === 'verified' && me.pixVerifiedAt ? `<p class="hint">${t('pix.verified.on', { date: fmtDay(me.pixVerifiedAt.slice(0, 10), lang) })}</p>` : ''}
       ${open ? `<p class="hint">${t('g.pix.seebanner')}</p>` : ''}
@@ -366,6 +382,7 @@ function pixCard(me, checks, payouts, cur, lang) {
             <div class="field"><label for="pix-type">${t('pix.type')}</label><select id="pix-type" name="type">${PIX_TYPES.map((k) => `<option value="${k}"${k === me.pixKeyType ? ' selected' : ''}>${t(`pix.type.${k}`)}</option>`).join('')}</select></div>
             <div class="field"><label for="pix-key">${t('pix.newkey')}</label><input id="pix-key" name="key" required autocomplete="off"></div>
           </div>
+          <div class="field"><label for="pix-holder">${t('su.pix.holder')}</label><input id="pix-holder" name="holder" required minlength="3" maxlength="120" autocomplete="off" value="${esc(me.pixHolder || '')}"></div>
           <p class="hint">${t('pix.change.hint')}</p>
           <button class="btn small">${t('common.save')}</button>
         </form>
@@ -382,7 +399,7 @@ function mountPix(root, ctx) {
   const f = card.querySelector('#pix-form');
   if (f) f.onsubmit = async (e) => {
     e.preventDefault();
-    const ok = await store.setMyPixKey(f.key.value.trim(), f.type.value).catch(() => false);
+    const ok = await store.setMyPixKey(f.key.value.trim(), f.type.value, f.holder.value.trim().replace(/\s+/g, ' ')).catch(() => false);
     if (ok) ctx.refresh(tRaw('pix.changed')); else notify(tRaw('pix.err.key'));
   };
 }
