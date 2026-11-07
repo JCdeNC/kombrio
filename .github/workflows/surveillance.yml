@@ -1,0 +1,35 @@
+# Kombrio · surveillance (v52) : vérifie toutes les 30 minutes que le site, l'app et la base répondent.
+# Si une vérification échoue, la tâche passe en rouge et GitHub envoie un e-mail au propriétaire du dépôt.
+# Lancement à la main possible : onglet Actions › Surveillance › Run workflow.
+name: Surveillance
+
+on:
+  schedule:
+    - cron: '*/30 * * * *'
+  workflow_dispatch:
+
+jobs:
+  verifier:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Vérifier le site, l'app et la base
+        run: |
+          echec=0
+          verifie() { # nom, adresse, code attendu, texte attendu (facultatif)
+            code=$(curl -s -o page.txt -w '%{http_code}' --max-time 20 -H 'apikey: sb_publishable_xAkmmV2JSogQ7F45fp9OAQ_gqGhd6cb' "$2" || echo 000)
+            if [ "$code" != "$3" ] || { [ -n "$4" ] && ! grep -q "$4" page.txt; }; then
+              echo "::error::$1 ne répond pas correctement ($2 → $code)"; echec=1
+            else
+              echo "OK  $1 ($code)"
+            fi
+          }
+          verifie "Site vitrine"      https://kombrio.com.br/               200
+          verifie "App · accueil"     https://app.kombrio.com.br/           200 Kombrio
+          verifie "App · guide"       https://app.kombrio.com.br/guide/     200
+          verifie "App · partenaire"  https://app.kombrio.com.br/partner/   200
+          verifie "App · admin"       https://app.kombrio.com.br/admin/     200
+          verifie "App · version"     https://app.kombrio.com.br/js/version.js 200 VERSION
+          verifie "Base Supabase"     https://pdgmmucyzixfxzmrtwhh.supabase.co/rest/v1/cities?select=id\&limit=1 200
+          verifie "Fonction Wallet"   "https://pdgmmucyzixfxzmrtwhh.supabase.co/functions/v1/carteira-google?token=C-surveillance01" 404 qr
+          exit $echec
