@@ -209,20 +209,21 @@ async function validations({ guides, city, cadChecks }) {
   const today = new Date().toISOString().slice(0, 10);
   const soon = new Date(Date.now() + 60 * 864e5).toISOString().slice(0, 10);
   const expiring = guides.filter((g) => g.status === 'validated' && g.cadasturValidUntil !== undefined && (!g.cadasturValidUntil || g.cadasturValidUntil < soon));
-  const cadBlock = (g) => {
+  // Guide en attente : un seul bouton « Enregistrer et valider » (vérification Cadastur puis validation).
+  const cadBlock = (g, validate = false) => {
     const c = lastCheck(cadChecks, g.id);
     const pre = fmtCadastur(g.cadasturNumber || g.license);
     return `<div class="cad-box">
       <p class="hint" style="margin:0 0 8px">${c ? `${t('admin.cad.done', { date: fmtDay(c.checkedAt.slice(0, 10), lang), until: fmtDay(c.validUntil, lang) })}${c.number ? ` · nº ${esc(c.number)}` : ''}
           <button class="link-btn" data-cad-proof="${esc(c.id)}">${t('admin.cad.proof')}</button>` : t('admin.cad.none')}</p>
-      <form class="cadform" data-id="${esc(g.id)}">
+      <form class="cadform" data-id="${esc(g.id)}"${validate ? ' data-validate="1"' : ''}>
         <div class="field"><label>1. ${t('admin.cad.number')}</label>
           <div class="cad-num"><input name="number" maxlength="14" required inputmode="numeric" autocomplete="off" placeholder="00.000000.00-0" value="${esc(pre)}">
             <button type="button" class="btn small" data-cad-cert="${esc(g.id)}">${t('admin.cad.cert')}</button></div>
           <p class="hint" style="margin:4px 0 0">${t('admin.cad.num.hint')} <button type="button" class="link-btn" data-cad-open="${esc(g.id)}">${t('admin.cad.open')}</button></p></div>
         <div class="field"><label>2. ${t('admin.cad.until')}</label><input type="date" name="until" min="${today}" required></div>
         <div class="field"><label>3. ${t('admin.cad.shot')}</label><input type="file" name="shot" accept="image/*" required></div>
-        <button class="btn block">${t('admin.cad.save')}</button>
+        <button class="btn block">${t(validate ? 'admin.cad.saveval' : 'admin.cad.save')}</button>
       </form></div>`;
   };
   return {
@@ -232,13 +233,12 @@ async function validations({ guides, city, cadChecks }) {
         <div class="spread"><b>${esc(g.name)}</b><span class="hint">${esc(city(g.cityId)?.name || '')}</span></div>
         <div class="hint">${esc(g.email || '')} · ${waLink(g.phone) ? `<a href="${waLink(g.phone)}" target="_blank" rel="noopener">${esc(g.phone)}</a>` : esc(g.phone || '')} · ${esc(city(g.cityId)?.licenseLabel || '')} ${esc(g.license || '')}</div>
         <div class="hint">${g.taxKind === 'cnpj' ? 'CNPJ' : 'CPF'} ${g.cpf ? esc(fmtTaxId(g.cpf)) : `<b>${t('admin.missing')}</b>`} · ${t('admin.val.pix')} ${g.pixKey ? esc(g.pixKey) : `<b>${t('admin.missing')}</b>`}${g.pixHolder ? ` · ${t('su.pix.holder')} : <b>${esc(g.pixHolder)}</b>` : ''}</div>
-        ${cadBlock(g)}
-        <div class="row" style="margin-top:8px">
-          ${(() => { const c = lastCheck(cadChecks, g.id); return c && c.validUntil >= today
-            ? `<button class="btn small" data-ok="${esc(g.id)}">${t('admin.val.accept')}</button>`
-            : `<button class="btn small" disabled title="${esc(tRaw('admin.cad.required'))}">${t('admin.val.accept')}</button><span class="hint">${t('admin.cad.required')}</span>`; })()}
-          <button class="btn ghost small" data-no="${esc(g.id)}">${t('admin.val.refuse')}</button>
-        </div></li>`).join('')}</ul>` : `<p class="hint">${t('admin.val.none')}</p>`}
+        ${(() => { const c = lastCheck(cadChecks, g.id); return c && c.validUntil >= today
+          // Cadastur déjà vérifié et valide : il ne reste qu'à valider.
+          ? `<p class="hint" style="margin:8px 0">${t('admin.cad.done', { date: fmtDay(c.checkedAt.slice(0, 10), lang), until: fmtDay(c.validUntil, lang) })}</p>
+             <button class="btn block" data-ok="${esc(g.id)}">${t('admin.val.accept')}</button>`
+          : cadBlock(g, true); })()}
+        <div class="row" style="margin-top:8px"><button class="btn ghost small" data-no="${esc(g.id)}">${t('admin.val.refuse')}</button></div></li>`).join('')}</ul>` : `<p class="hint">${t('admin.val.none')}</p>`}
       <p class="hint">${t('admin.val.hint')}</p>
     </div>
     ${expiring.length ? `<div class="card"><h2>${t('admin.cad.expiring')}</h2><ul class="list">${expiring.map((g) => `<li>
@@ -272,7 +272,9 @@ async function validations({ guides, city, cadChecks }) {
           const proof = await photoToJpeg(file, 1200, 0.72);
           const r = await store.recordCadasturCheck(f.dataset.id, f.until.value, proof, f.number.value.trim(), null);
           const errs = { date: 'admin.cad.err.date', number: 'admin.cad.err.number', category: 'admin.cad.err.category', cpf: 'admin.cad.err.cpf' }; // « cpf » = CPF ou CNPJ du guide
-          if (r && r.ok) ctx.refresh(tRaw('admin.cad.saved')); else notify(tRaw(errs[r && r.reason] || 'err.generic'));
+          if (!r || !r.ok) { notify(tRaw(errs[r && r.reason] || 'err.generic')); return; }
+          if (f.dataset.validate) { await store.setGuideStatus(f.dataset.id, 'validated'); ctx.refresh(tRaw('admin.val.accepted')); }
+          else ctx.refresh(tRaw('admin.cad.saved'));
         } catch { notify(tRaw('err.generic')); }
       }; });
       mountActive(root, ctx);

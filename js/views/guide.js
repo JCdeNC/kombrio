@@ -590,7 +590,9 @@ async function badgeView(me, city) {
   const tok = await store.myBadgeToken();
   if (!tok || !tok.ok) return { html: `${back}<div class="notice warn">${t('bdg.unavailable')}</div>` };
   const link = appLink('verify', tok.token);
-  const initials = String(me.name || '?').split(/\s+/).filter(Boolean).map((w) => w[0]).slice(0, 2).join('').toUpperCase();
+  // Nom imprimé : celui choisi par le guide (nom « fantaisie ») ; le nom complet reste sur la page de vérification.
+  const shown = me.badgeName || me.name;
+  const initials = String(shown || '?').split(/\s+/).filter(Boolean).map((w) => w[0]).slice(0, 2).join('').toUpperCase();
   const photo = me.photo && me.photo.startsWith('data:image/') ? `<img class="bd-photo" src="${esc(me.photo)}" alt="">` : `<div class="bd-photo">${esc(initials)}</div>`;
   // Jamais le numéro saisi à l'inscription (il peut s'agir du CPF) : seulement la validité vérifiée par Kombrio.
   const cad = me.cadasturValidUntil ? `Cadastur ${tRaw('bdg.until', { date: fmtDay(me.cadasturValidUntil, 'pt') })}` : '';
@@ -599,7 +601,7 @@ async function badgeView(me, city) {
       <div class="bd-band"></div><div class="bd-slot"></div>
       <div class="bd-top"><span class="bd-logo"><span class="bd-k">K</span>kombrio</span><span class="bd-pill">Guia parceiro</span></div>
       ${photo}
-      <div class="bd-name">${esc(me.name)}</div>
+      <div class="bd-name">${esc(shown)}</div>
       <div class="bd-sub">Guia de turismo · ${esc(city.name || 'Rio de Janeiro')}</div>
       <div class="bd-code">${esc(me.code || '')}</div>
       ${cad ? `<div class="bd-cad">${cad}</div>` : ''}
@@ -621,9 +623,17 @@ async function badgeView(me, city) {
   return {
     html: `${back}
       <div class="no-print"><h1>${t('bdg.title')}</h1><p class="hint">${t('bdg.intro')}</p></div>
+      <form class="card no-print" id="bdg-name">
+        <h2>1. ${t('bdg.name.title')}</h2>
+        <p class="hint">${t('bdg.name.hint')}</p>
+        <div class="field"><label for="bdg-name-in">${t('bdg.name.label')}</label>
+          <input id="bdg-name-in" name="name" required minlength="2" maxlength="32" autocomplete="nickname" value="${esc(me.badgeName || '')}" placeholder="${esc(String(me.name || '').split(/\s+/).filter(Boolean).slice(0, 1).concat(String(me.name || '').split(/\s+/).filter(Boolean).slice(-1)).join(' '))}"></div>
+        <button class="btn secondary small">${t('common.save')}</button>
+      </form>
       <div class="badge-sheet">${front}${verso}</div>
       <div class="card no-print">
-        <div class="row" style="gap:8px"><button class="btn" id="bdg-print">${t('bdg.print')}</button>
+        ${me.badgeName ? '' : `<p class="notice warn">${t('bdg.name.first')}</p>`}
+        <div class="row" style="gap:8px"><button class="btn" id="bdg-print"${me.badgeName ? '' : ' disabled'}>${t('bdg.print')}</button>
           <a class="btn secondary" href="${esc(link)}" target="_blank" rel="noopener">${t('bdg.test')}</a></div>
         <p class="hint" style="margin-top:10px">${t('bdg.print.hint')}</p>
       </div>
@@ -637,6 +647,13 @@ async function badgeView(me, city) {
         <button class="btn ghost small" id="bdg-renew">${t('bdg.lost.btn')}</button></div>`,
     mount(root, ctx) {
       root.querySelector('#bdg-print').onclick = () => window.print();
+      root.querySelector('#bdg-name').onsubmit = async (e) => {
+        e.preventDefault();
+        try {
+          const r = await store.setMyBadgeName(e.target.name.value);
+          if (r && r.ok) ctx.refresh(tRaw('common.saved')); else notify(tRaw('bdg.name.err'));
+        } catch { notify(tRaw('bdg.name.err')); }
+      };
       root.querySelector('#bdg-photo').onsubmit = async (e) => {
         e.preventDefault();
         const file = e.target.photo.files[0]; if (!file) return;

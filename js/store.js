@@ -35,7 +35,7 @@ const toGuide = (r) => r && ({
   referralEnabled: !!r.referral_enabled,
   // Module Pix (v30) : undefined tant que le script 015 n'est pas lancé.
   pixKeyType: r.pix_key_type || '', pixKeyVersion: r.pix_key_version ?? null, pixStatus: r.pix_status, pixVerifiedAt: r.pix_verified_at || '',
-  isTest: !!r.is_test, cadasturValidUntil: r.cadastur_valid_until || '', cadasturNumber: r.cadastur_number || '', cadasturCategory: r.cadastur_category || '',
+  isTest: !!r.is_test, badgeName: r.badge_name || '', cadasturValidUntil: r.cadastur_valid_until || '', cadasturNumber: r.cadastur_number || '', cadasturCategory: r.cadastur_category || '',
 });
 const toPartner = (r) => r && ({
   id: r.id, cityId: r.city_id, type: r.type, name: r.name, area: r.area, offer: r.offer || '', token: r.token, status: r.status, taxId: r.tax_id,
@@ -486,6 +486,7 @@ export async function renewBadgeToken() {
 export async function setMyPhoto(dataUrl) {
   return check(await sb.rpc('set_my_photo', { p_photo: dataUrl }));
 }
+export async function setMyBadgeName(name) { return check(await sb.rpc('set_my_badge_name', { p_name: name })); }
 export async function guideBadge(token) {
   const { data, error } = await sb.rpc('guide_badge', { p_token: token });
   return error ? null : data;
