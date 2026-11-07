@@ -249,3 +249,16 @@ export function fmtTaxId(value) {
   if (d.length === 14) return d.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5');
   return d;
 }
+
+/* ---------- Cadastur (Brésil) ---------- */
+// Numéro Cadastur : 11 chiffres, écrit 00.000000.00-0, attribué par le Ministère du Tourisme.
+export const fmtCadastur = (v) => {
+  const d = onlyDigits(v).slice(0, 11);
+  return d.replace(/^(\d{2})(\d)/, '$1.$2').replace(/^(\d{2})\.(\d{6})(\d)/, '$1.$2.$3').replace(/\.(\d{2})(\d)$/, '.$1-$2');
+};
+export const validCadastur = (v) => onlyDigits(v).length === 11;
+// Le lien du QR Code Cadastur : ouvre directement le certificat officiel du guide.
+export const cadasturLink = (v) => (validCadastur(v) ? `https://cadastur.turismo.gov.br/cadastur/#!/public/qrcode/${onlyDigits(v)}` : '');
+export function maskCadastur(input) {
+  input.addEventListener('input', () => { input.value = fmtCadastur(input.value); });
+}

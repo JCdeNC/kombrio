@@ -1,6 +1,6 @@
 // Espace du guide : connexion, séjours, QR, suivi des passages et de ses gains.
 import { t, tRaw, getLang } from '../i18n.js';
-import { esc, money, cents, locale, fmtDay, fmtMoment, todayIn, addDays, stayIsValid, qrSvg, appLink, notify, validCpf, validCnpj, onlyDigits } from '../util.js';
+import { esc, money, cents, locale, fmtDay, fmtMoment, todayIn, addDays, stayIsValid, qrSvg, appLink, notify, validCpf, validCnpj, onlyDigits, maskCadastur, validCadastur } from '../util.js';
 import * as store from '../store.js';
 import { validity, statusBadge, guideAmounts, notFound, forgotLink, mountForgot, resetView } from './shared.js';
 import { maskTaxId, qrCardBlob, shareOrDownload, photoToJpeg } from '../util.js';
@@ -55,7 +55,8 @@ async function loginView() {
           <div class="field"><label for="g-city">${t('guide.signup.city')}</label>
             <select id="g-city" name="cityId">${cities.map((c) => `<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('')}</select></div>
         </div>
-        <div class="field"><label for="g-license">${t('guide.signup.license')}</label><input id="g-license" name="license" required inputmode="numeric" placeholder="000.000.000-00 / 00.000.000/0000-00"></div>
+        <div class="field"><label for="g-license">${t('guide.signup.license')}</label><input id="g-license" name="license" required inputmode="numeric" placeholder="00.000000.00-0"></div>
+        <p class="hint" style="margin-top:-6px">${t('guide.signup.license.hint')}</p>
         <div class="field" role="radiogroup" aria-label="${t('guide.signup.taxkind')}"><span class="hint">${t('guide.signup.taxkind')}</span>
           <div class="row" style="gap:18px;margin-top:4px">
             <label style="display:flex;gap:6px;align-items:center;font-weight:400;margin:0"><input type="radio" name="taxKind" value="cpf" checked style="width:auto">${t('guide.signup.kind.cpf')}</label>
@@ -86,7 +87,7 @@ async function loginView() {
         root.querySelector('#g-cpf-l').textContent = tRaw(kind === 'cnpj' ? 'guide.signup.cnpj' : 'guide.signup.cpf');
         taxIn.focus();
       }; });
-      maskTaxId(root.querySelector('#g-license'));
+      maskCadastur(root.querySelector('#g-license'));
       root.querySelector('#login').onsubmit = async (e) => {
         e.preventDefault();
         const f = Object.fromEntries(new FormData(e.target));
@@ -98,6 +99,7 @@ async function loginView() {
         if (f.password !== f.password2) { notify(tRaw('auth.err.mismatch')); return; }
         const cnpj = f.taxKind === 'cnpj';
         if (cnpj ? !validCnpj(f.cpf) : !validCpf(f.cpf)) { notify(tRaw(cnpj ? 'guide.signup.err.cnpj' : 'guide.signup.err.cpf')); return; }
+        if (!validCadastur(f.license) || onlyDigits(f.license) === onlyDigits(f.cpf)) { notify(tRaw('guide.signup.err.license')); return; }
         try {
           const ready = await store.signUpGuide({
             email: f.email.trim(), password: f.password, name: f.name.trim(), phone: f.phone.trim(),

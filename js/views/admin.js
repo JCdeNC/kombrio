@@ -4,7 +4,7 @@ import { t, tRaw, getLang } from '../i18n.js';
 import { esc, money, cents, parseCents, fmtMoment, fmtDay, qrSvg, appLink, notify, confirmTwice, validTaxId, fmtTaxId, onlyDigits } from '../util.js';
 import * as store from '../store.js';
 import { forgotLink, mountForgot, resetView, statusBadge } from './shared.js';
-import { maskTaxId, photoToJpeg } from '../util.js';
+import { maskTaxId, photoToJpeg, fmtCadastur, maskCadastur, cadasturLink } from '../util.js';
 import { topicLabel, alertStatus } from './help.js';
 
 const TABS = ['dashboard', 'alertas', 'validations', 'payments', 'payouts', 'pix', 'referral', 'transactions', 'partners', 'cities', 'journal'];
@@ -212,14 +212,13 @@ async function validations({ guides, city, cadChecks }) {
   const cadBlock = (g) => {
     const c = lastCheck(cadChecks, g.id);
     return `<div class="row" style="margin-top:8px;gap:6px;align-items:center">
+        ${cadasturLink(g.cadasturNumber || g.license) ? `<button class="btn small" data-cad-cert="${esc(g.id)}">${t('admin.cad.cert')}</button>` : ''}
         <button class="btn small secondary" data-cad-open="${esc(g.id)}">${t('admin.cad.open')}</button>
-        ${c ? `<span class="hint">${t('admin.cad.done', { date: fmtDay(c.checkedAt.slice(0, 10), lang), until: fmtDay(c.validUntil, lang) })}${c.number ? ` · nº ${esc(c.number)} · ${t(`cad.cat.${c.category}`)}` : ''}</span>
+        ${c ? `<span class="hint">${t('admin.cad.done', { date: fmtDay(c.checkedAt.slice(0, 10), lang), until: fmtDay(c.validUntil, lang) })}${c.number ? ` · nº ${esc(c.number)}${c.category ? ` · ${t(`cad.cat.${c.category}`)}` : ''}` : ''}</span>
           <button class="btn ghost small" data-cad-proof="${esc(c.id)}">${t('admin.cad.proof')}</button>` : `<span class="hint">${t('admin.cad.none')}</span>`}
       </div>
       <form class="cadform row" data-id="${esc(g.id)}" style="align-items:flex-end;gap:6px;margin-top:6px">
-        <div class="field" style="margin:0"><label>${t('admin.cad.number')}</label><input name="number" maxlength="40" required autocomplete="off" placeholder="21.123456.10-1"></div>
-        <div class="field" style="margin:0"><label>${t('admin.cad.category')}</label><select name="category" required><option value=""></option>
-          ${['regional', 'nacional', 'internacional', 'atrativo'].map((k) => `<option value="${k}">${t(`cad.cat.${k}`)}</option>`).join('')}</select></div>
+        <div class="field" style="margin:0"><label>${t('admin.cad.number')}</label><input name="number" maxlength="14" required inputmode="numeric" autocomplete="off" placeholder="00.000000.00-0" value="${esc(fmtCadastur(g.cadasturNumber || g.license))}"></div>
         <div class="field" style="margin:0"><label>${t('admin.cad.until')}</label><input type="date" name="until" min="${today}" required></div>
         <div class="field" style="margin:0;flex:1"><label>${t('admin.cad.shot')}</label><input type="file" name="shot" accept="image/*" required></div>
         <button class="btn small">${t('admin.cad.save')}</button>
@@ -250,6 +249,15 @@ async function validations({ guides, city, cadChecks }) {
         const g = guides.find((x) => x.id === b.dataset.cadOpen);
         openSheet(`${esc(g.name)} · ${esc(g.license || '')}${g.cpf ? ` · ${g.taxKind === 'cnpj' ? 'CNPJ' : 'CPF'} ${esc(fmtTaxId(g.cpf))}` : ''}`, `<iframe src="${CADASTUR_URL}" title="Cadastur"></iframe>`);
       }; });
+      // Certificat officiel : le lien du QR Code Cadastur, construit à partir du numéro.
+      root.querySelectorAll('[data-cad-cert]').forEach((b) => { b.onclick = () => {
+        const g = guides.find((x) => x.id === b.dataset.cadCert);
+        const num = b.closest('li')?.querySelector('form.cadform')?.number.value || g.cadasturNumber || g.license;
+        const url = cadasturLink(num);
+        if (!url) { notify(tRaw('admin.cad.err.number')); return; }
+        openSheet(`${esc(g.name)} · Cadastur ${esc(fmtCadastur(num))}`, `<iframe src="${esc(url)}" title="Cadastur"></iframe>`);
+      }; });
+      root.querySelectorAll('form.cadform input[name="number"]').forEach(maskCadastur);
       root.querySelectorAll('[data-cad-proof]').forEach((b) => { b.onclick = async () => {
         const src = await store.cadasturProof(b.dataset.cadProof).catch(() => '');
         if (!src) { notify(tRaw('err.generic')); return; }
@@ -258,10 +266,10 @@ async function validations({ guides, city, cadChecks }) {
       root.querySelectorAll('form.cadform').forEach((f) => { f.onsubmit = async (e) => {
         e.preventDefault();
         const file = f.shot.files[0];
-        if (!file || !f.until.value || !f.number.value.trim() || !f.category.value) { notify(tRaw('admin.cad.required')); return; }
+        if (!file || !f.until.value || !f.number.value.trim()) { notify(tRaw('admin.cad.required')); return; }
         try {
           const proof = await photoToJpeg(file, 1200, 0.72);
-          const r = await store.recordCadasturCheck(f.dataset.id, f.until.value, proof, f.number.value.trim(), f.category.value);
+          const r = await store.recordCadasturCheck(f.dataset.id, f.until.value, proof, f.number.value.trim(), null);
           const errs = { date: 'admin.cad.err.date', number: 'admin.cad.err.number', category: 'admin.cad.err.category', cpf: 'admin.cad.err.cpf' }; // « cpf » = CPF ou CNPJ du guide
           if (r && r.ok) ctx.refresh(tRaw('admin.cad.saved')); else notify(tRaw(errs[r && r.reason] || 'err.generic'));
         } catch { notify(tRaw('err.generic')); }
