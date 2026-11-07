@@ -67,10 +67,10 @@ async function loginView() {
             <label style="display:flex;gap:6px;align-items:center;font-weight:400;margin:0"><input type="radio" name="taxKind" value="cpf" checked style="width:auto">${t('guide.signup.kind.cpf')}</label>
             <label style="display:flex;gap:6px;align-items:center;font-weight:400;margin:0"><input type="radio" name="taxKind" value="cnpj" style="width:auto">${t('guide.signup.kind.cnpj')}</label></div></div>
         <div class="grid2">
-          <div class="field"><label for="g-cpf" id="g-cpf-l">${t('guide.signup.cpf')}</label><input id="g-cpf" name="cpf" required inputmode="numeric" placeholder="000.000.000-00"></div>
           <div class="field"><label for="g-license">${t('guide.signup.license')}</label><input id="g-license" name="license" required inputmode="numeric" placeholder="00.000000.00-0"></div>
+          <div class="field"><label for="g-cpf" id="g-cpf-l">${t('guide.signup.cpf')}</label><input id="g-cpf" name="cpf" required inputmode="numeric" placeholder="000.000.000-00"></div>
         </div>
-        <p class="hint" style="margin-top:-6px">${t('guide.signup.license.hint')}</p>
+        <p class="hint" style="margin-top:-6px" id="g-license-hint">${t('su.lic.hint.cpf')}</p>
         <h3 class="su-step">3. ${t('su.s.pix')}</h3>
         <div class="grid2">
           <div class="field"><label for="g-ptype">${t('pix.type')}</label><select id="g-ptype" name="pixType">${PIX_TYPES.map((k) => `<option value="${k}"${k === 'cpf' ? ' selected' : ''}>${t(`pix.type.${k}`)}</option>`).join('')}</select></div>
@@ -93,12 +93,17 @@ async function loginView() {
       // Case CPF / CNPJ : le champ s'adapte (masque, libellé, exemple) et se vide au changement.
       let kind = 'cpf';
       const taxIn = root.querySelector('#g-cpf');
+      const licIn = root.querySelector('#g-license');
+      // Empresa : le Cadastur est le CNPJ de l'entreprise, recopié dans le champ CNPJ (modifiable).
+      licIn.addEventListener('input', () => { if (kind === 'cnpj') queueMicrotask(() => { taxIn.value = licIn.value; }); });
       maskTaxId(taxIn, () => kind);
       root.querySelectorAll('input[name="taxKind"]').forEach((r) => { r.onchange = () => {
-        kind = r.value; taxIn.value = '';
+        kind = r.value; taxIn.value = ''; licIn.value = '';
         taxIn.placeholder = kind === 'cnpj' ? '00.000.000/0000-00' : '000.000.000-00';
+        licIn.placeholder = kind === 'cnpj' ? '00.000.000/0000-00' : '00.000000.00-0';
         root.querySelector('#g-cpf-l').textContent = tRaw(kind === 'cnpj' ? 'guide.signup.cnpj' : 'guide.signup.cpf');
-        taxIn.focus();
+        root.querySelector('#g-license-hint').textContent = tRaw(`su.lic.hint.${kind}`);
+        licIn.focus();
       }; });
       maskCadastur(root.querySelector('#g-license'));
       // Clé Pix CPF / CNPJ : reprise du numéro saisi plus haut (modifiable).
@@ -118,7 +123,8 @@ async function loginView() {
         if (f.password !== f.password2) { notify(tRaw('auth.err.mismatch')); return; }
         const cnpj = f.taxKind === 'cnpj';
         if (cnpj ? !validCnpj(f.cpf) : !validCpf(f.cpf)) { notify(tRaw(cnpj ? 'guide.signup.err.cnpj' : 'guide.signup.err.cpf')); return; }
-        if (!validCadastur(f.license) || (onlyDigits(f.license).length === 11 && onlyDigits(f.license) === onlyDigits(f.cpf))) { notify(tRaw('guide.signup.err.license')); return; }
+        const lic = onlyDigits(f.license);
+        if (cnpj ? !validCnpj(lic) : (lic.length !== 11 || lic === onlyDigits(f.cpf))) { notify(tRaw(cnpj ? 'su.lic.err.cnpj' : 'guide.signup.err.license')); return; }
         if (!validPixKey(f.pixType, f.pixKey)) { notify(tRaw('pix.err.key')); return; }
         if ((f.pixHolder || '').trim().length < 3) { notify(tRaw('su.pix.holder.err')); return; }
         try {
