@@ -16,10 +16,13 @@ export async function guideView(params, ctx) {
   if (!me) {
     // Connecté, mais pas guide (ex. un compte partenaire) : on l'envoie vers la bonne application.
     if (await store.hasSession()) {
+      // Le message dépend du compte connecté : administrateur ou partenaire.
+      const who = await store.currentAdmin().catch(() => null);
+      const admin = Boolean(who && who.isAdmin);
       return {
-        html: `<div class="card"><p>${t('guide.notguide')}</p>
-          <a class="btn block" href="${appLink('partner')}">${t('guide.notguide.go')}</a>
-          <button type="button" class="btn block secondary" id="ng-out" style="margin-top:12px">${t('guide.notguide.out')}</button></div>`,
+        html: `<div class="card"><p>${admin ? t('guide.notguide.admin', { email: who.email }) : t('guide.notguide')}</p>
+          <a class="btn block" href="${appLink(admin ? 'admin' : 'partner')}">${t(admin ? 'guide.notguide.goadmin' : 'guide.notguide.go')}</a>
+          <button type="button" class="btn block secondary" id="ng-out" style="margin-top:12px">${t(admin ? 'guide.notguide.outsignup' : 'guide.notguide.out')}</button></div>`,
         mount(root, ctx) { root.querySelector('#ng-out').onclick = async () => { await store.signOut(); ctx.refresh(); }; },
       };
     }
