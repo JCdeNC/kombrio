@@ -227,8 +227,10 @@ export function validCnpj(value) {
 // CPF (11 chiffres) ou CNPJ (14 chiffres).
 export const validTaxId = (value) => validCpf(value) || validCnpj(value);
 // Met en forme un champ CPF / CNPJ pendant la saisie (000.000.000-00 ou 00.000.000/0000-00).
-export function maskTaxId(input, only = 'both') {
+// only : 'cpf', 'cnpj', 'both', ou une fonction qui renvoie l'un des trois (case cochée).
+export function maskTaxId(input, onlyOr = 'both') {
   input.addEventListener('input', () => {
+    const only = typeof onlyOr === 'function' ? onlyOr() : onlyOr;
     const max = only === 'cpf' ? 11 : 14;
     const d = onlyDigits(input.value).slice(0, max);
     let v = d;

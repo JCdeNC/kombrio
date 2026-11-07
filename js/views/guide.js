@@ -1,6 +1,6 @@
 // Espace du guide : connexion, séjours, QR, suivi des passages et de ses gains.
 import { t, tRaw, getLang } from '../i18n.js';
-import { esc, money, cents, locale, fmtDay, fmtMoment, todayIn, addDays, stayIsValid, qrSvg, appLink, notify, validCpf, onlyDigits } from '../util.js';
+import { esc, money, cents, locale, fmtDay, fmtMoment, todayIn, addDays, stayIsValid, qrSvg, appLink, notify, validCpf, validCnpj, onlyDigits } from '../util.js';
 import * as store from '../store.js';
 import { validity, statusBadge, guideAmounts, notFound, forgotLink, mountForgot, resetView } from './shared.js';
 import { maskTaxId, qrCardBlob, shareOrDownload, photoToJpeg } from '../util.js';
@@ -56,8 +56,12 @@ async function loginView() {
             <select id="g-city" name="cityId">${cities.map((c) => `<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('')}</select></div>
         </div>
         <div class="field"><label for="g-license">${t('guide.signup.license')}</label><input id="g-license" name="license" required inputmode="numeric" placeholder="000.000.000-00 / 00.000.000/0000-00"></div>
+        <div class="field" role="radiogroup" aria-label="${t('guide.signup.taxkind')}"><span class="hint">${t('guide.signup.taxkind')}</span>
+          <div class="row" style="gap:18px;margin-top:4px">
+            <label style="display:flex;gap:6px;align-items:center;font-weight:400;margin:0"><input type="radio" name="taxKind" value="cpf" checked style="width:auto">${t('guide.signup.kind.cpf')}</label>
+            <label style="display:flex;gap:6px;align-items:center;font-weight:400;margin:0"><input type="radio" name="taxKind" value="cnpj" style="width:auto">${t('guide.signup.kind.cnpj')}</label></div></div>
         <div class="grid2">
-          <div class="field"><label for="g-cpf">${t('guide.signup.cpf')}</label><input id="g-cpf" name="cpf" required inputmode="numeric" placeholder="000.000.000-00"></div>
+          <div class="field"><label for="g-cpf" id="g-cpf-l">${t('guide.signup.cpf')}</label><input id="g-cpf" name="cpf" required inputmode="numeric" placeholder="000.000.000-00"></div>
           <div class="field"><label for="g-pix">${t('guide.signup.pix')}</label><input id="g-pix" name="pixKey" required></div>
         </div>
         <p class="hint">${t('guide.signup.pix.hint')}</p>
@@ -72,7 +76,16 @@ async function loginView() {
       </form>`,
     mount(root, ctx) {
       mountForgot(root.querySelector('#login'));
-      maskTaxId(root.querySelector('#g-cpf'), 'cpf');
+      // Case CPF / CNPJ : le champ s'adapte (masque, libellé, exemple) et se vide au changement.
+      let kind = 'cpf';
+      const taxIn = root.querySelector('#g-cpf');
+      maskTaxId(taxIn, () => kind);
+      root.querySelectorAll('input[name="taxKind"]').forEach((r) => { r.onchange = () => {
+        kind = r.value; taxIn.value = '';
+        taxIn.placeholder = kind === 'cnpj' ? '00.000.000/0000-00' : '000.000.000-00';
+        root.querySelector('#g-cpf-l').textContent = tRaw(kind === 'cnpj' ? 'guide.signup.cnpj' : 'guide.signup.cpf');
+        taxIn.focus();
+      }; });
       maskTaxId(root.querySelector('#g-license'));
       root.querySelector('#login').onsubmit = async (e) => {
         e.preventDefault();
@@ -83,11 +96,12 @@ async function loginView() {
         e.preventDefault();
         const f = Object.fromEntries(new FormData(e.target));
         if (f.password !== f.password2) { notify(tRaw('auth.err.mismatch')); return; }
-        if (!validCpf(f.cpf)) { notify(tRaw('guide.signup.err.cpf')); return; }
+        const cnpj = f.taxKind === 'cnpj';
+        if (cnpj ? !validCnpj(f.cpf) : !validCpf(f.cpf)) { notify(tRaw(cnpj ? 'guide.signup.err.cnpj' : 'guide.signup.err.cpf')); return; }
         try {
           const ready = await store.signUpGuide({
             email: f.email.trim(), password: f.password, name: f.name.trim(), phone: f.phone.trim(),
-            license: f.license.trim(), cityId: f.cityId, cpf: onlyDigits(f.cpf), pixKey: f.pixKey.trim(), refCode: (f.refCode || '').trim(),
+            license: f.license.trim(), cityId: f.cityId, cpf: onlyDigits(f.cpf), taxKind: cnpj ? 'cnpj' : 'cpf', pixKey: f.pixKey.trim(), refCode: (f.refCode || '').trim(),
           });
           ctx.refresh(tRaw(ready ? 'guide.signup.done' : 'auth.confirm'));
         } catch (err) { notify(tRaw(err.message === 'exists' ? 'auth.err.exists' : 'auth.err.signup')); }

@@ -31,7 +31,7 @@ const toCity = (r) => r && ({
 });
 const toGuide = (r) => r && ({
   id: r.id, cityId: r.city_id, name: r.name, phone: r.phone, license: r.license, photo: r.photo,
-  status: r.status, email: r.email, cpf: r.cpf, pixKey: r.pix_key, createdAt: r.created_at, weeklyPayout: !!r.weekly_payout, code: r.code || '',
+  status: r.status, email: r.email, cpf: r.cpf, taxKind: r.tax_kind === 'cnpj' ? 'cnpj' : 'cpf', pixKey: r.pix_key, createdAt: r.created_at, weeklyPayout: !!r.weekly_payout, code: r.code || '',
   referralEnabled: !!r.referral_enabled,
   // Module Pix (v30) : undefined tant que le script 015 n'est pas lancé.
   pixKeyType: r.pix_key_type || '', pixKeyVersion: r.pix_key_version ?? null, pixStatus: r.pix_status, pixVerifiedAt: r.pix_verified_at || '',
@@ -169,10 +169,10 @@ export async function setNewPassword(password) {
 }
 
 // Inscription d'un guide. Renvoie false si la base demande d'abord de confirmer l'e-mail.
-export async function signUpGuide({ email, password, name, phone, license, cityId, cpf, pixKey, refCode }) {
+export async function signUpGuide({ email, password, name, phone, license, cityId, cpf, taxKind = 'cpf', pixKey, refCode }) {
   const { data, error } = await sb.auth.signUp({
     email, password,
-    options: { data: { role: 'guide', name, phone, license, city_id: cityId, cpf, pix_key: pixKey, ref_code: refCode || null }, emailRedirectTo: location.href.split('#')[0] },
+    options: { data: { role: 'guide', name, phone, license, city_id: cityId, cpf, tax_kind: taxKind, pix_key: pixKey, ref_code: refCode || null }, emailRedirectTo: location.href.split('#')[0] },
   });
   if (error) throw new Error(error.message.includes('registered') ? 'exists' : 'auth');
   return Boolean(data.session);
