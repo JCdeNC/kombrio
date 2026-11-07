@@ -211,18 +211,19 @@ async function validations({ guides, city, cadChecks }) {
   const expiring = guides.filter((g) => g.status === 'validated' && g.cadasturValidUntil !== undefined && (!g.cadasturValidUntil || g.cadasturValidUntil < soon));
   const cadBlock = (g) => {
     const c = lastCheck(cadChecks, g.id);
-    return `<div class="row" style="margin-top:8px;gap:6px;align-items:center">
-        ${cadasturLink(g.cadasturNumber || g.license) ? `<button class="btn small" data-cad-cert="${esc(g.id)}">${t('admin.cad.cert')}</button>` : ''}
-        <button class="btn small secondary" data-cad-open="${esc(g.id)}">${t('admin.cad.open')}</button>
-        ${c ? `<span class="hint">${t('admin.cad.done', { date: fmtDay(c.checkedAt.slice(0, 10), lang), until: fmtDay(c.validUntil, lang) })}${c.number ? ` · nº ${esc(c.number)}${c.category ? ` · ${t(`cad.cat.${c.category}`)}` : ''}` : ''}</span>
-          <button class="btn ghost small" data-cad-proof="${esc(c.id)}">${t('admin.cad.proof')}</button>` : `<span class="hint">${t('admin.cad.none')}</span>`}
-      </div>
-      <form class="cadform row" data-id="${esc(g.id)}" style="align-items:flex-end;gap:6px;margin-top:6px">
-        <div class="field" style="margin:0"><label>${t('admin.cad.number')}</label><input name="number" maxlength="14" required inputmode="numeric" autocomplete="off" placeholder="00.000000.00-0" value="${esc(fmtCadastur(g.cadasturNumber || g.license))}"></div>
-        <div class="field" style="margin:0"><label>${t('admin.cad.until')}</label><input type="date" name="until" min="${today}" required></div>
-        <div class="field" style="margin:0;flex:1"><label>${t('admin.cad.shot')}</label><input type="file" name="shot" accept="image/*" required></div>
-        <button class="btn small">${t('admin.cad.save')}</button>
-      </form>`;
+    const pre = fmtCadastur(g.cadasturNumber || g.license);
+    return `<div class="cad-box">
+      <p class="hint" style="margin:0 0 8px">${c ? `${t('admin.cad.done', { date: fmtDay(c.checkedAt.slice(0, 10), lang), until: fmtDay(c.validUntil, lang) })}${c.number ? ` · nº ${esc(c.number)}` : ''}
+          <button class="link-btn" data-cad-proof="${esc(c.id)}">${t('admin.cad.proof')}</button>` : t('admin.cad.none')}</p>
+      <form class="cadform" data-id="${esc(g.id)}">
+        <div class="field"><label>1. ${t('admin.cad.number')}</label>
+          <div class="cad-num"><input name="number" maxlength="14" required inputmode="numeric" autocomplete="off" placeholder="00.000000.00-0" value="${esc(pre)}">
+            <button type="button" class="btn small" data-cad-cert="${esc(g.id)}">${t('admin.cad.cert')}</button></div>
+          <p class="hint" style="margin:4px 0 0">${t('admin.cad.num.hint')} <button type="button" class="link-btn" data-cad-open="${esc(g.id)}">${t('admin.cad.open')}</button></p></div>
+        <div class="field"><label>2. ${t('admin.cad.until')}</label><input type="date" name="until" min="${today}" required></div>
+        <div class="field"><label>3. ${t('admin.cad.shot')}</label><input type="file" name="shot" accept="image/*" required></div>
+        <button class="btn block">${t('admin.cad.save')}</button>
+      </form></div>`;
   };
   return {
     html: `<div class="card">
@@ -252,7 +253,7 @@ async function validations({ guides, city, cadChecks }) {
       // Certificat officiel : le lien du QR Code Cadastur, construit à partir du numéro.
       root.querySelectorAll('[data-cad-cert]').forEach((b) => { b.onclick = () => {
         const g = guides.find((x) => x.id === b.dataset.cadCert);
-        const num = b.closest('li')?.querySelector('form.cadform')?.number.value || g.cadasturNumber || g.license;
+        const num = b.closest('form.cadform')?.number.value || g.cadasturNumber || g.license;
         const url = cadasturLink(num);
         if (!url) { notify(tRaw('admin.cad.err.number')); return; }
         openSheet(`${esc(g.name)} · Cadastur ${esc(fmtCadastur(num))}`, `<iframe src="${esc(url)}" title="Cadastur"></iframe>`);

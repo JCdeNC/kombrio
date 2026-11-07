@@ -290,3 +290,12 @@ th { color: var(--muted); font-weight: 600; border-top: 0; }
   .bdg { border: 0; border-radius: 0; page-break-after: always; break-after: page; }
 }
 @media screen and (min-width: 480px) { .badge-sheet .bdg { zoom: 1.35; } }
+
+/* Vérification Cadastur (admin, v44) : champs empilés, lisibles sur téléphone */
+.cad-box { margin-top: 10px; padding: 12px; border: 1px solid var(--line, #e3e8e6); border-radius: 12px; }
+.cadform { display: grid; gap: 10px; }
+.cadform .field { margin: 0; }
+.cad-num { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.cad-num input { flex: 1 1 160px; min-width: 0; }
+.cadform input[type="date"], .cadform input[type="file"] { width: 100%; }
+@media (min-width: 700px) { .cadform { grid-template-columns: 1fr 1fr; } .cadform .field:first-child, .cadform .btn { grid-column: 1 / -1; } }

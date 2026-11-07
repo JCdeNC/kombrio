@@ -688,6 +688,7 @@ export default {
   'admin.cad.required': 'Enregistrez d\'abord la vérification Cadastur (numéro, capture et date de validité).',
   'admin.cad.err.date': 'La date de validité ne peut pas être dans le passé.',
   'admin.cad.number': 'Nº Cadastur',
+  'admin.cad.num.hint': 'Numéro donné par le guide. Si le certificat ne s\'ouvre pas (« Nenhum certificado vigente »), corrigez-le avec le numéro de son QR Code, ou cherchez le guide :',
   'admin.cad.cert': 'Ouvrir le certificat officiel',
   'guide.signup.license.hint': 'Le numéro de votre certificat Cadastur (11 chiffres, comme dans le QR Code du certificat). Ce n\'est pas votre CPF.',
   'guide.signup.err.license': 'Numéro Cadastur invalide : 11 chiffres (00.000000.00-0), différents de votre CPF.',
