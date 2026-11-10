@@ -479,6 +479,14 @@ async function payouts({ guides, visits, payoutList, adjustments, cur, guide }) 
       </table></div>` : `<p class="hint">${t('admin.out.history.none')}</p>`}
     </div>
     <div class="card">
+      <h2>${t('admin.close.title')}</h2>
+      <p class="hint">${t('admin.close.hint')}</p>
+      <div class="row" style="align-items:flex-end;gap:8px">
+        <div class="field" style="margin:0"><label>${t('admin.inss.month')}</label><input type="month" id="close-month" value="${new Date().toISOString().slice(0, 7)}"></div>
+        <button class="btn small" id="close-go">${t('admin.close.go')}</button>
+      </div>
+    </div>
+    <div class="card">
       <h2>${t('admin.inss.title')}</h2>
       <p class="hint">${t('admin.inss.hint')}</p>
       <div class="row" style="align-items:flex-end;gap:8px">
@@ -488,6 +496,11 @@ async function payouts({ guides, visits, payoutList, adjustments, cur, guide }) 
       <div id="inss-out" style="margin-top:10px"></div>
     </div>`,
     mount(root, ctx) {
+      const closeBtn = root.querySelector('#close-go');
+      if (closeBtn) confirmTwice(closeBtn, tRaw('admin.close.go') + ' ?', async () => {
+        const r = await store.adminCloseMonth(root.querySelector('#close-month').value);
+        notify(tRaw('admin.close.done', { n: r.partners, k: r.new_versions }));
+      }, tRaw('err.generic'));
       const inssBtn = root.querySelector('#inss-show');
       if (inssBtn) inssBtn.onclick = async () => {
         const out = root.querySelector('#inss-out');

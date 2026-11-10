@@ -287,6 +287,18 @@ export async function partnerReport(reportToken) {
   return { partner: toPartner(d.partner), city: toCity(d.city), visits: (d.visits || []).map(toVisit), payments: (d.payments || []).map(toPayment),
     adjustments: (d.adjustments || []).map(toAdjustment) };
 }
+// Clôture mensuelle (v54) : le gérant fige son mois (nouvelle version si quelque chose a changé). month = 'AAAA-MM'.
+export async function partnerCloseMonth(managerToken, month) {
+  return check(await sb.rpc('partner_close_month', { p_manager_token: managerToken, p_month: `${month}-01` }));
+}
+// Toutes les clôtures du partenaire (code du gérant ou lien du comptable), la plus récente d'abord. [] si le script 029 manque.
+export async function partnerClosings(token) {
+  const { data, error } = await sb.rpc('partner_closings_list', { p_token: token });
+  return error ? [] : (data || []);
+}
+export async function adminCloseMonth(month) {
+  return check(await sb.rpc('admin_close_month', { p_month: `${month}-01` }));
+}
 export async function renewReportToken(partnerToken) {
   return check(await sb.rpc('renew_report_token', { p_partner_token: partnerToken }));
 }

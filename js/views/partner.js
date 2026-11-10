@@ -129,6 +129,8 @@ export async function partnerView([token, action, visitId], ctx) {
   if (action === 'declarar') return declareManyView(space);
   if (action === 'pagar') return payView(space);
   if (action === 'relatorio') return reportPage(space, visitId);
+  if (action === 'mes') return monthPage(space, visitId, await store.partnerClosings(token));
+  if (action === 'demonstrativo') return docPage(space, visitId, await store.partnerClosings(token), `#/p/${encodeURIComponent(token)}/mes/${(visitId || '').slice(0, 7)}`);
   const visit = space.visits.find((v) => v.id === visitId);
   if (!visit) return notFound();
   return scannedView(space, visit, action);
@@ -185,7 +187,7 @@ function txLine(v, city, lang) {
 }
 
 // Espace du gérant (v32) : tableau de bord à onglets, visites traitées en groupe (cases à cocher), liste « À faire ».
-const PD_TABS = ['painel', 'visitas', 'pagamentos', 'config'];
+const PD_TABS = ['painel', 'mes', 'visitas', 'pagamentos', 'config'];
 const ageDays = (iso) => (iso ? Math.floor((Date.now() - new Date(iso)) / 864e5) : 0);
 const doneKey = (pid, month) => `kb-todo-${pid}-${month}`;
 const readDone = (k) => { try { return new Set(JSON.parse(localStorage.getItem(k) || '[]')); } catch { return new Set(); } };
@@ -308,7 +310,7 @@ export function spaceView(space, tab = 'painel') {
     pagamentos: `${visitsCard(t('pd.topay'), toPay, false)}${adjustmentsCard(adjustments, city, lang)}${payHistory}`,
     config: settings,
   }[tab];
-  const counts = { painel: toDeclare.length + toPay.length + extraDue.length, visitas: toDeclare.length, pagamentos: toPay.length + extraDue.length, config: 0 };
+  const counts = { painel: toDeclare.length + toPay.length + extraDue.length, mes: 0, visitas: toDeclare.length, pagamentos: toPay.length + extraDue.length, config: 0 };
   const tabsNav = `<nav class="tabs no-print">${PD_TABS.map((k) => `<a href="${base}${k === 'painel' ? '' : `/${k}`}" class="${k === tab ? 'on' : ''}">${t(`pd.tab.${k}`)}${counts[k] ? `<span class="todo">${counts[k]}</span>` : ''}</a>`).join('')}
       <a href="${base}/relatorio">${t('pd.tab.relatorio')}</a></nav>`;
 
@@ -582,9 +584,13 @@ function reportBlock({ partner, city, visits, adjustments = [] }, month, base) {
         <button type="button" class="btn ghost" id="pdf">${t('report.print')}</button>
       </div>
       <p class="hint" style="margin-top:10px">kombrio · ${t('report.generated', { date: fmtDay(new Date().toISOString().slice(0, 10), lang) })}</p>
+      <p class="no-print"><a href="#/${base}/../demonstrativo/${m}" data-doc="${m}">${t('doc.open.short')}</a></p>
     </div>
     ${adjustmentsCard(adjustments, city, lang, m)}`;
   const mount = (root, ctx) => {
+    const docLink = root.querySelector('[data-doc]');
+    // base = « p/<code>/relatorio » (gérant) ou « r/<lien> » (comptable).
+    if (docLink) docLink.href = base.startsWith('r/') ? `#/${base}/demonstrativo/${m}` : `#/${base.replace(/\/relatorio$/, '')}/demonstrativo/${m}`;
     root.querySelector('#month').onchange = (e) => ctx.go(`${base}/${e.target.value}`);
     root.querySelector('#pdf').onclick = () => window.print();
     root.querySelector('#csv').onclick = () => {
@@ -640,11 +646,168 @@ function reportPage(space, month) {
 }
 
 // Relevé vu par le comptable : lecture seule, à partir de son lien.
-export async function reportView([reportToken, month]) {
+export async function reportView([reportToken, month, sub]) {
   const data = reportToken && await store.partnerReport(reportToken);
   if (!data) return notFound('err.report');
+  // Document A vu par le comptable : #/r/<lien>/demonstrativo/<AAAA-MM>[.v<n>]
+  if (month === 'demonstrativo') return docPage(data, sub, await store.partnerClosings(reportToken), `#/r/${encodeURIComponent(reportToken)}`);
   const block = reportBlock(data, month, `r/${reportToken}`);
   return { html: `<p class="hint no-print">${t('report.readonly')}</p>${block.html}`, mount: block.mount };
+}
+
+/* ---------- Étape 2 du plan : « Mon mois » en 3 gestes + Document A (v54) ---------- */
+const nextMonth10 = (m) => { const [y, mo] = m.split('-').map(Number); const d = new Date(Date.UTC(mo === 12 ? y + 1 : y, mo === 12 ? 0 : mo, 10)); return d.toISOString().slice(0, 10); };
+const latestOf = (closings, m) => closings.find((k) => String(k.month).slice(0, 7) === m && k.latest);
+
+function monthPage(space, month, closings) {
+  const { partner, city, visits, adjustments = [], key } = space;
+  const lang = getLang();
+  const c = (n) => cents(n, city.currency, lang);
+  const base = `#/p/${encodeURIComponent(key)}`;
+  const now = monthOf(new Date().toISOString(), city.timezone);
+  const months = [...new Set([now, ...visits.map((v) => monthOf(v.at, city.timezone))])].sort().reverse();
+  const m = months.includes(month) ? month : months[0];
+  const inM = visits.filter((v) => monthOf(v.at, city.timezone) === m && v.status !== 'cancelled');
+  const toDeclare = inM.filter((v) => v.status === 'visited');
+  const disputed = inM.filter((v) => v.status === 'disputed');
+  // Le Pix unique couvre tout ce qui est déclaré et pas encore payé (tous mois confondus), plus les compléments dus.
+  const toPay = visits.filter((v) => v.status === 'declared');
+  const extra = adjustments.filter((a) => a.partnerStatus === 'extra_due').reduce((s, a) => s + a.deltaCents, 0);
+  const payCents = toPay.reduce((s, v) => s + (v.declaredCents || 0), 0) + extra;
+  const verifying = visits.filter((v) => v.status === 'verifying').reduce((s, v) => s + (v.declaredCents || 0), 0);
+  const doc = latestOf(closings, m);
+  const step = (n, title, ok, body) => `<div class="card"><div class="spread"><h2 style="margin:0">${n}. ${title}</h2>
+      <span class="badge ${ok ? 'ok' : 'warn'}">${t(ok ? 'mes.ok' : 'mes.todo')}</span></div>${body}</div>`;
+  const html = `<div class="dash-wide">
+      <p><a href="${base}">← ${t('partner.space')}</a></p>
+      <div class="spread"><div><h1 style="margin-bottom:2px">${t('mes.title')}</h1><p class="hint" style="margin:0">${t('mes.hint')}</p></div>
+        <select id="mes-month" style="width:auto">${months.map((x) => `<option value="${x}" ${x === m ? 'selected' : ''}>${esc(monthLabel(x, lang))}</option>`).join('')}</select></div>
+      ${step(1, t('mes.s1'), !toDeclare.length && !disputed.length, `
+        <p>${t('mes.s1.count', { n: inM.length, people: inM.reduce((s, v) => s + v.peopleServed, 0) })}</p>
+        ${toDeclare.length ? `<div class="notice warn">${t('mes.s1.todo', { n: toDeclare.length })}</div><a class="btn" href="${base}">${t('mes.s1.go')}</a>` : `<p class="hint">${t('mes.s1.done')}</p>`}
+        ${disputed.length ? `<div class="notice bad">${t('mes.s1.disputed', { n: disputed.length })}</div>` : ''}`)}
+      ${step(2, t('mes.s2'), payCents <= 0, `
+        ${payCents > 0 ? `<div class="stat" style="margin:8px 0"><span>${t('mes.s2.total')}</span><b>${c(payCents)}</b></div>
+          <p class="hint">${t('mes.s2.due', { date: fmtDay(nextMonth10(m), lang) })}</p>
+          <button class="btn" id="mes-pay">${t('mes.s2.go')}</button>`
+        : `<p class="hint">${t('mes.s2.nothing')}</p>`}
+        ${verifying > 0 ? `<div class="notice">${t('mes.s2.verifying', { amount: c(verifying) })}</div>` : ''}`)}
+      ${step(3, t('mes.s3'), !!doc, `
+        <div class="spread" style="margin-top:8px"><span><b>${t('doc.a')}</b><br><span class="hint">${doc ? t('mes.s3.doc', { code: doc.doc_code, version: doc.version, date: fmtMoment(doc.created_at, lang, city.timezone) }) : t('mes.s3.nodoc')}</span></span>
+          ${doc ? `<a class="btn secondary small" href="${base}/demonstrativo/${m}">${t('doc.open')}</a>` : ''}</div>
+        <button class="btn ${doc ? 'ghost' : ''} small" id="mes-close" style="margin-top:8px">${t(doc ? 'mes.s3.update' : 'mes.s3.make')}</button>
+        <div class="spread" style="margin-top:14px"><span><b>${t('doc.b')}</b><br><span class="hint">${t('doc.b.soon')}</span></span><span class="badge">${t('doc.b.badge')}</span></div>
+        <p class="hint" style="margin-top:12px">${t('mes.s3.accountant')} <a href="${base}/relatorio">${t('report.share.title')}</a></p>`)}
+    </div>`;
+  return {
+    html,
+    mount(root, ctx) {
+      root.querySelector('#mes-month').onchange = (e) => ctx.go(`p/${key}/mes/${e.target.value}`);
+      const pay = root.querySelector('#mes-pay');
+      if (pay) pay.onclick = () => {
+        try { sessionStorage.setItem('kb-pay-sel', JSON.stringify(toPay.map((v) => v.id))); } catch { /* rien */ }
+        ctx.go(`p/${key}/pagar`);
+      };
+      const close = root.querySelector('#mes-close');
+      if (close) close.onclick = async () => {
+        close.disabled = true;
+        try {
+          const r = await store.partnerCloseMonth(key, m);
+          if (!r || !r.ok) { close.disabled = false; notify(tRaw('err.generic')); return; }
+          ctx.go(`p/${key}/demonstrativo/${m}`, tRaw('mes.s3.saved', { code: r.doc_code }));
+        } catch { close.disabled = false; notify(tRaw('err.generic')); }
+      };
+    },
+  };
+}
+
+// Document A : « Demonstrativo Consolidado de Comissões e Repasses », lu dans la clôture figée (jamais recalculé à l'écran).
+// sel = « AAAA-MM » (dernière version) ou « AAAA-MM.v2 » (une version précise).
+function docPage(space, sel, closings, back) {
+  const { partner, city } = space;
+  const lang = getLang();
+  const c = (n) => cents(n ?? 0, city.currency, lang);
+  const [m, vtxt] = String(sel || '').split('.v');
+  const versions = closings.filter((k) => String(k.month).slice(0, 7) === m);
+  const doc = vtxt ? versions.find((k) => String(k.version) === vtxt) : versions.find((k) => k.latest);
+  if (!doc) return { html: `<p class="no-print"><a href="${back}">← ${t('common.back')}</a></p><div class="notice">${t('doc.none')}</div>` };
+  const T = doc.totals || {};
+  const prev = doc.supersedes ? versions.find((k) => k.id === doc.supersedes) : null;
+  const pLabel = (st) => tRaw(`pstatus.${{ received: 'paid', payout_pending: 'paid' }[st] || st}`);
+  const lines = doc.lines || [];
+  const row = (label, val, strong) => `<tr><td>${label}</td><td style="text-align:right">${strong ? `<b>${val}</b>` : val}</td></tr>`;
+  const html = `
+    <p class="no-print"><a href="${back}">← ${t('common.back')}</a></p>
+    <div class="card doc-a">
+      <div class="spread"><div><div class="hint">KOMBRIO · ${t('doc.issuer')}</div>
+        <h1 style="margin:2px 0">${t('doc.a.title')}</h1>
+        <div><b>${esc(doc.doc_code)}</b> · ${t('doc.version', { v: doc.version })}${prev ? ` · ${t('doc.replaces', { code: prev.doc_code })}` : ''}${doc.latest ? '' : ` · <span class="badge bad">${t('doc.superseded')}</span>`}</div></div>
+        ${versions.length > 1 ? `<select id="doc-v" class="no-print" style="width:auto">${versions.map((k) => `<option value="${m}.v${k.version}" ${k.id === doc.id ? 'selected' : ''}>${t('doc.version', { v: k.version })}</option>`).join('')}</select>` : ''}</div>
+      <div class="table-wrap" style="margin-top:12px"><table>
+        ${row(t('doc.period'), esc(monthLabel(m, lang)))}
+        ${row(t('doc.partner'), `${esc(partner.name)}${partner.taxId ? ` · ${t('report.taxid')} ${esc(fmtTaxId(partner.taxId))}` : ''}`)}
+        ${row(t('doc.issued'), esc(fmtMoment(doc.created_at, lang, city.timezone)))}
+      </table></div>
+      <h2 style="margin-top:16px">${t('doc.summary')}</h2>
+      <div class="table-wrap"><table>
+        ${row(t('doc.t.visits'), `${T.visits ?? 0} · ${t('pd.k.people', { n: T.people ?? 0 })}`)}
+        ${row(t('doc.t.bills'), c(T.invoice_cents))}
+        ${row(t('doc.t.commission'), c(T.commission_cents), true)}
+        ${row(t('doc.t.received'), c(T.received_cents))}
+        ${row(t('doc.t.guides'), c(T.guide_cents))}
+        ${row(t('doc.t.kombrio'), c(T.kombrio_cents))}
+        ${T.inss_cents ? row(t('doc.t.inss'), c(T.inss_cents)) : ''}
+        ${row(t('doc.t.verifying'), c(T.verifying_cents))}
+        ${row(t('doc.t.topay'), c(T.to_pay_cents), true)}
+        ${T.adjustments_cents ? row(t('doc.t.adj'), c(T.adjustments_cents)) : ''}
+      </table></div>
+      ${T.pending_count ? `<div class="notice warn">${t('doc.reserve', { n: T.pending_count })}</div>` : ''}
+      <h2 style="margin-top:16px">${t('doc.lines')}</h2>
+      ${lines.length ? `<div class="table-wrap"><table>
+        <tr><th>${t('report.col.id')}</th><th>${t('report.col.date')}</th><th>${t('report.col.client')}</th><th>${t('report.col.guide')}</th><th>${t('report.col.people')}</th><th>${t('pd.col.bill')}</th><th>${t('doc.col.rate')}</th><th>${t('report.col.amount')}</th><th>${t('report.col.status')}</th></tr>
+        ${lines.map((l) => `<tr><td style="white-space:nowrap">${esc(store.visitRef(l))}</td><td style="white-space:nowrap">${esc(fmtDay(String(l.day).slice(0, 10), lang))}</td><td>${esc(l.client || '')}</td><td>${esc(l.guide || '')}</td><td>${l.people ?? ''}</td>
+          <td>${l.invoice_cents != null ? c(l.invoice_cents) : '—'}</td><td>${l.rate != null ? `${Math.round(Number(l.rate) * 100)} %` : '—'}</td><td>${l.commission_cents != null ? c(l.commission_cents) : '—'}</td><td>${esc(pLabel(l.status))}</td></tr>`).join('')}
+      </table></div>` : `<p class="hint">${t('report.none')}</p>`}
+      ${(doc.payments || []).length ? `<h2 style="margin-top:16px">${t('doc.payments')}</h2><div class="table-wrap"><table>
+        <tr><th>N°</th><th>${t('common.date')}</th><th>${t('common.amount')}</th><th>Pix</th><th>${t('report.col.status')}</th></tr>
+        ${doc.payments.map((y) => `<tr><td>${y.num}</td><td>${esc(fmtMoment(y.submitted_at, lang, city.timezone))}</td><td>${c(y.amount_cents)}</td><td>${esc(y.pix_ref || '')}</td><td>${t(`payment.${y.status}`)}</td></tr>`).join('')}
+      </table></div>` : ''}
+      ${(doc.adjustments || []).length ? `<h2 style="margin-top:16px">${t('pm.adj.title')}</h2><div class="table-wrap"><table>
+        ${doc.adjustments.map((a) => `<tr><td>${esc(store.adjNum(a.num))}</td><td>${esc(store.txNum(a.visit_num))}</td><td>${c(a.delta_cents)}</td><td>${esc(a.reason || '')}</td></tr>`).join('')}
+      </table></div>` : ''}
+      <p class="hint" style="margin-top:14px"><b>${t('doc.mention')}</b></p>
+      <p class="hint">${t('doc.mandate')}</p>
+      <p class="hint" style="word-break:break-all">${t('doc.seal')} ${esc(doc.sha256)}</p>
+      <div class="row no-print" style="margin-top:12px">
+        <button type="button" class="btn" id="doc-pdf">${t('report.print')}</button>
+        <button type="button" class="btn secondary" id="doc-csv">${t('report.excel')}</button>
+      </div>
+    </div>`;
+  return {
+    html,
+    mount(root, ctx) {
+      const vs = root.querySelector('#doc-v');
+      if (vs) vs.onchange = (e) => { location.hash = `${location.hash.replace(/\/demonstrativo\/.*$/, '')}/demonstrativo/${e.target.value}`; };
+      root.querySelector('#doc-pdf').onclick = () => window.print();
+      root.querySelector('#doc-csv').onclick = () => {
+        const num = (n) => (n == null ? '' : (n / 100).toFixed(2).replace('.', ','));
+        const cell = (x) => `"${String(x ?? '').replace(/"/g, '""')}"`;
+        const head = [tRaw('report.col.id'), tRaw('report.col.date'), tRaw('report.col.client'), tRaw('report.col.guide'), tRaw('report.col.people'),
+          tRaw('pd.col.bill'), tRaw('doc.col.rate'), tRaw('report.col.amount'), tRaw('report.col.status')].map(cell);
+        const body = lines.map((l) => [store.visitRef(l), String(l.day).slice(0, 10), l.client, l.guide, l.people, num(l.invoice_cents),
+          l.rate != null ? `${Math.round(Number(l.rate) * 100)}%` : '', num(l.commission_cents), pLabel(l.status)].map(cell));
+        const sum = [[tRaw('doc.t.commission'), num(T.commission_cents)], [tRaw('doc.t.received'), num(T.received_cents)], [tRaw('doc.t.guides'), num(T.guide_cents)],
+          [tRaw('doc.t.kombrio'), num(T.kombrio_cents)], [tRaw('doc.t.inss'), num(T.inss_cents)], [tRaw('doc.t.topay'), num(T.to_pay_cents)]].map(([a, b]) => [cell(a), cell(b)]);
+        const csv = '﻿' + [[cell(tRaw('doc.a.title')), cell(doc.doc_code), cell(tRaw('doc.version', { v: doc.version }))], [], head, ...body, [], ...sum, [], [cell(tRaw('doc.mention'))], [cell(`SHA-256 ${doc.sha256}`)]]
+          .map((r) => r.join(';')).join('\r\n');
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+        a.download = `${doc.doc_code}.csv`;
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+      };
+    },
+  };
 }
 
 // Espace de la caisse (QR posé sur la caisse) : relier le téléphone, voir les passages des dernières 24 h et l'offre.
