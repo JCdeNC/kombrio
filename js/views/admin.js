@@ -721,7 +721,14 @@ async function transactions({ visits, adjustments, guide, partner, cur, city }) 
 const evLabel = (ev) => { const s = tRaw(`log.${ev}`); return s === `log.${ev}` ? ev.replace(/_/g, ' ') : s; };
 async function journal({ visits, paymentList, payoutList }) {
   const lang = getLang();
-  const rows = await store.listLedger(300);
+  const [rows, mails] = await Promise.all([store.listLedger(300), store.listMails(40)]);
+  const failed = mails.filter((m) => m.status === 'failed').length;
+  const mailCard = mails.length ? `<div class="card"><h2>${t('admin.mail.title')}</h2>
+      ${failed ? `<div class="notice bad">${t('admin.mail.failed', { n: failed })}</div>` : ''}
+      <div class="table-wrap"><table><tr><th>N°</th><th>${t('common.date')}</th><th>${t('admin.mail.kind')}</th><th>${t('admin.mail.to')}</th><th>${t('report.col.status')}</th></tr>
+      ${mails.map((m) => `<tr><td>${m.num}</td><td>${fmtMoment(m.created_at, lang)}</td><td>${t(`admin.mail.k.${m.kind}`)}</td><td>${esc(m.to_email || '—')}</td>
+        <td><span class="badge ${m.status === 'sent' ? 'ok' : m.status === 'failed' ? 'bad' : 'warn'}">${t(`admin.mail.s.${m.status}`)}</span>${m.last_error ? `<div class="hint">${esc(m.last_error)}</div>` : ''}</td></tr>`).join('')}
+      </table></div></div>` : '';
   const ref = (r) => {
     if (r.visit_id) return store.visitRef(visits.find((v) => v.id === r.visit_id)) || '';
     if (r.payment_id) return t('admin.pay.num', { num: paymentList.find((y) => y.id === r.payment_id)?.num ?? '?' });
@@ -730,7 +737,7 @@ async function journal({ visits, paymentList, payoutList }) {
   };
   const detail = (d) => Object.entries(d || {}).filter(([k]) => k !== 'visits').map(([k, v]) => `${esc(k)}: ${esc(typeof v === 'object' ? JSON.stringify(v) : v)}`).join(' · ');
   return {
-    html: `<div class="card">
+    html: `${mailCard}<div class="card">
       <h2>${t('admin.log.title')}</h2>
       <p class="hint">${t('admin.log.hint')}</p>
       ${rows.length ? `<div class="table-wrap"><table>

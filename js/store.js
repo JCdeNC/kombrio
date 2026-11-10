@@ -296,6 +296,11 @@ export async function partnerClosings(token) {
   const { data, error } = await sb.rpc('partner_closings_list', { p_token: token });
   return error ? [] : (data || []);
 }
+// v56 : derniers e-mails automatiques (boîte d'envoi). [] si le script 031 manque.
+export async function listMails(limit = 40) {
+  const { data, error } = await sb.from('mail_outbox').select('num, kind, to_email, status, last_error, created_at, sent_at').order('created_at', { ascending: false }).limit(limit);
+  return error ? [] : (data || []);
+}
 export async function adminCloseMonth(month) {
   return check(await sb.rpc('admin_close_month', { p_month: `${month}-01` }));
 }
