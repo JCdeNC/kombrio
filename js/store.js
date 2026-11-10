@@ -61,7 +61,7 @@ const toVisit = (r) => r && ({
 const toPayout = (r) => r && ({
   id: r.id, num: num(r.num), guideId: r.guide_id, cents: num(r.amount_cents), status: r.status, reference: r.reference,
   // v53 : cents = montant NET envoyé ; grossCents = avant retenue ; inssCents = INSS retenu (guide CPF).
-  grossCents: num(r.gross_cents ?? r.amount_cents), inssCents: num(r.inss_cents || 0),
+  grossCents: num(r.gross_cents ?? r.amount_cents), inssCents: num(r.inss_cents || 0), receivedNote: r.received_note || '',
   at: r.at, paidAt: r.paid_at, receivedStatus: r.received_status || null, receivedAt: r.received_at || '',
 });
 // Vérification Pix de 1 R$ (dépense Kombrio, jamais une commission).
@@ -394,6 +394,14 @@ export async function failPixVerification(verifId, reason) { return check(await 
 export async function recordPixReturn(verifId, ref) { return check(await sb.rpc('record_pix_return', { p_verification: verifId, p_ref: ref })); }
 export async function confirmPixVerification(verifId, received) {
   return check(await sb.rpc('confirm_pix_verification', { p_verification: verifId, p_received: received }));
+}
+// v55 : réponse du guide à un virement : 'confirmed' | 'not_received' | 'wrong_amount' (avec un mot).
+export async function guideAnswerPayout(payoutId, answer, note) {
+  return check(await sb.rpc('guide_answer_payout', { p_payout: payoutId, p_answer: answer, p_note: note || null }));
+}
+// Relevé d'un virement (guide ou admin) : passages, corrections, brut / INSS / net, lignes par partenaire (RPA).
+export async function payoutStatement(payoutId) {
+  return check(await sb.rpc('payout_statement', { p_payout: payoutId }));
 }
 export async function confirmPayoutReceived(payoutId, received) {
   return check(await sb.rpc('confirm_payout_received', { p_payout: payoutId, p_received: received }));

@@ -3,7 +3,7 @@ import { t, tRaw, getLang } from '../i18n.js';
 import { esc, money, cents, locale, fmtDay, fmtMoment, todayIn, addDays, stayIsValid, qrSvg, appLink, notify, validCpf, validCnpj, onlyDigits, maskCadastur, validCadastur, validPixKey, phoneField, phoneValue } from '../util.js';
 import * as store from '../store.js';
 import { validity, statusBadge, guideAmounts, notFound, forgotLink, mountForgot, resetView } from './shared.js';
-import { maskTaxId, qrCardBlob, shareOrDownload, photoToJpeg } from '../util.js';
+import { maskTaxId, fmtTaxId, qrCardBlob, shareOrDownload, photoToJpeg } from '../util.js';
 import { helpButton, problemLink, mountHelp, topicLabel, alertStatus } from './help.js';
 import { WEEKLY_OPTION } from '../config.js';
 // Durée maximale d'un séjour (K-15, décidé le 06/11/2026) : les clients restent au plus une semaine. Même règle dans la base (script 014).
@@ -34,6 +34,7 @@ export async function guideView(params, ctx) {
   const city = await store.getCity(me.cityId);
   if (params[0] === 'sejour') return stayView(me, city, params[1]);
   if (params[0] === 'releve') return statementView(me, city);
+  if (params[0] === 'repasse') return payoutView(me, city, params[1]);
   if (params[0] === 'indicacao') return referralView(me, city);
   if (params[0] === 'cracha') return badgeView(me, city);
   if (['clientes', 'ganhos', 'conta'].includes(params[0])) return dashboardView(me, city, params[0]);
@@ -227,8 +228,9 @@ async function dashboardView(me, city, tab = 'inicio') {
       <div class="row" style="margin-top:10px"><button class="btn small" data-pix-ok="${esc(openCheck.id)}">${t('pix.confirm')}</button>
       <button class="btn small ghost" data-pix-no="${esc(openCheck.id)}">${t('pix.notreceived')}</button></div></div>`;
   toConfirm.forEach((p) => { banners += `<div class="notice warn">${t('pix.payout.msg', { amount: cur(p.cents), ref: esc(p.reference || '') })}
-      <div class="row" style="margin-top:10px"><button class="btn small" data-po-ok="${esc(p.id)}">${t('pix.payout.ok')}</button>
-      <button class="btn small ghost" data-po-no="${esc(p.id)}">${t('pix.notreceived')}</button></div></div>`; });
+      ${answerButtons(p)}</div>`; });
+  payouts.filter((p) => p.status === 'paid' && ['not_received', 'wrong_amount'].includes(p.receivedStatus)).forEach((p) => {
+    banners += `<div class="notice bad">${t(`po.ans.${p.receivedStatus}.banner`, { num: p.num })} <a href="#/repasse/${esc(p.id)}">${t('po.detail')}</a></div>`; });
   if (!pixOk && !openCheck) banners += `<div class="notice bad">${t('pix.suspended')}</div>`;
   if (cad && cad < today) banners += `<div class="notice bad">${t('g.cad.expired', { date: fmtDay(cad, lang) })}</div>`;
   else if (cad && cad < soon60) banners += `<div class="notice warn">${t('g.cad.soon', { date: fmtDay(cad, lang) })}</div>`;
@@ -305,7 +307,7 @@ async function dashboardView(me, city, tab = 'inicio') {
   const payoutsCard = `<div class="card"><h2>${t('g.payouts')}</h2>${payouts.length ? `<ul class="list">${payouts.map((p) => `<li><div class="spread"><b>${t('g.payout.line', { num: p.num, amount: cur(p.cents) })}</b>
       <span class="badge ${p.status === 'paid' ? 'ok' : 'warn'}">${t(p.status === 'paid' ? 'g.payout.paid' : 'status.payout_pending')}</span></div>
       ${p.inssCents ? `<div class="hint">${t('g.payout.inss', { gross: cur(p.grossCents), inss: cur(p.inssCents) })}</div>` : ''}
-      <div class="hint">${fmtDay(String(p.paidAt || p.at).slice(0, 10), lang)}${p.reference ? ` · ${esc(p.reference)}` : ''}</div></li>`).join('')}</ul>` : `<p class="hint">${t('g.payouts.none')}</p>`}</div>`;
+      <div class="hint">${fmtDay(String(p.paidAt || p.at).slice(0, 10), lang)}${p.reference ? ` · ${esc(p.reference)}` : ''} · <a href="#/repasse/${esc(p.id)}">${t('po.detail')}</a></div></li>`).join('')}</ul>` : `<p class="hint">${t('g.payouts.none')}</p>`}</div>`;
   const adjCard = adjustments.length ? `<div class="card"><h2>${t('guide.adj.title')}</h2><ul class="list">${adjustments.map((a) => `<li><div class="spread"><span>${esc(store.adjNum(a.num))} · ${esc(a.reason)}</span><b>${cur(a.guideDelta)}</b></div>
       <div class="hint">${t(a.payoutId ? 'g.adj.done' : 'g.adj.next')}</div></li>`).join('')}</ul></div>` : '';
 
@@ -403,13 +405,100 @@ function mountPix(root, ctx) {
   const act = async (fn, okMsg) => { try { const r = await fn(); if (r === false || r?.ok === false) { notify(tRaw('err.generic')); return; } ctx.refresh(tRaw(okMsg)); } catch { notify(tRaw('err.generic')); } };
   card.querySelectorAll('[data-pix-ok]').forEach((b) => { b.onclick = () => act(() => store.confirmPixVerification(b.dataset.pixOk, true), 'pix.done.ok'); });
   card.querySelectorAll('[data-pix-no]').forEach((b) => { b.onclick = () => act(() => store.confirmPixVerification(b.dataset.pixNo, false), 'pix.done.no'); });
-  card.querySelectorAll('[data-po-ok]').forEach((b) => { b.onclick = () => act(() => store.confirmPayoutReceived(b.dataset.poOk, true), 'pix.done.ok'); });
-  card.querySelectorAll('[data-po-no]').forEach((b) => { b.onclick = () => act(() => store.confirmPayoutReceived(b.dataset.poNo, false), 'pix.done.no'); });
+  mountAnswers(card, ctx);
   const f = card.querySelector('#pix-form');
   if (f) f.onsubmit = async (e) => {
     e.preventDefault();
     const ok = await store.setMyPixKey(f.key.value.trim(), f.type.value, f.holder.value.trim().replace(/\s+/g, ' ')).catch(() => false);
     if (ok) ctx.refresh(tRaw('pix.changed')); else notify(tRaw('pix.err.key'));
+  };
+}
+
+// v55 : trois réponses du guide à un virement (déclaration datée, au journal).
+function answerButtons(p) {
+  return `<div class="row" style="margin-top:10px;gap:6px">
+      <button class="btn small" data-po-ok="${esc(p.id)}">${t('pix.payout.ok')}</button>
+      <button class="btn small ghost" data-po-no="${esc(p.id)}">${t('po.ans.not_received')}</button>
+      <button class="btn small ghost" data-po-wrong="${esc(p.id)}">${t('po.ans.wrong_amount')}</button></div>
+    <form class="po-wrong row" data-id="${esc(p.id)}" hidden style="margin-top:8px;gap:6px;align-items:flex-end">
+      <div class="field" style="margin:0;flex:1"><label>${t('po.ans.note')}</label><input name="note" maxlength="300" required minlength="3"></div>
+      <button class="btn small">${t('po.ans.send')}</button></form>
+    <p class="hint" style="margin-top:6px"><a href="#/repasse/${esc(p.id)}">${t('po.detail')}</a></p>`;
+}
+function mountAnswers(root, ctx) {
+  const send = async (id, answer, note) => {
+    try {
+      const r = await store.guideAnswerPayout(id, answer, note);
+      if (!r || !r.ok) { notify(tRaw(r?.reason === 'note' ? 'po.ans.needsnote' : 'err.generic')); return; }
+      ctx.refresh(tRaw(`po.ans.${answer}.done`));
+    } catch { notify(tRaw('err.generic')); }
+  };
+  root.querySelectorAll('[data-po-ok]').forEach((b) => { b.onclick = () => send(b.dataset.poOk, 'confirmed'); });
+  root.querySelectorAll('[data-po-no]').forEach((b) => { b.onclick = () => send(b.dataset.poNo, 'not_received'); });
+  root.querySelectorAll('[data-po-wrong]').forEach((b) => { b.onclick = () => { const f = root.querySelector(`form.po-wrong[data-id="${b.dataset.poWrong}"]`); if (f) { f.hidden = false; f.note.focus(); } }; });
+  root.querySelectorAll('form.po-wrong').forEach((f) => { f.onsubmit = (e) => { e.preventDefault(); send(f.dataset.id, 'wrong_amount', f.note.value.trim()); }; });
+}
+
+// v55 : détail d'un virement — relevé imprimable et, pour un guide CPF, un reçu d'autônomo (RPA) par partenaire.
+async function payoutView(me, city, payoutId) {
+  const s = payoutId ? await store.payoutStatement(payoutId).catch(() => null) : null;
+  if (!s) return notFound();
+  const lang = getLang();
+  const P = s.payout; const tz = s.city.timezone;
+  const c = (n) => cents(n ?? 0, s.city.currency, lang);
+  const day = (iso) => (iso ? fmtDay(String(iso).slice(0, 10), lang) : '—');
+  const comp = P.paid_at || P.at;
+  const month = new Intl.DateTimeFormat(locale(lang), { month: 'long', year: 'numeric', timeZone: tz }).format(new Date(comp));
+  const taxLabel = s.guide.tax_kind === 'cnpj' ? 'CNPJ' : 'CPF';
+  const fmtId = (id) => (id ? fmtTaxId(id) : '—');
+  const canAnswer = P.status === 'paid' && P.received_status !== 'confirmed';
+  const rpa = (s.lines || []).filter((l) => l.tax_kind === 'cpf' && l.gross_cents > 0);
+  const html = `
+    <p class="no-print"><a href="#/ganhos">← ${t('guide.back')}</a></p>
+    <div class="card">
+      <div class="hint">KOMBRIO</div>
+      <h1 style="margin:2px 0">${t('po.title', { num: P.num })}</h1>
+      <p class="hint">${esc(s.guide.name)} · ${taxLabel} ${esc(fmtId(s.guide.tax_id))} · Pix ${esc(s.guide.pix_key || '—')}${s.guide.pix_holder ? ` (${esc(s.guide.pix_holder)})` : ''}</p>
+      <div class="table-wrap"><table>
+        <tr><td>${t('po.status')}</td><td style="text-align:right">${t(P.status === 'paid' ? 'g.payout.paid' : 'status.payout_pending')}${P.paid_at ? ` · ${esc(fmtMoment(P.paid_at, lang, tz))}` : ''}</td></tr>
+        <tr><td>${t('po.ref')}</td><td style="text-align:right">${esc(P.reference || '—')}</td></tr>
+        <tr><td>${t('po.gross')}</td><td style="text-align:right">${c(P.gross_cents)}</td></tr>
+        <tr><td>${t('po.inss')}</td><td style="text-align:right">${P.inss_cents ? `− ${c(P.inss_cents)}` : '—'}</td></tr>
+        <tr><td><b>${t('po.net')}</b></td><td style="text-align:right"><b>${c(P.net_cents)}</b></td></tr>
+        <tr><td>${t('po.answer')}</td><td style="text-align:right">${P.received_status ? `${t(`po.st.${P.received_status}`)}${P.received_at ? ` · ${esc(fmtMoment(P.received_at, lang, tz))}` : ''}${P.received_note ? `<div class="hint">${esc(P.received_note)}</div>` : ''}` : '—'}</td></tr>
+      </table></div>
+      ${canAnswer ? `<div class="no-print">${answerButtons({ id: P.id })}</div>` : ''}
+      <h2 style="margin-top:16px">${t('po.visits')}</h2>
+      ${(s.visits || []).length ? `<div class="table-wrap"><table>
+        <tr><th>ID</th><th>${t('report.col.date')}</th><th>${t('guide.col.partner')}</th><th>${t('report.col.client')}</th><th>${t('guide.col.cashed')}</th><th>${t('guide.col.share')}</th></tr>
+        ${s.visits.map((v) => `<tr><td style="white-space:nowrap">${esc(store.visitRef(v))}</td><td>${day(v.day)}</td><td>${esc(v.partner)}</td><td>${esc(v.client || '')}</td><td>${c(v.commission_cents)}</td><td><b>${c(v.guide_cents)}</b></td></tr>`).join('')}
+      </table></div>` : `<p class="hint">—</p>`}
+      ${(s.adjustments || []).length ? `<h2 style="margin-top:16px">${t('guide.adj.title')}</h2><div class="table-wrap"><table>
+        ${s.adjustments.map((a) => `<tr><td>${esc(store.adjNum(a.num))}</td><td>${esc(store.txNum(a.visit_num))}</td><td>${esc(a.partner)}</td><td>${c(a.guide_delta)}</td><td>${esc(a.reason || '')}</td></tr>`).join('')}
+      </table></div>` : ''}
+      <p class="hint" style="margin-top:12px">${t('po.mandate')}</p>
+      <div class="row no-print" style="margin-top:10px"><button class="btn secondary" id="po-print">${t('report.print')}</button></div>
+    </div>
+    ${rpa.map((l) => `<div class="card rpa" style="page-break-before:always">
+      <h2 style="margin:0">Recibo de Pagamento a Autônomo (RPA)</h2>
+      <p class="hint">${t('po.rpa.ref', { num: P.num, month: esc(month) })}</p>
+      <div class="table-wrap"><table>
+        <tr><td>Tomador do serviço</td><td>${esc(l.partner)} · CNPJ/CPF ${esc(l.partner_tax_id ? fmtTaxId(l.partner_tax_id) : '—')}${l.partner_address ? `<div class="hint">${esc(l.partner_address)}</div>` : ''}</td></tr>
+        <tr><td>Prestador (contribuinte individual)</td><td>${esc(s.guide.name)} · CPF ${esc(fmtId(s.guide.tax_id))}${s.guide.cadastur ? ` · Cadastur ${esc(s.guide.cadastur)}` : ''}</td></tr>
+        <tr><td>Serviço</td><td>Comissão de indicação · guia de turismo · competência ${esc(month)}</td></tr>
+        <tr><td>Valor bruto</td><td style="text-align:right">${c(l.gross_cents)}</td></tr>
+        <tr><td>INSS retido (${Math.round(Number(l.inss_rate) * 10000) / 100} %)</td><td style="text-align:right">− ${c(l.inss_cents)}</td></tr>
+        <tr><td><b>Valor líquido</b></td><td style="text-align:right"><b>${c(l.net_cents)}</b></td></tr>
+      </table></div>
+      <p class="hint">Pagamento efetuado pela Kombrio por conta e ordem do tomador, por Pix (ref. ${esc(P.reference || '—')}${P.paid_at ? `, ${esc(fmtMoment(P.paid_at, lang, tz))}` : ''}).
+        ${P.received_status === 'confirmed' ? `Recebimento confirmado pelo prestador no aplicativo em ${esc(fmtMoment(P.received_at, lang, tz))}.` : 'Recebimento ainda não confirmado pelo prestador.'}</p>
+    </div>`).join('')}`;
+  return {
+    html,
+    mount(root, ctx) {
+      root.querySelector('#po-print').onclick = () => window.print();
+      mountAnswers(root, ctx);
+    },
   };
 }
 
