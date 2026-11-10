@@ -1,6 +1,6 @@
 // Morceaux d'écran communs à plusieurs pages.
 import { t, tRaw } from '../i18n.js';
-import { esc, initials, fmtDay, money, cents, notify, mapsLink } from '../util.js';
+import { esc, initials, fmtDay, money, cents, notify, mapsLink, locale } from '../util.js';
 import * as store from '../store.js';
 
 
@@ -114,4 +114,29 @@ export function mountShowcase(root) {
       root.querySelectorAll('.pcard').forEach((c) => { c.hidden = b.dataset.f !== 'all' && c.dataset.type !== b.dataset.f; });
     };
   });
+}
+
+/* ---------- v58 : tableaux de bord (mois et petit graphique en barres, sans bibliothèque) ---------- */
+// Mois « AAAA-MM » d'une date, dans le fuseau de la ville.
+export const monthKeyOf = (iso, tz) => new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit' }).format(new Date(iso));
+// Les n derniers mois, du plus ancien au plus récent (le mois en cours est le dernier).
+export function lastMonths(n, tz) {
+  const [y, m] = monthKeyOf(new Date().toISOString(), tz).split('-').map(Number);
+  const out = [];
+  for (let i = n - 1; i >= 0; i -= 1) { const d = new Date(Date.UTC(y, m - 1 - i, 15)); out.push(d.toISOString().slice(0, 7)); }
+  return out;
+}
+export const shortMonth = (m, lang) => new Intl.DateTimeFormat(locale(lang), { month: 'short', timeZone: 'UTC' }).format(new Date(`${m}-15T12:00:00Z`));
+// Variation par rapport au mois précédent : « +20 % », « −5 % » ou « nouveau ».
+export function delta(now, before) {
+  if (!before) return now ? `<span class="kb-delta up">${t('dash.new')}</span>` : '';
+  const p = Math.round(((now - before) / before) * 100);
+  return `<span class="kb-delta ${p > 0 ? 'up' : p < 0 ? 'down' : ''}">${p > 0 ? '+' : p < 0 ? '−' : ''}${Math.abs(p)} %</span>`;
+}
+// rows = [{ label, value, text }] : une barre horizontale par ligne, proportionnelle à la plus grande valeur.
+export function barChart(rows) {
+  const max = Math.max(1, ...rows.map((r) => r.value || 0));
+  return `<div class="kb-bars">${rows.map((r) => `<div class="kb-bar"><span class="kb-bar-l">${esc(r.label)}</span>
+      <span class="kb-bar-t"><span class="kb-bar-f" style="width:${Math.round(((r.value || 0) / max) * 100)}%"></span></span>
+      <span class="kb-bar-v">${r.text}</span></div>`).join('')}</div>`;
 }

@@ -323,3 +323,20 @@ th { color: var(--muted); font-weight: 600; border-top: 0; }
 .phone-row { display: flex; gap: 6px; }
 .phone-row select { flex: 0 0 auto; width: auto; max-width: 42%; }
 .phone-row input { flex: 1 1 auto; min-width: 0; }
+
+/* Tableaux de bord (v58) : barres sur 6 mois, variations, étapes du mois */
+.kb-bars { display: grid; gap: 6px; margin-top: 8px; }
+.kb-bar { display: grid; grid-template-columns: 4.2em 1fr auto; gap: 8px; align-items: center; font-size: .86rem; }
+.kb-bar-l { color: var(--muted); text-transform: capitalize; }
+.kb-bar-t { background: var(--line); border-radius: 6px; height: 12px; overflow: hidden; }
+.kb-bar-f { display: block; height: 100%; background: var(--brand, #007F65); border-radius: 6px; min-width: 2px; }
+.kb-bar-v { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.kb-delta { font-size: .75rem; margin-left: 4px; color: var(--muted); }
+.kb-delta.up { color: var(--ok); } .kb-delta.down { color: var(--bad); }
+.kb-steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-bottom: 12px; }
+.kb-step { display: block; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; text-decoration: none; color: inherit; }
+.kb-step b { display: block; } .kb-step span { font-size: .8rem; color: var(--muted); }
+.kb-step.ok { background: var(--ok-bg); border-color: transparent; } .kb-step.ok b { color: var(--ok); }
+.kb-step.warn { background: var(--warn-bg); border-color: transparent; } .kb-step.warn b { color: var(--warn); }
+@media (max-width: 640px) { .kb-steps { grid-template-columns: 1fr; } }
+.kb-rank td:first-child { color: var(--muted); width: 2em; }

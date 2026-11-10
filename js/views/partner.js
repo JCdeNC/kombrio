@@ -4,7 +4,7 @@
 import { t, tRaw, getLang } from '../i18n.js';
 import { esc, money, cents, parseCents, fmtMoment, fmtDay, qrSvg, appLink, readFileAsDataUrl, notify, pixPayload, pixKeyOf, photoToJpeg, confirmTwice, fmtTaxId, locale, phoneField, phoneValue } from '../util.js';
 import * as store from '../store.js';
-import { statusBadge, notFound, forgotLink, mountForgot, resetView } from './shared.js';
+import { statusBadge, notFound, forgotLink, mountForgot, resetView, lastMonths, shortMonth, delta, barChart } from './shared.js';
 import { readPendingStay, clearPendingStay } from './scan.js';
 import { helpButton, problemLink, mountHelp, topicLabel, alertStatus } from './help.js';
 
@@ -107,6 +107,7 @@ export async function partnerView([token, action, visitId], ctx) {
   space.key = token;
   space.loggedIn = space.role === 'manager' && await store.hasSession();
   space.alerts = space.role === 'manager' ? await store.partnerAlerts(token) : [];
+  space.closings = space.role === 'manager' ? await store.partnerClosings(token) : [];
 
   if (!action) {
     const pending = readPendingStay();
@@ -129,8 +130,8 @@ export async function partnerView([token, action, visitId], ctx) {
   if (action === 'declarar') return declareManyView(space);
   if (action === 'pagar') return payView(space);
   if (action === 'relatorio') return reportPage(space, visitId);
-  if (action === 'mes') return monthPage(space, visitId, await store.partnerClosings(token));
-  if (action === 'demonstrativo') return docPage(space, visitId, await store.partnerClosings(token), `#/p/${encodeURIComponent(token)}/mes/${(visitId || '').slice(0, 7)}`);
+  if (action === 'mes') return monthPage(space, visitId, space.closings);
+  if (action === 'demonstrativo') return docPage(space, visitId, space.closings, `#/p/${encodeURIComponent(token)}/pagamentos`);
   const visit = space.visits.find((v) => v.id === visitId);
   if (!visit) return notFound();
   return scannedView(space, visit, action);
@@ -187,14 +188,14 @@ function txLine(v, city, lang) {
 }
 
 // Espace du gérant (v32) : tableau de bord à onglets, visites traitées en groupe (cases à cocher), liste « À faire ».
-const PD_TABS = ['painel', 'mes', 'visitas', 'pagamentos', 'config'];
+const PD_TABS = ['painel', 'visitas', 'pagamentos', 'config'];
 const ageDays = (iso) => (iso ? Math.floor((Date.now() - new Date(iso)) / 864e5) : 0);
 const doneKey = (pid, month) => `kb-todo-${pid}-${month}`;
 const readDone = (k) => { try { return new Set(JSON.parse(localStorage.getItem(k) || '[]')); } catch { return new Set(); } };
 const saveDone = (k, s) => { try { localStorage.setItem(k, JSON.stringify([...s])); } catch { /* rien */ } };
 
 export function spaceView(space, tab = 'painel') {
-  const { partner, city, visits, payments, adjustments = [], alerts = [], key, role, loggedIn } = space;
+  const { partner, city, visits, payments, adjustments = [], alerts = [], closings = [], key, role, loggedIn } = space;
   if (role !== 'manager') return counterView({ partner, city, visits, key });
   const lang = getLang();
   const c = (n) => cents(n, city.currency, lang);
@@ -268,14 +269,36 @@ export function spaceView(space, tab = 'painel') {
   const lastCard = `<div class="card"><h2>${t('pd.last')}</h2>${lastPay ? `<div class="spread"><span>${t('partner.payment.line', { num: lastPay.num, amount: c(lastPay.cents) })}<br><span class="hint">${fmtMoment(lastPay.submittedAt, lang, city.timezone)}</span></span>${payBadge(lastPay)}</div>` : `<p class="hint">${t('pd.last.none')}</p>`}</div>`;
   const shortcuts = `<div class="card"><h2>${t('pd.shortcuts')}</h2><div class="pd-links">
       <a href="${base}/config">${t('partner.qr.title')}</a><a href="${base}/config">${t('partner.offer.title')}</a>
-      <a href="${base}/relatorio">${t('report.card')}</a><a href="${base}/config">${t('partner.rate.title')}</a></div></div>`;
+      <a href="${base}/pagamentos">${t('dash.docs')}</a><a href="${base}/config">${t('partner.rate.title')}</a></div></div>`;
 
+  // v58 : tableau de bord — le mois en cours comparé au précédent, 6 mois en barres, les 3 gestes.
+  const months6 = lastMonths(6, city.timezone);
+  const prevMonth = months6[4];
+  const stat = (m) => { const l = visits.filter((v) => monthOf(v.at, city.timezone) === m && v.status !== 'cancelled');
+    return { n: l.length, people: l.reduce((s, v) => s + (v.peopleServed || 0), 0), bills: l.reduce((s, v) => s + (v.invoiceCents || 0), 0), com: l.reduce((s, v) => s + (v.declaredCents || 0), 0) }; };
+  const now = stat(month); const before = stat(prevMonth);
   const kpis = `<div class="pd-kpis">
-      <div class="pd-kpi"><span>${t('pd.k.visits')}</span><b>${inMonth.length}</b><em>${t('pd.k.people', { n: inMonth.reduce((s, v) => s + v.peopleServed, 0) })}</em></div>
-      <div class="pd-kpi"><span>${t('pd.k.bills')}</span><b>${c(inMonth.reduce((s, v) => s + (v.invoiceCents || 0), 0))}</b><em>${t('pd.k.rate', { rate })}</em></div>
+      <div class="pd-kpi"><span>${t('pd.k.visits')}</span><b>${now.n}${delta(now.n, before.n)}</b><em>${t('pd.k.people', { n: now.people })}</em></div>
+      <div class="pd-kpi"><span>${t('pd.k.bills')}</span><b>${c(now.bills)}${delta(now.bills, before.bills)}</b><em>${t('dash.vs', { month: esc(monthLabel(prevMonth, lang)) })}</em></div>
+      <div class="pd-kpi"><span>${t('dash.k.com')}</span><b>${c(now.com)}${delta(now.com, before.com)}</b><em>${t('pd.k.rate', { rate })}</em></div>
       <div class="pd-kpi ${late >= 15 || partner.status === 'paused' ? 'bad' : payCents > 0 ? 'warn' : ''}"><span>${t('pd.k.topay')}</span><b>${c(payCents)}</b><em>${payCents > 0 ? (late >= 7 ? t('pd.k.late', { n: late }) : t('pd.k.due')) : t('pd.k.nothing')}</em></div>
-      <div class="pd-kpi"><span>${t('pd.k.paid')}</span><b>${c(paidMonth)}</b><em>${paidMonth ? t('pd.k.confirmed') : '—'}</em></div>
     </div>`;
+  const chartCard = `<div class="card"><h2 style="margin:0">${t('dash.6m')}</h2>
+      ${barChart(months6.map((m) => { const x = stat(m); return { label: shortMonth(m, lang), value: x.com, text: `${c(x.com)} · ${t('dash.visits', { n: x.n })}` }; }))}</div>`;
+  const prevDoc = closings.find((k) => String(k.month).slice(0, 7) === prevMonth && k.latest);
+  const steps = `<div class="kb-steps">
+      <a class="kb-step ${toDeclare.length ? 'warn' : 'ok'}" href="${base}/visitas"><b>1. ${t('mes.s1')}</b><span>${toDeclare.length ? t('mes.s1.todo', { n: toDeclare.length }) : t('mes.s1.done')}</span></a>
+      <a class="kb-step ${payCents > 0 ? 'warn' : 'ok'}" href="${base}/pagamentos"><b>2. ${t('mes.s2')}</b><span>${payCents > 0 ? `${t('mes.s2.total')} : ${c(payCents)}` : t('mes.s2.nothing')}</span></a>
+      <a class="kb-step ${prevDoc ? 'ok' : 'warn'}" href="${base}/pagamentos"><b>3. ${t('mes.s3')}</b><span>${prevDoc ? `${esc(prevDoc.doc_code)}` : t('dash.doc.prev', { month: esc(monthLabel(prevMonth, lang)) })}</span></a>
+    </div>`;
+  // Documents : le relevé figé de chaque mois (Document A), la NFS-e (Document B) et le lien du comptable.
+  const docMonths = [...new Set([month, prevMonth, ...closings.map((k) => String(k.month).slice(0, 7))])].sort().reverse().slice(0, 6);
+  const docsCard = `<div class="card"><h2>${t('dash.docs')}</h2>
+      <ul class="list">${docMonths.map((m) => { const k = closings.find((x) => String(x.month).slice(0, 7) === m && x.latest);
+        return `<li><div class="spread"><span><b>${esc(monthLabel(m, lang))}</b><br><span class="hint">${k ? t('mes.s3.doc', { code: k.doc_code, version: k.version, date: fmtMoment(k.created_at, lang, city.timezone) }) : t('mes.s3.nodoc')}</span></span>
+          <span class="row" style="gap:6px">${k ? `<a class="btn secondary small" href="${base}/demonstrativo/${m}">${t('doc.open')}</a>` : ''}<button class="btn ghost small" data-close-month="${m}">${t(k ? 'dash.doc.update' : 'dash.doc.make')}</button></span></div></li>`; }).join('')}</ul>
+      <div class="spread" style="margin-top:10px"><span><b>${t('doc.b')}</b><br><span class="hint">${t('doc.b.soon')}</span></span><span class="badge">${t('doc.b.badge')}</span></div>
+      <p class="hint" style="margin-top:10px">${t('mes.s3.accountant')} <a href="${base}/relatorio">${t('report.share.title')}</a></p></div>`;
 
   const payHistory = `<div class="card"><h2>${t('partner.payments')}</h2>${payments.length ? `<ul class="list">${payments.map((y) => `<li>
       <div class="spread"><b>${t('partner.payment.line', { num: y.num, amount: c(y.cents) })}</b>${payBadge(y)}</div>
@@ -305,14 +328,13 @@ export function spaceView(space, tab = 'painel') {
 
   const open = visits.filter((v) => ['visited', 'declared', 'verifying', 'disputed'].includes(v.status));
   const body = {
-    painel: `${kpis}<div class="pd-cols">${visitsCard(t('pd.totreat'), open, false)}<div class="pd-side">${todoCard}${adjustmentsCard(adjustments, city, lang)}${lastCard}${shortcuts}</div></div>`,
+    painel: `${steps}${kpis}<div class="pd-cols">${visitsCard(t('pd.totreat'), open, false)}<div class="pd-side">${chartCard}${todoCard}${adjustmentsCard(adjustments, city, lang)}${lastCard}${shortcuts}</div></div>`,
     visitas: visitsCard(t('pd.all'), visits, true),
-    pagamentos: `${visitsCard(t('pd.topay'), toPay, false)}${adjustmentsCard(adjustments, city, lang)}${payHistory}`,
+    pagamentos: `<div class="pd-cols"><div class="pd-side">${visitsCard(t('pd.topay'), toPay, false)}${payHistory}</div><div class="pd-side">${docsCard}${adjustmentsCard(adjustments, city, lang)}</div></div>`,
     config: settings,
   }[tab];
-  const counts = { painel: toDeclare.length + toPay.length + extraDue.length, mes: 0, visitas: toDeclare.length, pagamentos: toPay.length + extraDue.length, config: 0 };
-  const tabsNav = `<nav class="tabs no-print">${PD_TABS.map((k) => `<a href="${base}${k === 'painel' ? '' : `/${k}`}" class="${k === tab ? 'on' : ''}">${t(`pd.tab.${k}`)}${counts[k] ? `<span class="todo">${counts[k]}</span>` : ''}</a>`).join('')}
-      <a href="${base}/relatorio">${t('pd.tab.relatorio')}</a></nav>`;
+  const counts = { painel: toDeclare.length + toPay.length + extraDue.length, visitas: toDeclare.length, pagamentos: toPay.length + extraDue.length, config: 0 };
+  const tabsNav = `<nav class="tabs no-print">${PD_TABS.map((k) => `<a href="${base}${k === 'painel' ? '' : `/${k}`}" class="${k === tab ? 'on' : ''}">${t(`pd.tab.${k}`)}${counts[k] ? `<span class="todo">${counts[k]}</span>` : ''}</a>`).join('')}</nav>`;
 
   return {
     html: `<div class="dash-wide">
@@ -327,6 +349,14 @@ export function spaceView(space, tab = 'painel') {
         onSent: () => ctx.refresh() });
       const out = root.querySelector('#logout');
       if (out) out.onclick = async () => { await store.signOut(); try { localStorage.removeItem(ME_KEY); } catch { /* rien */ } location.hash = ''; };
+      root.querySelectorAll('[data-close-month]').forEach((b) => { b.onclick = async () => {
+        b.disabled = true;
+        try {
+          const r = await store.partnerCloseMonth(key, b.dataset.closeMonth);
+          if (!r || !r.ok) { b.disabled = false; notify(tRaw('err.generic')); return; }
+          ctx.go(`p/${key}/demonstrativo/${b.dataset.closeMonth}`, tRaw('mes.s3.saved', { code: r.doc_code }));
+        } catch { b.disabled = false; notify(tRaw('err.generic')); }
+      }; });
       root.querySelectorAll('[data-todo]').forEach((b) => { b.onchange = () => { b.checked ? done.add(b.dataset.todo) : done.delete(b.dataset.todo); saveDone(dk, done); b.parentElement.classList.toggle('pd-done', b.checked); }; });
       const filter = root.querySelector('#pd-filter');
       const PAIDS = ['received', 'payout_pending', 'paid'];

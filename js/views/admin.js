@@ -3,7 +3,7 @@
 import { t, tRaw, getLang } from '../i18n.js';
 import { esc, money, cents, parseCents, fmtMoment, fmtDay, qrSvg, appLink, notify, confirmTwice, validTaxId, fmtTaxId, onlyDigits } from '../util.js';
 import * as store from '../store.js';
-import { forgotLink, mountForgot, resetView, statusBadge } from './shared.js';
+import { forgotLink, mountForgot, resetView, statusBadge, lastMonths, shortMonth, monthKeyOf, barChart } from './shared.js';
 import { maskTaxId, photoToJpeg, fmtCadastur, maskCadastur, cadasturLink, waLink } from '../util.js';
 import { topicLabel, alertStatus } from './help.js';
 
@@ -162,6 +162,8 @@ const IN = (v, ...st) => st.includes(v.status);
 
 async function dashboard({ guides, partnerList, visits, adjustments, cur, cityList }) {
   const cityId = cityList[0]?.id;
+  const lang = getLang(); const tz = cityList[0]?.timezone || 'America/Sao_Paulo';
+  const months6 = lastMonths(6, tz);
   const live = visits.filter((v) => v.status !== 'cancelled');
   const declared = live.filter((v) => IN(v, 'declared', 'verifying', 'received', 'payout_pending', 'paid'));
   const cashed = live.filter((v) => IN(v, 'received', 'payout_pending', 'paid'));
@@ -184,7 +186,31 @@ async function dashboard({ guides, partnerList, visits, adjustments, cur, cityLi
       </div>
       <div class="card">
         <p>${t('admin.stat.people', { guides: plural('admin.stat.guides', guides.filter((g) => g.status === 'validated').length), pending: guides.filter((g) => g.status === 'pending').length, partners: plural('admin.stat.partners', partnerList.length) })}</p>
-      </div>`,
+      </div>
+      <div class="card"><h2 style="margin:0">${t('dash.6m.admin')}</h2>
+        ${barChart(months6.map((m) => { const l = live.filter((v) => monthKeyOf(v.at, tz) === m);
+          return { label: shortMonth(m, lang), value: sumOf(l, 'declaredCents'), text: `${cur(sumOf(l, 'declaredCents'), cityId)} · Kombrio ${cur(sumOf(l.filter((v) => IN(v, 'received', 'payout_pending', 'paid')), 'kombrioCents'), cityId)} · ${t('dash.visits', { n: l.length })}` }; }))}</div>
+      <div class="card"><div class="spread"><h2 style="margin:0">${t('dash.rank.title')}</h2>
+        <select id="rank-period" style="width:auto">${['month', '3m', 'all'].map((k) => `<option value="${k}">${t(`dash.rank.${k}`)}</option>`).join('')}</select></div>
+        <p class="hint">${t('dash.rank.hint')}</p>
+        <div class="pd-cols"><div class="pd-side" id="rank-guides"></div><div class="pd-side" id="rank-partners"></div></div></div>`,
+    mount(root) {
+      const sel = root.querySelector('#rank-period');
+      const draw = () => {
+        const p = sel.value; const keep = p === 'month' ? months6.slice(5) : p === '3m' ? months6.slice(3) : null;
+        const l = live.filter((v) => !keep || keep.includes(monthKeyOf(v.at, tz)));
+        const table = (key, nameOf, title) => {
+          const rows = [...new Set(l.map((v) => v[key]))].map((id) => { const x = l.filter((v) => v[key] === id);
+            return { name: nameOf(id), n: x.length, com: sumOf(x, 'declaredCents'), kb: sumOf(x.filter((v) => IN(v, 'received', 'payout_pending', 'paid')), 'kombrioCents') }; })
+            .sort((a, b) => b.com - a.com || b.n - a.n).slice(0, 10);
+          return `<h3>${title}</h3>${rows.length ? `<div class="table-wrap"><table class="kb-rank"><tr><th>#</th><th>${t('dash.col.name')}</th><th>${t('dash.col.visits')}</th><th>${t('dash.col.com')}</th><th>Kombrio</th></tr>
+            ${rows.map((r, i) => `<tr><td>${i + 1}</td><td>${esc(r.name)}</td><td>${r.n}</td><td>${cur(r.com, cityId)}</td><td>${cur(r.kb, cityId)}</td></tr>`).join('')}</table></div>` : `<p class="hint">—</p>`}`;
+        };
+        root.querySelector('#rank-guides').innerHTML = table('guideId', (id) => guides.find((g) => g.id === id)?.name || '?', t('dash.rank.guides'));
+        root.querySelector('#rank-partners').innerHTML = table('partnerId', (id) => partnerList.find((p) => p.id === id)?.name || '?', t('dash.rank.partners'));
+      };
+      sel.onchange = draw; draw();
+    },
   };
 }
 

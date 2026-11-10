@@ -2,7 +2,7 @@
 import { t, tRaw, getLang } from '../i18n.js';
 import { esc, money, cents, locale, fmtDay, fmtMoment, todayIn, addDays, stayIsValid, qrSvg, appLink, notify, validCpf, validCnpj, onlyDigits, maskCadastur, validCadastur, validPixKey, phoneField, phoneValue } from '../util.js';
 import * as store from '../store.js';
-import { validity, statusBadge, guideAmounts, notFound, forgotLink, mountForgot, resetView } from './shared.js';
+import { validity, statusBadge, guideAmounts, notFound, forgotLink, mountForgot, resetView, lastMonths, shortMonth, monthKeyOf, delta, barChart } from './shared.js';
 import { maskTaxId, fmtTaxId, qrCardBlob, shareOrDownload, photoToJpeg } from '../util.js';
 import { helpButton, problemLink, mountHelp, topicLabel, alertStatus } from './help.js';
 import { WEEKLY_OPTION } from '../config.js';
@@ -288,6 +288,23 @@ async function dashboardView(me, city, tab = 'inicio') {
       <div class="pd-kpi"><span>${t('g.k.visits')}</span><b>${live.length}</b><em>${t('g.k.visits.hint', { n: new Set(live.map((v) => v.partnerId)).size })}</em></div>
     </div>`;
 
+  // v58 : gains des 6 derniers mois (parts encaissées, par mois de la visite) et répartition par partenaire (ordre alphabétique).
+  const months6 = lastMonths(6, city.timezone);
+  const earned = (m) => visits.filter((v) => CASHED.includes(v.status) && monthKeyOf(v.at, city.timezone) === m).reduce((s, v) => s + (v.guideCents || 0), 0);
+  const visitsIn = (m) => live.filter((v) => monthKeyOf(v.at, city.timezone) === m).length;
+  const curM = months6[5]; const prevM = months6[4];
+  const chartCard = `<div class="card"><div class="spread"><h2 style="margin:0">${t('dash.6m.guide')}</h2>
+      <span class="hint">${t('dash.thismonth')} ${cur(earned(curM))}${delta(earned(curM), earned(prevM))}</span></div>
+      ${barChart(months6.map((m) => ({ label: shortMonth(m, lang), value: earned(m), text: `${cur(earned(m))} · ${t('dash.visits', { n: visitsIn(m) })}` })))}</div>`;
+  const byPartner = [...new Set(live.map((v) => v.partnerId))].map((id) => {
+    const l = live.filter((v) => v.partnerId === id);
+    return { name: pname(id), n: l.length, got: l.filter((v) => CASHED.includes(v.status)).reduce((s, v) => s + (v.guideCents || 0), 0),
+      wait: l.filter((v) => ['declared', 'verifying', 'disputed'].includes(v.status)).reduce((s, v) => s + (shareOf(v) || 0), 0) };
+  }).sort((a, b) => a.name.localeCompare(b.name));
+  const partnersCard = byPartner.length ? `<div class="card"><h2 style="margin:0">${t('dash.bypartner')}</h2>
+      <div class="table-wrap" style="margin-top:8px"><table><tr><th>${t('guide.col.partner')}</th><th>${t('dash.col.visits')}</th><th>${t('dash.col.got')}</th><th>${t('dash.col.wait')}</th></tr>
+      ${byPartner.map((p) => `<tr><td>${esc(p.name)}</td><td>${p.n}</td><td>${cur(p.got)}</td><td>${p.wait ? `≈ ${cur(p.wait)}` : '—'}</td></tr>`).join('')}</table></div></div>` : '';
+
   const newStayForm = `<form class="card" id="new-stay">
         <h2>${t('guide.stay.new')}</h2>
         <div class="grid2">
@@ -328,7 +345,7 @@ async function dashboardView(me, city, tab = 'inicio') {
   const body = {
     inicio: `${kpis}<div class="pd-cols"><div class="pd-side">${txCard(t('g.recent'), recent, visits.length > 5 ? `<a href="#/ganhos">${t('g.seeall')}</a>` : '')}
         ${staysCard(stays.filter((s) => stayState(s) !== 'done').slice(0, 4), false)}</div>
-      <div class="pd-side">${todoCard}${nextCard}${me.referralEnabled ? `<a class="card" href="#/indicacao" style="display:block;text-decoration:none;color:inherit"><b>${t('ref.card.title')}</b><span class="hint" style="display:block">${t('ref.card.hint')}</span></a>` : ''}</div></div>`,
+      <div class="pd-side">${todoCard}${nextCard}${chartCard}${partnersCard}${me.referralEnabled ? `<a class="card" href="#/indicacao" style="display:block;text-decoration:none;color:inherit"><b>${t('ref.card.title')}</b><span class="hint" style="display:block">${t('ref.card.hint')}</span></a>` : ''}</div></div>`,
     clientes: `<div class="pd-cols"><div class="pd-side">${staysCard(stays, true)}</div><div class="pd-side">${newStayForm}</div></div>`,
     ganhos: `${kpis}<div class="pd-cols"><div class="pd-side"><div class="card g-card"><div class="spread"><h2 style="margin:0">${t('g.all')}</h2>
         <span class="hint">${t('guide.sum.note', { pct })}</span></div>${filters}<div id="g-list">${visits.length ? visits.map(txRow).join('') : `<p class="hint">${t('g.tx.none')}</p>`}</div></div></div>
