@@ -304,6 +304,7 @@ async function dashboardView(me, city, tab = 'inicio') {
       <select id="g-fs" style="width:auto"><option value="">${t('g.f.allstatus')}</option>${statuses.map((k) => `<option value="${k}">${t(`status.${k}`)}</option>`).join('')}</select></div>`;
   const payoutsCard = `<div class="card"><h2>${t('g.payouts')}</h2>${payouts.length ? `<ul class="list">${payouts.map((p) => `<li><div class="spread"><b>${t('g.payout.line', { num: p.num, amount: cur(p.cents) })}</b>
       <span class="badge ${p.status === 'paid' ? 'ok' : 'warn'}">${t(p.status === 'paid' ? 'g.payout.paid' : 'status.payout_pending')}</span></div>
+      ${p.inssCents ? `<div class="hint">${t('g.payout.inss', { gross: cur(p.grossCents), inss: cur(p.inssCents) })}</div>` : ''}
       <div class="hint">${fmtDay(String(p.paidAt || p.at).slice(0, 10), lang)}${p.reference ? ` · ${esc(p.reference)}` : ''}</div></li>`).join('')}</ul>` : `<p class="hint">${t('g.payouts.none')}</p>`}</div>`;
   const adjCard = adjustments.length ? `<div class="card"><h2>${t('guide.adj.title')}</h2><ul class="list">${adjustments.map((a) => `<li><div class="spread"><span>${esc(store.adjNum(a.num))} · ${esc(a.reason)}</span><b>${cur(a.guideDelta)}</b></div>
       <div class="hint">${t(a.payoutId ? 'g.adj.done' : 'g.adj.next')}</div></li>`).join('')}</ul></div>` : '';

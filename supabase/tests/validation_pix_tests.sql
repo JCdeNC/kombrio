@@ -21,6 +21,8 @@ begin
     (g2, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'test-pix2@kombrio.test',
      '{"role":"guide","name":"Guia Pix Dois","city_id":"rio","cpf":"44444444402","pix_key":"pix2@kombrio.test"}', now(), now());
   update guides set status = 'validated' where id in (g1, g2);
+  -- Depuis v53 (retenue INSS des guides CPF) : g1 est un guide CNPJ, pour garder des montants sans retenue dans ces tests.
+  update guides set tax_kind = 'cnpj', cpf = '11222333000181' where id = g1;
 
   -- 1. Nouveau guide : clé non vérifiée, aucun virement de commission possible.
   r := start_payout(g1);

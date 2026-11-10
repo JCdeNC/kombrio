@@ -458,13 +458,15 @@ async function payouts({ guides, visits, payoutList, adjustments, cur, guide }) 
         <div class="spread"><b>${esc(g.name)}</b><b>${cur(total, g.cityId)}</b></div>
         <div class="hint">${t('admin.out.line', { n: items.length, pix: g.pixKey || tRaw('admin.missing'), cpf: g.cpf ? `${g.taxKind === 'cnpj' ? 'CNPJ' : 'CPF'} ${fmtTaxId(g.cpf)}` : tRaw('admin.missing') })}</div>
         <div class="hint">${items.map((v) => esc(store.txNum(v.num))).join(' · ')}${adj ? ` · ${t('admin.out.adj', { amount: cur(adj, g.cityId) })}` : ''}</div>
+        ${items.some((v) => (v.guideTaxKind || g.taxKind) === 'cpf') ? `<div class="hint">${t('admin.out.inss.hint')}</div>` : ''}
         ${blockReason(g, payoutList) ? `<div class="notice warn" style="margin-top:8px">${t(`admin.out.blocked.${blockReason(g, payoutList)}`)}</div>`
           : `<button class="btn small" style="margin-top:8px" data-start="${esc(g.id)}">${t('admin.out.start')}</button>`}
       </li>`).join('')}</ul>` : `<p class="hint">${t('admin.out.none')}</p>`}
     </div>
     ${running.length ? `<div class="card"><h2>${t('admin.out.running')}</h2><ul class="list">${running.map((p) => `<li>
         <div class="spread"><b>${t('admin.out.num', { num: p.num })} · ${esc(guide(p.guideId)?.name)}</b><b>${cur(p.cents, guide(p.guideId)?.cityId)}</b></div>
-        <div class="hint">Pix : ${esc(guide(p.guideId)?.pixKey || tRaw('admin.missing'))}</div>
+        ${p.inssCents ? `<div class="hint">${t('admin.out.breakdown', { gross: cur(p.grossCents, guide(p.guideId)?.cityId), inss: cur(p.inssCents, guide(p.guideId)?.cityId) })}</div>` : ''}
+        <div class="hint">${t('admin.out.sendnet', { amount: cur(p.cents, guide(p.guideId)?.cityId) })} · Pix : ${esc(guide(p.guideId)?.pixKey || tRaw('admin.missing'))}</div>
         <form class="confirm row" data-id="${esc(p.id)}" style="align-items:flex-end;margin-top:6px">
           <div class="field" style="margin:0;flex:1"><label>${t('admin.out.ref')}</label><input name="ref" placeholder="E2E… / n° de virement"></div>
           <button class="btn small">${t('admin.out.confirm2')}</button>
@@ -472,11 +474,35 @@ async function payouts({ guides, visits, payoutList, adjustments, cur, guide }) 
     <div class="card">
       <h2>${t('admin.out.history')}</h2>
       ${paid.length ? `<div class="table-wrap"><table>
-        <tr><th>N°</th><th>${t('common.date')}</th><th>${t('common.guide')}</th><th>${t('common.amount')}</th><th>${t('admin.out.ref')}</th></tr>
-        ${paid.map((p) => `<tr><td>${p.num}</td><td>${fmtMoment(p.paidAt || p.at, lang)}</td><td>${esc(guide(p.guideId)?.name)}</td><td>${cur(p.cents, guide(p.guideId)?.cityId)}</td><td>${esc(p.reference || '')}${p.receivedStatus ? `<div class="hint">${t(`admin.out.rcv.${p.receivedStatus}`)}</div>` : ''}</td></tr>`).join('')}
+        <tr><th>N°</th><th>${t('common.date')}</th><th>${t('common.guide')}</th><th>${t('admin.out.gross')}</th><th>INSS</th><th>${t('admin.out.net')}</th><th>${t('admin.out.ref')}</th></tr>
+        ${paid.map((p) => `<tr><td>${p.num}</td><td>${fmtMoment(p.paidAt || p.at, lang)}</td><td>${esc(guide(p.guideId)?.name)}</td><td>${cur(p.grossCents, guide(p.guideId)?.cityId)}</td><td>${p.inssCents ? cur(p.inssCents, guide(p.guideId)?.cityId) : '—'}</td><td>${cur(p.cents, guide(p.guideId)?.cityId)}</td><td>${esc(p.reference || '')}${p.receivedStatus ? `<div class="hint">${t(`admin.out.rcv.${p.receivedStatus}`)}</div>` : ''}</td></tr>`).join('')}
       </table></div>` : `<p class="hint">${t('admin.out.history.none')}</p>`}
+    </div>
+    <div class="card">
+      <h2>${t('admin.inss.title')}</h2>
+      <p class="hint">${t('admin.inss.hint')}</p>
+      <div class="row" style="align-items:flex-end;gap:8px">
+        <div class="field" style="margin:0"><label>${t('admin.inss.month')}</label><input type="month" id="inss-month" value="${new Date().toISOString().slice(0, 7)}"></div>
+        <button class="btn small" id="inss-show">${t('admin.inss.show')}</button>
+      </div>
+      <div id="inss-out" style="margin-top:10px"></div>
     </div>`,
     mount(root, ctx) {
+      const inssBtn = root.querySelector('#inss-show');
+      if (inssBtn) inssBtn.onclick = async () => {
+        const out = root.querySelector('#inss-out');
+        const m = root.querySelector('#inss-month').value;
+        if (!m) return;
+        out.innerHTML = `<p class="hint">…</p>`;
+        const r = await store.adminInssReport(m).catch(() => null);
+        if (!r) { out.innerHTML = `<div class="notice warn">${t('admin.inss.notinstalled')}</div>`; return; }
+        const lines = r.lines || [];
+        out.innerHTML = lines.length ? `<div class="table-wrap"><table>
+          <tr><th>${t('common.partner')}</th><th>CNPJ / CPF</th><th>${t('common.guide')}</th><th>CPF</th><th>${t('admin.out.gross')}</th><th>INSS</th><th>${t('admin.out.net')}</th></tr>
+          ${lines.map((l) => `<tr><td>${esc(l.partner_name)}</td><td>${esc(l.partner_tax_id ? fmtTaxId(l.partner_tax_id) : tRaw('admin.missing'))}</td><td>${esc(l.guide_name)}</td><td>${esc(l.guide_cpf ? fmtTaxId(l.guide_cpf) : tRaw('admin.missing'))}</td><td>${cur(l.gross_cents)}</td><td>${cur(l.inss_cents)}</td><td>${cur(l.net_cents)}</td></tr>`).join('')}
+          <tr><th colspan="5">${t('admin.inss.total')}</th><th>${cur(r.inss_total_cents)}</th><th></th></tr>
+        </table></div>` : `<p class="hint">${t('admin.inss.none')}</p>`;
+      };
       root.querySelectorAll('[data-start]').forEach((b) => confirmTwice(b, tRaw('admin.out.start.confirm'), async () => {
         const r = await store.startPayout(b.dataset.start);
         if (r && r.blocked) { notify(tRaw(`admin.out.blocked.${r.blocked}`)); return; }

@@ -24,7 +24,8 @@ begin
           '{"role":"guide","name":"Guia Teste","city_id":"rio"}', now(), now());
   update guides set status = 'validated' where id = g;
   -- Depuis le module Pix (v30) : un virement exige CPF et clé Pix vérifiée.
-  update guides set cpf = '33333333333', pix_key = 'teste@kombrio.test', pix_status = 'verified' where id = g;
+  -- Depuis v53 (retenue INSS des guides CPF) : guide CNPJ, pour garder des montants sans retenue dans ces tests.
+  update guides set tax_kind = 'cnpj', cpf = '11222333000181', pix_key = 'teste@kombrio.test', pix_status = 'verified' where id = g;
   insert into partners (id, city_id, type, name, token, manager_token, offer, commission_rate) values
     (p1, 'rio', 'restaurant', 'Parceiro Teste 1', 'P-TEST1', 'G-TEST1', 'Um suco', 0.10),
     (p2, 'rio', 'shop', 'Parceiro Teste 2', 'P-TEST2', 'G-TEST2', null, 0.10);

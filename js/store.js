@@ -56,9 +56,12 @@ const toVisit = (r) => r && ({
   kombrioCents: num(r.kombrio_cents), invoiceCents: num(r.invoice_cents), rate: r.commission_rate == null ? null : Number(r.commission_rate),
   platformShare: r.platform_share == null ? null : Number(r.platform_share), paymentId: r.payment_id, payoutId: r.payout_id, prevStatus: r.prev_status,
   statusNote: r.status_note, declaredAt: r.declared_at, receivedAt: r.received_at, client: r.client, guideName: r.guide_name,
+  guideTaxKind: r.guide_tax_kind || null, floorApplied: !!r.floor_applied,
 });
 const toPayout = (r) => r && ({
   id: r.id, num: num(r.num), guideId: r.guide_id, cents: num(r.amount_cents), status: r.status, reference: r.reference,
+  // v53 : cents = montant NET envoyé ; grossCents = avant retenue ; inssCents = INSS retenu (guide CPF).
+  grossCents: num(r.gross_cents ?? r.amount_cents), inssCents: num(r.inss_cents || 0),
   at: r.at, paidAt: r.paid_at, receivedStatus: r.received_status || null, receivedAt: r.received_at || '',
 });
 // Vérification Pix de 1 R$ (dépense Kombrio, jamais une commission).
@@ -413,6 +416,10 @@ export async function settleAdjustment(adjustmentId, ref) {
 }
 export async function startPayout(guideId) {
   return check(await sb.rpc('start_payout', { p_guide: guideId }));
+}
+// Récapitulatif INSS d'un mois (admin) : par partenaire et par guide, virements payés ce mois-là. month = 'AAAA-MM'.
+export async function adminInssReport(month) {
+  return check(await sb.rpc('admin_inss_report', { p_month: `${month}-01` }));
 }
 export async function confirmPayout(payoutId, reference) {
   return check(await sb.rpc('confirm_payout', { p_payout: payoutId, p_reference: reference }));
