@@ -479,6 +479,12 @@ async function payouts({ guides, visits, payoutList, adjustments, cur, guide }) 
       </table></div>` : `<p class="hint">${t('admin.out.history.none')}</p>`}
     </div>
     <div class="card">
+      <h2>${t('admin.books.title')}</h2>
+      <p class="hint">${t('admin.books.hint')}</p>
+      <button class="btn small" id="books-go">${t('admin.books.go')}</button>
+      <div id="books-out" style="margin-top:10px"></div>
+    </div>
+    <div class="card">
       <h2>${t('admin.close.title')}</h2>
       <p class="hint">${t('admin.close.hint')}</p>
       <div class="row" style="align-items:flex-end;gap:8px">
@@ -496,6 +502,26 @@ async function payouts({ guides, visits, payoutList, adjustments, cur, guide }) 
       <div id="inss-out" style="margin-top:10px"></div>
     </div>`,
     mount(root, ctx) {
+      const booksBtn = root.querySelector('#books-go');
+      if (booksBtn) booksBtn.onclick = async () => {
+        const out = root.querySelector('#books-out');
+        out.innerHTML = '<p class="hint">…</p>';
+        const r = await store.booksCheck().catch(() => null);
+        if (!r) { out.innerHTML = `<div class="notice warn">${t('admin.books.notinstalled')}</div>`; return; }
+        const P = r.position || {};
+        out.innerHTML = `<div class="notice ${r.ok ? 'ok' : 'bad'}">${t(r.ok ? 'admin.books.ok' : 'admin.books.ko')}</div>
+          <div class="table-wrap"><table>${(r.checks || []).map((c) => `<tr><td>${esc(c.code)}</td><td>${t(`admin.books.${c.code}`)}</td>
+            <td><span class="badge ${c.ok ? 'ok' : 'bad'}">${c.ok ? 'OK' : esc(String(c.count))}</span>${c.examples && c.examples.length ? `<div class="hint">${esc(JSON.stringify(c.examples))}</div>` : ''}</td></tr>`).join('')}</table></div>
+          <h3 style="margin-top:12px">${t('admin.books.position')}</h3>
+          <div class="table-wrap"><table>
+            <tr><td>${t('admin.books.in')}</td><td style="text-align:right">${cur(P.cash_in_cents)}</td></tr>
+            <tr><td>${t('admin.books.out')}</td><td style="text-align:right">− ${cur(P.cash_out_cents)}</td></tr>
+            <tr><td><b>${t('admin.books.bank')}</b></td><td style="text-align:right"><b>${cur(P.expected_bank_cents)}</b></td></tr>
+            <tr><td>${t('admin.books.guides')}</td><td style="text-align:right">${cur(P.owed_guides_cents)}</td></tr>
+            <tr><td>${t('admin.books.inss')}</td><td style="text-align:right">${cur(P.inss_to_remit_cents)}</td></tr>
+            <tr><td>${t('admin.books.kombrio')}</td><td style="text-align:right">${cur(P.kombrio_share_cents)}</td></tr>
+          </table></div><p class="hint">${t('admin.books.note')}</p>`;
+      };
       const closeBtn = root.querySelector('#close-go');
       if (closeBtn) confirmTwice(closeBtn, tRaw('admin.close.go') + ' ?', async () => {
         const r = await store.adminCloseMonth(root.querySelector('#close-month').value);

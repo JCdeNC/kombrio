@@ -301,6 +301,10 @@ export async function listMails(limit = 40) {
   const { data, error } = await sb.from('mail_outbox').select('num, kind, to_email, status, last_error, created_at, sent_at').order('created_at', { ascending: false }).limit(limit);
   return error ? [] : (data || []);
 }
+// v57 : contrôle de cohérence de l'argent (admin). Note aussi le résultat du jour au journal.
+export async function booksCheck() {
+  return check(await sb.rpc('books_check_daily'));
+}
 export async function adminCloseMonth(month) {
   return check(await sb.rpc('admin_close_month', { p_month: `${month}-01` }));
 }
