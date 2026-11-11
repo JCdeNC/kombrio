@@ -217,8 +217,8 @@ async function dashboardView(me, city, tab = 'inicio') {
   const toConfirm = payouts.filter((p) => p.status === 'paid' && p.receivedStatus === 'waiting');
   const pixOk = me.pixStatus === undefined || me.pixStatus === 'verified';
   const blocked = !pixOk || toConfirm.length > 0;
-  const stayState = (s) => (stayIsValid(s, city) ? 'active' : s.start > today ? 'soon' : 'done');
-  const soonStays = stays.filter((s) => stayState(s) === 'soon');
+  const stayState = (s) => (s.start > today ? 'soon' : stayIsValid(s, city) ? 'active' : 'done');
+  const soonStays = stays.filter((s) => stayState(s) === 'soon' && !s.archivedAt);
   const soon60 = addDays(today, 60);
   const cad = me.cadasturValidUntil;
   const alertOf = (vId) => alerts.find((a) => a.visitId === vId && a.status !== 'resolved');
@@ -254,15 +254,40 @@ async function dashboardView(me, city, tab = 'inicio') {
   const txCard = (title, list, more) => `<div class="card g-card"><div class="spread"><h2 style="margin:0">${title}</h2>${more || ''}</div>
       ${list.length ? list.map(txRow).join('') : `<p class="hint">${t('g.tx.none')}</p>`}</div>`;
 
+  // v61 : un client = une ligne. « ⋯ » (ou glisser vers la gauche sur téléphone) montre Arquivar / Excluir.
+  // Archivé = rangé ; un séjour terminé depuis plus de 30 jours est aussi rangé dans « Arquivados ».
+  const old30 = addDays(today, -30);
+  const isArchived = (s) => Boolean(s.archivedAt) || (stayState(s) === 'done' && s.end < old30);
   const stayItem = (s) => {
     const n = visits.filter((v) => v.stayId === s.id).length; const k = stayState(s);
-    return `<li><a href="#/sejour/${encodeURIComponent(s.id)}"><div class="spread"><b>${esc(s.client)}</b>
-      <span class="badge ${k === 'active' ? 'ok' : k === 'soon' ? '' : 'warn'}">${t(`g.stay.${k}`)}</span></div>
-      <div class="hint">${t('stay.people', { n: s.people })} · ${fmtDay(s.start, lang)} → ${fmtDay(s.end, lang)} · ${t('stay.visits', { n })}</div></a></li>`;
+    return `<li class="sw-row" data-stay="${esc(s.id)}">
+      <div class="sw-actions">
+        ${s.archivedAt ? `<button type="button" class="sw-btn" data-unarch="${esc(s.id)}">${t('g.stay.unarchive')}</button>`
+          : isArchived(s) ? '' : `<button type="button" class="sw-btn" data-arch="${esc(s.id)}">${t('g.stay.archive')}</button>`}
+        ${n ? '' : `<button type="button" class="sw-btn sw-del" data-del="${esc(s.id)}">${t('g.stay.delete')}</button>`}
+      </div>
+      <div class="sw-content"><a href="#/sejour/${encodeURIComponent(s.id)}"><div class="spread"><b>${esc(s.client)}</b>
+        <span class="badge ${k === 'active' ? 'ok' : k === 'soon' ? '' : 'warn'}">${t(`g.stay.${k}`)}</span></div>
+        <div class="hint">${t('stay.people', { n: s.people })} · ${fmtDay(s.start, lang)} → ${fmtDay(s.end, lang)} · ${t('stay.visits', { n })}</div></a>
+        <button type="button" class="sw-more" data-more aria-label="${esc(tRaw('g.stay.actions'))}">⋯</button></div>
+    </li>`;
   };
-  const staysCard = (list, full) => `<div class="card"><div class="spread"><h2 style="margin:0">${t('guide.stays')}</h2>
-      ${full ? '' : `<a class="btn small" href="#/clientes">${t('g.newqr')}</a>`}</div>
-      ${list.length ? `<ul class="list">${list.map(stayItem).join('')}</ul>` : `<p class="hint">${t('g.stays.none')}</p>`}</div>`;
+  const byStart = (a, b) => (a.start < b.start ? -1 : a.start > b.start ? 1 : 0);
+  const groupList = (list) => `<ul class="list sw-list">${list.map(stayItem).join('')}</ul>`;
+  const staysCard = (list, full) => {
+    const shown = list.filter((s) => !isArchived(s));
+    const head = `<div class="spread"><h2 style="margin:0">${t('guide.stays')}</h2>${full ? '' : `<a class="btn small" href="#/clientes">${t('g.newqr')}</a>`}</div>`;
+    if (!full) return `<div class="card">${head}${shown.length ? groupList(shown) : `<p class="hint">${t('g.stays.none')}</p>`}</div>`;
+    const groups = [['active', shown.filter((s) => stayState(s) === 'active').sort(byStart)],
+      ['soon', shown.filter((s) => stayState(s) === 'soon').sort(byStart)],
+      ['done', shown.filter((s) => stayState(s) === 'done').sort(byStart).reverse()]];
+    const archived = list.filter(isArchived).sort(byStart).reverse();
+    return `<div class="card">${head}
+      ${shown.length ? groups.filter(([, l]) => l.length).map(([k, l]) => `<h3 class="sw-group">${t(`g.group.${k}`)} <span class="hint">${l.length}</span></h3>${groupList(l)}`).join('')
+        : `<p class="hint">${t('g.stays.none')}</p>`}
+      ${archived.length ? `<details class="sw-arch"><summary>${t('g.group.archived')} <span class="hint">${archived.length}</span></summary>${groupList(archived)}</details>` : ''}
+      <p class="hint" style="margin:10px 0 0">${t('g.stay.swipe')}</p></div>`;
+  };
 
   // À faire (cases à cocher gardées sur l'appareil).
   const dk = gDoneKey(me.id); const done = readDone(dk);
@@ -345,7 +370,7 @@ async function dashboardView(me, city, tab = 'inicio') {
   const recent = visits.slice(0, 5);
   const body = {
     inicio: `${kpis}<div class="pd-cols"><div class="pd-side">${txCard(t('g.recent'), recent, visits.length > 5 ? `<a href="#/ganhos">${t('g.seeall')}</a>` : '')}
-        ${staysCard(stays.filter((s) => stayState(s) !== 'done').slice(0, 4), false)}</div>
+        ${staysCard(stays.filter((s) => stayState(s) !== 'done' && !s.archivedAt).slice(0, 4), false)}</div>
       <div class="pd-side">${todoCard}${nextCard}${chartCard}${partnersCard}${me.referralEnabled ? `<a class="card" href="#/indicacao" style="display:block;text-decoration:none;color:inherit"><b>${t('ref.card.title')}</b><span class="hint" style="display:block">${t('ref.card.hint')}</span></a>` : ''}</div></div>`,
     clientes: `<div class="pd-cols"><div class="pd-side">${staysCard(stays, true)}</div><div class="pd-side">${newStayForm}</div></div>`,
     ganhos: `${kpis}<div class="pd-cols"><div class="pd-side"><div class="card g-card"><div class="spread"><h2 style="margin:0">${t('g.all')}</h2>
@@ -367,6 +392,7 @@ async function dashboardView(me, city, tab = 'inicio') {
     mount(root, ctx) {
       mountLogout(root, ctx);
       mountPix(root, ctx);
+      mountStayActions(root, ctx);
       mountHelp(root, { kind: 'guide', send: (topic, msg, vId) => store.guideCreateAlert(topic, msg, vId),
         findCode: (c) => visits.find((x) => x.code === c)?.id || null,
         label: (vId) => { const v = visits.find((x) => x.id === vId); return v ? `${pname(v.partnerId)} · ${stayOf(v.stayId)?.client || ''} · ${store.visitRef(v)}` : ''; },
@@ -777,4 +803,62 @@ async function badgeView(me, city) {
       };
     },
   };
+}
+
+// v61 : actions sur un client (Arquivar / Desarquivar / Excluir) : bouton « ⋯ » ou glisser la ligne vers la gauche.
+function mountStayActions(root, ctx) {
+  const rows = [...root.querySelectorAll('.sw-row')];
+  const closeAll = (except) => rows.forEach((r) => { if (r !== except) r.classList.remove('open'); });
+  rows.forEach((row) => {
+    const content = row.querySelector('.sw-content');
+    const more = row.querySelector('[data-more]');
+    if (!row.querySelector('.sw-btn')) { if (more) more.hidden = true; return; }
+    row.style.setProperty('--sw-w', `${actionsWidth(row)}px`);
+    more.onclick = (e) => { e.preventDefault(); e.stopPropagation(); const o = !row.classList.contains('open'); closeAll(row); row.classList.toggle('open', o); };
+    // Glisser (doigt) : on suit le doigt, puis on ouvre si on a tiré assez loin vers la gauche.
+    let x0 = null; let y0 = 0; let dx = 0; let moved = false;
+    content.addEventListener('touchstart', (e) => { x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; dx = 0; moved = false; }, { passive: true });
+    content.addEventListener('touchmove', (e) => {
+      if (x0 == null) return;
+      const mx = e.touches[0].clientX - x0; const my = e.touches[0].clientY - y0;
+      if (!moved && Math.abs(my) > Math.abs(mx)) { x0 = null; return; }  // défilement vertical : on laisse faire
+      moved = true; dx = Math.min(0, mx) + (row.classList.contains('open') ? -actionsWidth(row) : 0);
+      content.style.transition = 'none'; content.style.transform = `translateX(${Math.max(dx, -actionsWidth(row) - 30)}px)`;
+    }, { passive: true });
+    content.addEventListener('touchend', () => {
+      if (x0 == null) return; x0 = null; content.style.transition = ''; content.style.transform = '';
+      if (moved) { const o = -dx > actionsWidth(row) * 0.4; closeAll(row); row.classList.toggle('open', o); }
+    });
+    content.addEventListener('click', (e) => { if (moved || row.classList.contains('open')) { e.preventDefault(); if (!moved) row.classList.remove('open'); moved = false; } }, true);
+  });
+  root.querySelectorAll('[data-arch]').forEach((b) => { b.onclick = () => archive(b.dataset.arch, true); });
+  root.querySelectorAll('[data-unarch]').forEach((b) => { b.onclick = () => archive(b.dataset.unarch, false); });
+  root.querySelectorAll('[data-del]').forEach((b) => { b.onclick = async () => {
+    if (!confirm(tRaw('g.stay.delete.confirm'))) return;
+    b.disabled = true;
+    try {
+      const r = await store.deleteStay(b.dataset.del);
+      if (r && r.ok) ctx.refresh(tRaw('g.stay.deleted'));
+      else { b.disabled = false; notify(tRaw(r && r.reason === 'visits' ? 'g.stay.delete.visits' : 'err.generic')); }
+    } catch { b.disabled = false; notify(tRaw('err.generic')); }
+  }; });
+  async function archive(id, on) {
+    try {
+      if (!(await store.setStayArchived(id, on))) { notify(tRaw('err.generic')); return; }
+      ctx.refresh();
+      undoToast(tRaw(on ? 'g.stay.archived' : 'g.stay.unarchived'), async () => { await store.setStayArchived(id, !on); ctx.refresh(); });
+    } catch { notify(tRaw('err.generic')); }
+  }
+}
+const actionsWidth = (row) => row.querySelector('.sw-actions')?.offsetWidth || 160;
+// Petit bandeau en bas de l'écran « Arquivado · Desfazer », quelques secondes.
+function undoToast(text, undo) {
+  document.querySelector('.kb-toast')?.remove();
+  const box = document.createElement('div');
+  box.className = 'kb-toast'; box.setAttribute('role', 'status');
+  box.innerHTML = `<span></span><button type="button">${esc(tRaw('common.undo'))}</button>`;
+  box.querySelector('span').textContent = text;
+  box.querySelector('button').onclick = async () => { box.remove(); await undo(); };
+  document.body.appendChild(box);
+  setTimeout(() => box.remove(), 6000);
 }

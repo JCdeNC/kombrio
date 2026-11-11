@@ -45,7 +45,7 @@ const toPartner = (r) => r && ({
 });
 const toStay = (r) => r && ({
   id: r.id, guideId: r.guide_id, client: r.client, people: r.people, start: r.start_day, end: r.end_day,
-  token: r.token, createdAt: r.created_at,
+  token: r.token, createdAt: r.created_at, archivedAt: r.archived_at || '',
 });
 const num = (x) => (x == null ? null : Number(x));
 // Une transaction (passage) : montants en centavos, jamais en nombres à virgule.
@@ -339,6 +339,13 @@ export async function getStay(stayId) {
   return toStay(check(await sb.from('stays').select('*').eq('id', stayId).maybeSingle()));
 }
 // Page du client et page du scan, à partir du QR du client. null si le QR n'est pas reconnu.
+// v61 : le guide range (archive) ou supprime un client. Supprimer est refusé s'il y a un passage.
+export async function setStayArchived(stayId, on) {
+  return check(await sb.rpc('set_stay_archived', { p_stay: stayId, p_on: on }));
+}
+export async function deleteStay(stayId) {
+  return check(await sb.rpc('delete_stay', { p_stay: stayId }));
+}
 export async function stayPublic(token) {
   const d = check(await sb.rpc('stay_public', { p_token: token }));
   if (!d) return null;
