@@ -33,23 +33,22 @@ export async function scanView([token], ctx) {
     if (me) return { html: '', mount: () => ctx.replace(`p/${me}`) };
   }
 
+  // v60 : téléphone pas encore relié — deux choix clairs en haut ; le nom du client n'est pas montré.
+  if (!valid) {
+    return { html: `<div class="notice bad">${t('scan.invalid')}</div><div class="card">${guideCard(guide, city)}</div>` };
+  }
   return {
     html: `
-      <div class="card">
-        ${guideCard(guide, city)}
+      <div class="card" style="text-align:center"><h1 style="margin-bottom:4px">${t('scan.pass')}</h1>
+        <p class="hint" style="margin:0">${validity(stay, true, lang)} · ${t('scan.people', { n: stay.people })}</p></div>
+      <div class="scan-choice">
+        <div class="card notice ok" style="margin:0"><h2>${t('scan.partner.title')}</h2>
+          <p style="margin:0"><b>${t('scan.next')}</b><br>${t('scan.next.hint', { min: PENDING_MINUTES })}</p></div>
+        <div class="card" style="margin:0"><h2>${t('np.title')}</h2>
+          <p class="hint">${t('np.text')}</p>
+          <a class="btn secondary block" href="#/parceria">${t('np.cta')}</a></div>
       </div>
-      <div class="card">
-        <div class="spread"><h1>${esc(stay.client)}</h1>${validity(stay, stayIsValid(stay, city), lang)}</div>
-        <p>${t('scan.people', { n: stay.people })} · ${fmtDay(stay.start, lang)} → ${fmtDay(stay.end, lang)}</p>
-      </div>
-      ${valid
-        ? `<div class="notice ok"><b>${t('scan.next')}</b><br>${t('scan.next.hint', { min: PENDING_MINUTES })}</div>`
-        : `<div class="notice bad">${t('scan.invalid')}</div>`}
-      <div class="card">
-        <h2>${t('np.title')}</h2>
-        <p class="hint">${t('np.text')}</p>
-        <a class="btn secondary block" href="#/parceria">${t('np.cta')}</a>
-      </div>`,
+      <div class="card" style="margin-top:12px">${guideCard(guide, city)}</div>`,
   };
 }
 

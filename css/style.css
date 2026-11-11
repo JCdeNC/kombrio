@@ -348,3 +348,47 @@ th { color: var(--muted); font-weight: 600; border-top: 0; }
 .rs-pend { border-left: 4px solid var(--warn, #e0a100); }
 .rs-pend .list li { padding: 8px 0; }
 #rs-bills input + input { display: block; }
+
+/* v60 : ergonomie mobile et réorganisation */
+main { overflow-wrap: break-word; }
+.row select, .spread select { max-width: 100%; min-width: 0; }
+@media (max-width: 560px) {
+  /* Onglets sur une seule ligne qui défile, au lieu de 3 lignes. */
+  .tabs { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; padding-top: 8px; margin-top: -8px; -webkit-overflow-scrolling: touch; }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tabs a { flex: none; }
+}
+.tabs-grouped { align-items: center; }
+.tabs-grouped .tg { flex: none; margin: 0 0 0 10px; font-size: .7rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.admin-todo { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.admin-todo li { display: flex; align-items: center; gap: 8px; }
+.admin-todo .todo-n { min-width: 22px; height: 22px; padding: 0 6px; border-radius: 999px; background: #d93025; color: #fff; font-size: .78rem; font-weight: 700; line-height: 22px; text-align: center; }
+/* Visites du gérant sur mobile : le nom sur toute la largeur, le statut dessous, puis l'addition et la commission. */
+@media (max-width: 760px) {
+  .pd-row { grid-template-columns: 24px minmax(0, 1fr) auto; grid-template-areas: "c w w" "c s s" "c i m"; }
+  .pd-st { text-align: left; }
+  .pd-i .pd-inv { max-width: 160px; }
+}
+/* Saisie au restaurant */
+.rs-big { font-size: 1.4rem; font-weight: 700; padding: 12px 14px; }
+.grid2.rs-keep2 { grid-template-columns: 1fr 1fr; }
+.rs-more { margin: 4px 0 14px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--bg); }
+.rs-more summary { cursor: pointer; font-weight: 700; }
+.rs-photo-btn { display: inline-flex; margin: 0 8px 0 0; cursor: pointer; }
+.scan-choice { display: grid; gap: 12px; }
+@media (min-width: 620px) { .scan-choice { grid-template-columns: 1fr 1fr; } }
+/* Suivi du guide : l'étape attendue en pointillé, pas en vert. */
+.g-trk .now { color: var(--muted); font-weight: 600; }
+.g-trk .now .c { border-style: dashed; color: var(--muted); box-shadow: none; }
+.g-trk .now::before { background: var(--line); }
+@media (max-width: 420px) { .g-trk .st { font-size: .62rem; } }
+/* Les colonnes ne s'élargissent plus au-delà de l'écran (une liste déroulante longue faisait déborder la page). */
+.pd-side { grid-template-columns: minmax(0, 1fr); }
+.pd-side > *, .pd-cols > * { min-width: 0; }
+/* Barres des 6 mois sur téléphone : le texte passe sous la barre au lieu de déborder. */
+@media (max-width: 560px) {
+  .kb-bar { grid-template-columns: 4.2em minmax(0, 1fr); row-gap: 2px; }
+  .kb-bar-v { grid-column: 2; white-space: normal; font-size: .8rem; color: var(--muted); }
+}
+/* Admin : un groupe d'onglets ne se coupe pas en deux. */
+.tabs-grouped .tgrp { display: inline-flex; flex-wrap: nowrap; align-items: center; gap: 6px; flex: none; }

@@ -153,7 +153,7 @@ export function scannedView({ partner, city, key, role, visits }, visit, action)
   }
   const head = action === 'lancar' ? '' : `<div class="notice ${fresh ? 'ok' : 'warn'}"><b>${t(fresh ? 'partner.visit.saved' : 'partner.visit.duplicate')}</b></div>`;
   const info = `<div class="spread"><h2>${esc(visit.client)}</h2><span class="hint">${esc(store.visitRef(visit))}</span></div>
-        <p class="hint">${t('partner.visit.guide', { guide: visit.guideName })} · ${fmtMoment(visit.at, lang, city.timezone)}${visit.guidePresent ? ` · <span class="badge ok">${t('rs.present')}</span>` : ''}</p>`;
+        <p class="hint">${t('partner.visit.guide', { guide: visit.guideName })} · ${sinceLabel(visit.at, lang, city.timezone)}${visit.guidePresent ? ` · <span class="badge ok">${t('rs.present')}</span>` : ''}</p>`;
   if (visit.status !== 'visited') {
     return {
       html: `${head}${offer}<div class="card">${info}
@@ -169,29 +169,32 @@ export function scannedView({ partner, city, key, role, visits }, visit, action)
     html: `${head}${offer}
       <form class="card" id="rs">
         ${info}
-        <div class="grid2">
-          <div class="field"><label for="rs-n">${t('partner.people.served')}</label>
-            <input id="rs-n" name="n" type="number" min="1" max="500" step="1" inputmode="numeric" value="${visit.peopleServed}"></div>
-          <div class="field"><label for="rs-t">${t('rs.table')}</label>
-            <input id="rs-t" name="table" maxlength="20" value="${esc(visit.tableLabel)}" placeholder="${t('rs.table.ph')}"></div>
-        </div>
-        <div class="field"><label>${t('rs.bill')}</label>
-          <div id="rs-bills"><input class="rs-bill" inputmode="decimal" placeholder="${esc(city.currency)}" aria-label="${esc(tRaw('rs.bill'))}"></div>
-          <button type="button" class="btn ghost small" id="rs-add">${t('rs.bill.add')}</button>
-          <p class="hint" style="margin:4px 0 0">${t('bill.rule')}</p></div>
-        ${others.length ? `<details class="field"><summary>${t('rs.split')}</summary>
-          <p class="hint">${t('rs.split.hint')}</p>
-          ${others.map((v) => `<label style="font-weight:400;display:flex;gap:8px"><input type="checkbox" name="with" value="${esc(v.id)}" style="width:auto">
-            ${esc(v.client || '?')} · ${t('scan.people', { n: v.peopleServed })}${v.tableLabel ? ` · ${t('rs.table.short', { n: v.tableLabel })}` : ''}</label>`).join('')}
-        </details>` : ''}
+        <div class="field"><label for="rs-b1">${t('rs.bill')}</label>
+          <div id="rs-bills"><input id="rs-b1" class="rs-bill rs-big" inputmode="decimal" placeholder="${esc(city.currency)} 0,00" aria-label="${esc(tRaw('rs.bill'))}"></div>
+          <button type="button" class="btn ghost small" id="rs-add">${t('rs.bill.add')}</button></div>
         <div class="field"><label for="rs-c">${t('rs.com', { rate: Math.round(rate * 100) })}</label>
           <input id="rs-c" name="com" inputmode="decimal" placeholder="—">
           <p class="hint" style="margin:4px 0 0" id="rs-c-hint">${t('rs.com.hint')}</p></div>
         <div class="field" id="rs-note-f" hidden><label for="rs-note">${t('rs.note')}</label><input id="rs-note" name="note" maxlength="200"></div>
-        <label style="font-weight:400;display:flex;gap:10px;align-items:center;margin:4px 0 10px">
-          <input type="checkbox" name="meal" style="width:auto"> ${t('rs.meal')}</label>
-        <div class="field"><label for="rs-ph">${t('rs.photo')}</label>
-          <input id="rs-ph" name="photo" type="file" accept="image/*" capture="environment"></div>
+        <div class="grid2 rs-keep2">
+          <div class="field"><label for="rs-n">${t('rs.people')}</label>
+            <input id="rs-n" name="n" type="number" min="1" max="500" step="1" inputmode="numeric" value="${visit.peopleServed}"></div>
+          <div class="field"><label for="rs-t">${t('rs.table')}</label>
+            <input id="rs-t" name="table" maxlength="20" value="${esc(visit.tableLabel)}" placeholder="${t('rs.table.ph')}"></div>
+        </div>
+        <details class="rs-more"><summary>${t('rs.more')}</summary>
+          <label style="font-weight:400;display:flex;gap:10px;align-items:center;margin:10px 0">
+            <input type="checkbox" name="meal" style="width:auto"> ${t('rs.meal')}</label>
+          <label class="btn ghost small rs-photo-btn" for="rs-ph">${t('rs.photo.btn')}</label>
+          <input id="rs-ph" name="photo" type="file" accept="image/*" capture="environment" hidden>
+          <span class="hint" id="rs-ph-name">${t('rs.photo.hint')}</span>
+          ${others.length ? `<div class="field" style="margin-top:12px"><b>${t('rs.split')}</b>
+            <p class="hint" style="margin:2px 0 6px">${t('rs.split.hint')}</p>
+            ${others.map((v) => `<label style="font-weight:400;display:flex;gap:8px"><input type="checkbox" name="with" value="${esc(v.id)}" style="width:auto">
+              ${esc(v.client || '?')} · ${t('scan.people', { n: v.peopleServed })}${v.tableLabel ? ` · ${t('rs.table.short', { n: v.tableLabel })}` : ''}</label>`).join('')}
+          </div>` : ''}
+          <p class="hint" style="margin:12px 0 0">${t('bill.rule')}</p>
+        </details>
         <button class="btn block" id="rs-save">${t('rs.save')}</button>
         <div class="row" style="gap:8px;margin-top:8px">
           <button type="button" class="btn secondary" id="rs-later" style="flex:1">${t('rs.later')}</button>
@@ -201,6 +204,8 @@ export function scannedView({ partner, city, key, role, visits }, visit, action)
       <a class="btn ghost" href="${back}">${t(role === 'manager' ? 'partner.space' : 'counter.back')}</a>`,
     mount(root, ctx) {
       const f = root.querySelector('#rs');
+      const b1 = root.querySelector('#rs-b1'); if (b1 && !visit.tableLabel) b1.focus();
+      f.photo.onchange = () => { root.querySelector('#rs-ph-name').textContent = f.photo.files[0] ? tRaw('rs.photo.ok') : tRaw('rs.photo.hint'); };
       const total = () => { const list = [...f.querySelectorAll('.rs-bill')].map((i) => i.value.trim()).filter(Boolean).map(parseCents);
         return list.some((x) => x == null) ? null : list.length ? list.reduce((a, b) => a + b, 0) : null; };
       const withIds = () => [...f.querySelectorAll('[name=with]:checked')].map((b) => b.value);
@@ -227,7 +232,7 @@ export function scannedView({ partner, city, key, role, visits }, visit, action)
       f.addEventListener('input', (e) => { if (e.target === f.com) comTouched = f.com.value.trim() !== ''; upd(); });
       f.addEventListener('change', upd);
       root.querySelector('#rs-add').onclick = () => {
-        const i = document.createElement('input'); i.className = 'rs-bill'; i.inputMode = 'decimal'; i.placeholder = city.currency; i.style.marginTop = '6px';
+        const i = document.createElement('input'); i.className = 'rs-bill rs-big'; i.inputMode = 'decimal'; i.placeholder = `${city.currency} 0,00`; i.style.marginTop = '6px';
         root.querySelector('#rs-bills').appendChild(i); i.focus();
       };
       const people = async () => {
@@ -276,6 +281,15 @@ export function scannedView({ partner, city, key, role, visits }, visit, action)
   };
 }
 
+// v60 : « há 20 min », « há 2 h », sinon la date et l'heure.
+function sinceLabel(iso, lang, tz) {
+  const min = Math.round((Date.now() - new Date(iso)) / 6e4);
+  if (min < 1) return tRaw('rs.ago.now');
+  if (min < 60) return tRaw('rs.ago.min', { n: min });
+  if (min < 12 * 60) return tRaw('rs.ago.h', { n: Math.floor(min / 60) });
+  return fmtMoment(iso, lang, tz);
+}
+
 // v59 : « Pendentes agora » — les groupes scannés sans addition (16 dernières heures), pour la caisse et le gérant.
 function pendingCard({ city, visits, key }) {
   const lang = getLang();
@@ -285,7 +299,7 @@ function pendingCard({ city, visits, key }) {
   return `<div class="card rs-pend"><div class="spread"><h2 style="margin:0">${t('rs.pending')}</h2><span class="badge warn">${list.length}</span></div>
     <ul class="list">${list.map((v) => `<li><div class="spread" style="align-items:center">
       <span>${v.tableLabel ? `<b class="rs-table">${t('rs.table.short', { n: v.tableLabel })}</b> · ` : ''}<b>${esc(v.client || '?')}</b>
-        <br><span class="hint">${t('scan.people', { n: v.peopleServed })} · ${t('partner.visit.guide', { guide: v.guideName || '?' })} · ${t('rs.arrived', { at: fmtMoment(v.at, lang, city.timezone) })}${v.guidePresent ? ` · ${t('rs.present')}` : ''}</span></span>
+        <br><span class="hint">${t('scan.people', { n: v.peopleServed })} · ${t('partner.visit.guide', { guide: v.guideName || '?' })} · ${t('rs.arrived', { at: sinceLabel(v.at, lang, city.timezone) })}${v.guidePresent ? ` · ${t('rs.present')}` : ''}</span></span>
       <span class="row" style="gap:6px"><a class="btn small" href="#/p/${encodeURIComponent(key)}/lancar/${esc(v.id)}">${t('rs.launch')}</a>
         <button type="button" class="btn ghost small" data-zero="${esc(v.id)}">${t('rs.zero')}</button></span></div></li>`).join('')}</ul></div>`;
 }
@@ -464,14 +478,16 @@ export function spaceView(space, tab = 'painel') {
         <a class="btn secondary" href="${base}/relatorio">${t('report.open')}</a></div>
       <p class="hint no-print">${t('partner.linked', { name: partner.name })} <a href="#" id="unlink">${t('partner.unlink')}</a></p>`;
 
-  const open = visits.filter((v) => ['visited', 'declared', 'verifying', 'disputed'].includes(v.status));
+  // Les groupes de « Pendentes agora » (moins de 16 h) ne sont pas répétés dans « Visitas a tratar ».
+  const inPending = (v) => v.status === 'visited' && Date.now() - new Date(v.at) < 16 * 36e5;
+  const open = visits.filter((v) => ['visited', 'declared', 'verifying', 'disputed'].includes(v.status) && !inPending(v));
   const body = {
-    painel: `${steps}${pendingCard({ city, visits, key })}${kpis}<div class="pd-cols">${visitsCard(t('pd.totreat'), open, false)}<div class="pd-side">${chartCard}${todoCard}${adjustmentsCard(adjustments, city, lang)}${lastCard}${shortcuts}</div></div>`,
+    painel: `${pendingCard({ city, visits, key })}${steps}${kpis}<div class="pd-cols">${visitsCard(t('pd.totreat'), open, false)}<div class="pd-side">${chartCard}${todoCard}${adjustmentsCard(adjustments, city, lang)}${lastCard}${shortcuts}</div></div>`,
     visitas: visitsCard(t('pd.all'), visits, true),
     pagamentos: `<div class="pd-cols"><div class="pd-side">${visitsCard(t('pd.topay'), toPay, false)}${payHistory}</div><div class="pd-side">${docsCard}${adjustmentsCard(adjustments, city, lang)}</div></div>`,
     config: settings,
   }[tab];
-  const counts = { painel: toDeclare.length + toPay.length + extraDue.length, visitas: toDeclare.length, pagamentos: toPay.length + extraDue.length, config: 0 };
+  const counts = { painel: 0, visitas: toDeclare.length, pagamentos: toPay.length + extraDue.length, config: 0 };
   const tabsNav = `<nav class="tabs no-print">${PD_TABS.map((k) => `<a href="${base}${k === 'painel' ? '' : `/${k}`}" class="${k === tab ? 'on' : ''}">${t(`pd.tab.${k}`)}${counts[k] ? `<span class="todo">${counts[k]}</span>` : ''}</a>`).join('')}</nav>`;
 
   return {
@@ -988,6 +1004,8 @@ function docPage(space, sel, closings, back) {
 // Espace de la caisse (QR posé sur la caisse) : relier le téléphone, voir les passages des dernières 24 h et l'offre.
 function counterView({ partner, city, visits, key }) {
   const lang = getLang();
+  // Les groupes en attente sont déjà dans « Pendentes agora » : ici, seulement ceux déjà lancés.
+  const done = visits.filter((v) => !(v.status === 'visited' && Date.now() - new Date(v.at) < 16 * 36e5));
   return {
     html: `
       <div class="spread"><h1>${esc(partner.name)}</h1>${helpButton()}</div>
@@ -996,7 +1014,7 @@ function counterView({ partner, city, visits, key }) {
       ${partner.offer ? `<div class="card"><h2>${t('counter.offer')}</h2><div class="offer">${esc(partner.offer)}</div><p class="hint" style="margin-top:8px">${t('counter.offer.hint')}</p></div>` : ''}
       <div class="card">
         <h2>${t('counter.today')}</h2>
-        ${visits.length ? `<ul class="list">${visits.map((v) => `<li><div class="spread"><b>${esc(v.client || '?')}</b><span class="hint">${fmtMoment(v.at, lang, city.timezone)}</span></div>
+        ${done.length ? `<ul class="list">${done.map((v) => `<li><div class="spread"><b>${esc(v.client || '?')}</b><span class="hint">${sinceLabel(v.at, lang, city.timezone)}</span></div>
           <div class="hint">${esc(store.visitRef(v))} · ${t('scan.people', { n: v.peopleServed })} · ${t('partner.visit.guide', { guide: v.guideName || '?' })}${v.tableLabel ? ` · ${t('rs.table.short', { n: v.tableLabel })}` : ''}</div>
           ${v.invoiceCents != null ? `<div>${t('rs.bill.done', { bill: cents(v.invoiceCents, city.currency, lang), com: cents(v.declaredCents || 0, city.currency, lang) })}</div>` : ''}</li>`).join('')}</ul>`
           : `<p class="hint">${t('partner.visits.none')}</p>`}

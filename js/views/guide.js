@@ -146,7 +146,8 @@ function logoutButton() {
   return `<button class="btn ghost small" id="logout">${t('common.logout')}</button>`;
 }
 function mountLogout(root, ctx) {
-  root.querySelector('#logout').onclick = async () => { await store.signOut(); ctx.go(''); };
+  const b = root.querySelector('#logout');
+  if (b) b.onclick = async () => { await store.signOut(); ctx.go(''); };
 }
 
 async function pendingView(me) {
@@ -177,7 +178,7 @@ function tracker(v) {
   const n = v.status === 'disputed' ? 1 : TRK_STEP[v.status] ?? 1;
   const steps = ['visit', 'declared', 'paid', 'cashed', 'repaid'].map((k, i) => {
     let c = 'off'; let mark = String(i + 1); let label = t(`g.trk.${k}`);
-    if (i < n) { c = 'on'; mark = '✓'; } else if (i === n) { c = dev || 'now'; if (dev) { mark = '!'; label = t(late ? 'g.trk.late' : 'g.trk.disputed'); } }
+    if (i < n) { c = 'on'; mark = '✓'; } else if (i === n) { c = dev || 'now'; mark = '…'; if (dev) { mark = '!'; label = t(late ? 'g.trk.late' : 'g.trk.disputed'); } }
     return `<span class="st ${c}" title="${esc(tRaw(`g.trk.${k}.hint`))}"><span class="c">${mark}</span>${label}</span>`;
   }).join('');
   const msg = late ? `<div class="g-dev bad">${t('g.dev.late', { n: ageDays(v.declaredAt) })}</div>`
@@ -350,7 +351,7 @@ async function dashboardView(me, city, tab = 'inicio') {
     ganhos: `${kpis}<div class="pd-cols"><div class="pd-side"><div class="card g-card"><div class="spread"><h2 style="margin:0">${t('g.all')}</h2>
         <span class="hint">${t('guide.sum.note', { pct })}</span></div>${filters}<div id="g-list">${visits.length ? visits.map(txRow).join('') : `<p class="hint">${t('g.tx.none')}</p>`}</div></div></div>
       <div class="pd-side">${nextCard}${adjCard}${payoutsCard}<a class="card" href="#/releve" style="display:block;text-decoration:none;color:inherit"><b>${t('guide.statement.title')}</b><span class="hint" style="display:block">${t('g.statement.hint')}</span></a></div></div>`,
-    conta: `<div class="pd-cols"><div class="pd-side">${contaBody}</div><div class="pd-side">${nextCard}</div></div>`,
+    conta: `<div class="pd-cols"><div class="pd-side">${contaBody}</div><div class="pd-side">${nextCard}<div class="card no-print"><h2>${t('g.session')}</h2>${logoutButton()}</div></div></div>`,
   }[tab];
 
   const counts = { inicio: todo.filter(([k]) => !done.has(k)).length, clientes: soonStays.length, ganhos: toConfirm.length, conta: !pixOk ? 1 : 0 };
@@ -361,7 +362,7 @@ async function dashboardView(me, city, tab = 'inicio') {
     html: `<div class="dash-wide">
       <div class="spread"><div><h1 style="margin-bottom:2px">${t('guide.hello', { name: me.name })}</h1>
         <p class="hint" style="margin:0">${esc(city.name || '')}${me.code ? ` · ${esc(me.code)}` : ''}</p></div>
-        <div class="row" style="gap:6px">${helpButton()}${logoutButton()}</div></div>
+        <div class="row" style="gap:6px">${helpButton()}</div></div>
       ${nav}${banners}${body}</div>`,
     mount(root, ctx) {
       mountLogout(root, ctx);

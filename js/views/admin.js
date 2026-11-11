@@ -8,6 +8,7 @@ import { maskTaxId, photoToJpeg, fmtCadastur, maskCadastur, cadasturLink, waLink
 import { topicLabel, alertStatus } from './help.js';
 
 const TABS = ['dashboard', 'alertas', 'validations', 'payments', 'payouts', 'pix', 'referral', 'transactions', 'partners', 'cities', 'journal'];
+const TAB_GROUPS = [['todo', ['alertas', 'payments', 'payouts', 'pix']], ['network', ['validations', 'partners', 'cities', 'referral']], ['records', ['transactions', 'journal']]];
 
 export async function adminView([tab = 'dashboard']) {
   if (store.inRecovery() && await store.hasSession()) return resetView();
@@ -23,7 +24,10 @@ export async function adminView([tab = 'dashboard']) {
   if (!TABS.includes(tab)) tab = 'dashboard';
   const data = await loadAll();
   const todo = todoCounts(data);
-  const nav = `<nav class="tabs">${TABS.map((k) => `<a href="#/${k}" class="${k === tab ? 'on' : ''}">${t(`admin.tab.${k}`)}${todo[k] ? `<span class="todo" title="${esc(tRaw('admin.todo.hint'))}">${todo[k]}</span>` : ''}</a>`).join('')}</nav>`;
+  // v60 : onglets rangés en 3 groupes (à traiter, réseau, registres).
+  const link = (k) => `<a href="#/${k}" class="${k === tab ? 'on' : ''}">${t(`admin.tab.${k}`)}${todo[k] ? `<span class="todo" title="${esc(tRaw('admin.todo.hint'))}">${todo[k]}</span>` : ''}</a>`;
+  const nav = `<nav class="tabs tabs-grouped">${link('dashboard')}${TAB_GROUPS.map(([g, ks]) => `<span class="tgrp"><span class="tg">${t(`admin.group.${g}`)}</span>${ks.map(link).join('')}</span>`).join('')}</nav>`;
+  data.todo = todo;
   const view = await ({ dashboard, alertas, validations, payments, payouts, pix: pixAdmin, referral, transactions, partners, cities, journal })[tab](data);
   return {
     html: `<div class="spread"><h1>${t('admin.title')}</h1>
@@ -160,7 +164,7 @@ async function alertas({ alerts }) {
 const sumOf = (list, key) => list.reduce((s, v) => s + (v[key] || 0), 0);
 const IN = (v, ...st) => st.includes(v.status);
 
-async function dashboard({ guides, partnerList, visits, adjustments, cur, cityList }) {
+async function dashboard({ guides, partnerList, visits, adjustments, cur, cityList, todo = {} }) {
   const cityId = cityList[0]?.id;
   const lang = getLang(); const tz = cityList[0]?.timezone || 'America/Sao_Paulo';
   const months6 = lastMonths(6, tz);
@@ -170,13 +174,18 @@ async function dashboard({ guides, partnerList, visits, adjustments, cur, cityLi
   // v59 : établissements qui veulent devenir partenaires (formulaire « Devenir partenaire »).
   const leads = await store.adminLeads().catch(() => []);
   const openLeads = leads.filter((l) => l.status === 'new' || l.status === 'contacted');
-  const leadsCard = leads.length ? `<div class="card"><div class="spread"><h2 style="margin:0">${t('lead.title')}</h2><span class="badge ${openLeads.length ? 'warn' : ''}">${openLeads.length}</span></div>
+  const leadsCard = leads.length ? `<div class="card" id="lead-card"><div class="spread"><h2 style="margin:0">${t('lead.title')}</h2><span class="badge ${openLeads.length ? 'warn' : ''}">${openLeads.length}</span></div>
       <ul class="list">${leads.slice(0, 20).map((l) => `<li><div class="spread"><span><b>${esc(l.name)}</b> · ${esc(l.contact)}${l.type ? ` · ${t(`ptype.${l.type}`)}` : ''}
         <br><span class="hint">${[l.phone, l.email].filter(Boolean).map(esc).join(' · ')} · ${esc(new Date(l.created_at).toLocaleDateString(lang === 'pt' ? 'pt-BR' : 'fr-FR'))}</span>
         ${l.message ? `<br><span class="hint">${esc(l.message)}</span>` : ''}</span>
         <select data-lead="${esc(l.id)}" style="width:auto">${['new', 'contacted', 'won', 'lost'].map((k) => `<option value="${k}"${l.status === k ? ' selected' : ''}>${t(`lead.${k}`)}</option>`).join('')}</select></div></li>`).join('')}</ul></div>` : '';
+  // v60 : « À faire aujourd'hui » en tête, avec un lien vers chaque onglet concerné.
+  const todoLines = TABS.filter((k) => todo[k]).map((k) => `<li><a href="#/${k}">${t(`admin.tab.${k}`)}</a> <span class="todo-n">${todo[k]}</span></li>`);
+  if (openLeads.length) todoLines.push(`<li>${t('lead.title')} <span class="hint">(${t('admin.today.below')})</span> <span class="todo-n">${openLeads.length}</span></li>`);
+  const todoCard = `<div class="card"><h2>${t('admin.today')}</h2>${todoLines.length ? `<ul class="admin-todo">${todoLines.join('')}</ul>` : `<p class="hint" style="margin:0">${t('admin.today.none')}</p>`}</div>`;
   return {
     html: `
+      ${todoCard}
       ${leadsCard}
       <div class="stats">
         <div class="stat"><b>${live.length}</b><span>${t('admin.stat.visits')}</span></div>

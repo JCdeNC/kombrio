@@ -70,13 +70,15 @@ async function render() {
     + (flash ? `<div class="notice ok" role="status">${esc(flash)}</div>` : '');
   flash = null;
   const langs = conf.langs ? LANGS.filter(([code]) => conf.langs.includes(code)) : LANGS;
+  // v60 : sur téléphone, la langue en 2 lettres (« PT ») pour ne pas déborder de l'en-tête.
+  const narrow = window.matchMedia('(max-width: 480px)').matches;
   document.title = APP === 'hub' ? 'Kombrio' : `Kombrio · ${t(`app.${APP}`)}`;
 
   root.innerHTML = `
     <header class="top">
       <a class="brand" href="#/"><img src="${ICON}" alt=""><span class="brand-word">kombrio<i></i></span>${APP === 'hub' ? '' : `<span class="brand-app">${t(`app.${APP}`)}</span>`}</a>
       <select id="lang" aria-label="${t('common.language')}">
-        ${langs.map(([code, label]) => `<option value="${code}" ${code === getLang() ? 'selected' : ''}>${label}</option>`).join('')}
+        ${langs.map(([code, label]) => `<option value="${code}" ${code === getLang() ? 'selected' : ''}>${narrow ? code.toUpperCase() : label}</option>`).join('')}
       </select>
     </header>
     <main>${message}${out.html}</main>
