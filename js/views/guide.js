@@ -244,7 +244,7 @@ async function dashboardView(me, city, tab = 'inicio') {
     const sh = shareOf(v); const a = alertOf(v.id);
     return `<div class="g-tx" data-p="${esc(v.partnerId)}" data-s="${esc(v.status)}">
       <div class="spread"><span><b>${esc(pname(v.partnerId))}</b> · ${esc(stayOf(v.stayId)?.client || '')}<br>
-        <span class="hint">${fmtDay(v.at.slice(0, 10), lang)} · ${esc(store.visitRef(v))} · ${t('stay.people', { n: v.peopleServed })}</span></span>
+        <span class="hint">${fmtDay(v.at.slice(0, 10), lang)} · ${esc(store.visitRef(v))} · ${t('stay.people', { n: v.peopleServed })}${v.guidePresent ? ` · ${t('rs.present')}` : ''}${v.guideMeal ? ` · ${t('rs.meal.tag')}` : ''}${v.computedCents != null && v.declaredCents != null && v.declaredCents < v.computedCents ? ` · ${t('g.reduced')}` : ''}</span></span>
         <span class="g-amt">${sh == null ? `<span class="hint">${t('g.amt.none')}</span>` : CASHED.includes(v.status) ? `<b>${cur(sh)}</b>` : `<b>≈ ${cur(sh)}</b><br><span class="hint">${t('g.amt.est')}</span>`}</span></div>
       ${tracker(v)}
       <div class="g-tx-f">${a ? `<span class="badge">${t('alert.short', { num: a.num, status: alertStatus(a.status) })}</span>` : problemLink(v.id)}</div>

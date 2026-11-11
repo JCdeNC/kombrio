@@ -340,3 +340,11 @@ th { color: var(--muted); font-weight: 600; border-top: 0; }
 .kb-step.warn { background: var(--warn-bg); border-color: transparent; } .kb-step.warn b { color: var(--warn); }
 @media (max-width: 640px) { .kb-steps { grid-template-columns: 1fr; } }
 .kb-rank td:first-child { color: var(--muted); width: 2em; }
+
+/* v59 : saisie au restaurant */
+.rs-tags { display: block; color: var(--muted, #6b7280); font-size: .82em; margin-top: 2px; }
+.rs-tags a { margin-left: 4px; }
+.rs-table { display: inline-block; padding: 0 6px; border-radius: 6px; background: var(--warn-bg, #fff4d6); }
+.rs-pend { border-left: 4px solid var(--warn, #e0a100); }
+.rs-pend .list li { padding: 8px 0; }
+#rs-bills input + input { display: block; }

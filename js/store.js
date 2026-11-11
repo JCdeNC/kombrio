@@ -57,6 +57,9 @@ const toVisit = (r) => r && ({
   platformShare: r.platform_share == null ? null : Number(r.platform_share), paymentId: r.payment_id, payoutId: r.payout_id, prevStatus: r.prev_status,
   statusNote: r.status_note, declaredAt: r.declared_at, receivedAt: r.received_at, client: r.client, guideName: r.guide_name,
   guideTaxKind: r.guide_tax_kind || null, floorApplied: !!r.floor_applied,
+  // v59 : saisie au restaurant et présence du guide.
+  tableLabel: r.table_label || '', guideMeal: !!r.guide_meal, computedCents: num(r.computed_cents), commissionNote: r.commission_note || '',
+  declaredBy: r.declared_by || null, hasPhoto: !!r.has_photo, guidePresent: !!r.guide_present,
 });
 const toPayout = (r) => r && ({
   id: r.id, num: num(r.num), guideId: r.guide_id, cents: num(r.amount_cents), status: r.status, reference: r.reference,
@@ -356,6 +359,39 @@ export async function recordVisit(stayToken, partnerToken) {
 }
 export async function setPeopleServed(partnerToken, visitId, people) {
   return check(await sb.rpc('set_people_served', { p_partner_token: partnerToken, p_visit: visitId, p_people: people }));
+}
+
+// v59 : saisie d'un passage par la caisse ou le gérant (montant final, commission éventuellement baissée, repas du guide, table, photo).
+export async function declareVisit(token, visitId, { invoiceCents, commissionCents = null, guideMeal = false, table = null, photo = null, note = null }) {
+  return check(await sb.rpc('declare_visit', {
+    p_token: token, p_visit: visitId, p_invoice_cents: invoiceCents, p_commission_cents: commissionCents,
+    p_guide_meal: guideMeal, p_table: table, p_photo: photo, p_note: note,
+  }));
+}
+export async function setVisitTable(token, visitId, table) {
+  return check(await sb.rpc('set_visit_table', { p_token: token, p_visit: visitId, p_table: table }));
+}
+export async function visitNoConsumption(token, visitId) {
+  return check(await sb.rpc('visit_no_consumption', { p_token: token, p_visit: visitId }));
+}
+export async function visitBillPhoto(managerToken, visitId) {
+  return check(await sb.rpc('visit_bill_photo', { p_manager_token: managerToken, p_visit: visitId }));
+}
+// v59 : le partenaire scanne le badge du guide (présence).
+export async function markGuidePresent(partnerToken, badgeToken) {
+  return check(await sb.rpc('mark_guide_present', { p_partner_token: partnerToken, p_badge_token: badgeToken }));
+}
+// v59 : « Devenir partenaire » (établissement non partenaire).
+export async function createPartnerLead({ name, contact, phone, email, type, message }) {
+  return check(await sb.rpc('create_partner_lead', {
+    p_name: name, p_contact: contact, p_phone: phone || null, p_email: email || null, p_type: type || null, p_message: message || null,
+  }));
+}
+export async function adminLeads() {
+  return check(await sb.from('partner_leads').select('*').order('created_at', { ascending: false }).limit(100));
+}
+export async function adminSetLead(id, status) {
+  return check(await sb.rpc('admin_set_lead', { p_lead: id, p_status: status }));
 }
 
 // Gérant : déclarer (montant libre, zéro possible), puis payer séparément.

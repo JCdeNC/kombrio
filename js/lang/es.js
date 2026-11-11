@@ -108,4 +108,6 @@ export default {
   'auth.hide': 'Ocultar la contraseña',
   // v39 : réponses REV3 (addition, information du touriste).
   'client.disclosure': 'Algunos socios pueden remunerar comercialmente las recomendaciones atribuidas a su guía y a Kombrio. Usted sigue siendo totalmente libre de visitar o no estos establecimientos y de comprar o no.',
+  // v59
+  'client.onlylist': 'Solo los establecimientos de esta lista son socios de Kombrio. En otro lugar, su QR no da derecho a ninguna oferta.',
 };

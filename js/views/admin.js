@@ -167,8 +167,17 @@ async function dashboard({ guides, partnerList, visits, adjustments, cur, cityLi
   const live = visits.filter((v) => v.status !== 'cancelled');
   const declared = live.filter((v) => IN(v, 'declared', 'verifying', 'received', 'payout_pending', 'paid'));
   const cashed = live.filter((v) => IN(v, 'received', 'payout_pending', 'paid'));
+  // v59 : établissements qui veulent devenir partenaires (formulaire « Devenir partenaire »).
+  const leads = await store.adminLeads().catch(() => []);
+  const openLeads = leads.filter((l) => l.status === 'new' || l.status === 'contacted');
+  const leadsCard = leads.length ? `<div class="card"><div class="spread"><h2 style="margin:0">${t('lead.title')}</h2><span class="badge ${openLeads.length ? 'warn' : ''}">${openLeads.length}</span></div>
+      <ul class="list">${leads.slice(0, 20).map((l) => `<li><div class="spread"><span><b>${esc(l.name)}</b> · ${esc(l.contact)}${l.type ? ` · ${t(`ptype.${l.type}`)}` : ''}
+        <br><span class="hint">${[l.phone, l.email].filter(Boolean).map(esc).join(' · ')} · ${esc(new Date(l.created_at).toLocaleDateString(lang === 'pt' ? 'pt-BR' : 'fr-FR'))}</span>
+        ${l.message ? `<br><span class="hint">${esc(l.message)}</span>` : ''}</span>
+        <select data-lead="${esc(l.id)}" style="width:auto">${['new', 'contacted', 'won', 'lost'].map((k) => `<option value="${k}"${l.status === k ? ' selected' : ''}>${t(`lead.${k}`)}</option>`).join('')}</select></div></li>`).join('')}</ul></div>` : '';
   return {
     html: `
+      ${leadsCard}
       <div class="stats">
         <div class="stat"><b>${live.length}</b><span>${t('admin.stat.visits')}</span></div>
         <div class="stat"><b>${live.filter((v) => IN(v, 'zero')).length}</b><span>${t('admin.stat.zero')}</span></div>
@@ -195,6 +204,9 @@ async function dashboard({ guides, partnerList, visits, adjustments, cur, cityLi
         <p class="hint">${t('dash.rank.hint')}</p>
         <div class="pd-cols"><div class="pd-side" id="rank-guides"></div><div class="pd-side" id="rank-partners"></div></div></div>`,
     mount(root) {
+      root.querySelectorAll('[data-lead]').forEach((x) => { x.onchange = async () => {
+        try { await store.adminSetLead(x.dataset.lead, x.value); notify(tRaw('common.saved')); } catch { notify(tRaw('err.generic')); }
+      }; });
       const sel = root.querySelector('#rank-period');
       const draw = () => {
         const p = sel.value; const keep = p === 'month' ? months6.slice(5) : p === '3m' ? months6.slice(3) : null;

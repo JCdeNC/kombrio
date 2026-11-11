@@ -8,7 +8,7 @@ import { VERSION, VERSION_DATE } from './version.js';
 import { homeView } from './views/home.js';
 import { guideView } from './views/guide.js';
 import { clientView, clientHome } from './views/client.js';
-import { scanView } from './views/scan.js';
+import { scanView, leadView } from './views/scan.js';
 import { partnerView, partnerHome, reportView, activateView, termsView } from './views/partner.js';
 import { adminView } from './views/admin.js';
 import { verifyView } from './views/verify.js';
@@ -20,7 +20,7 @@ const ICON = new URL('../icon.svg', import.meta.url).href;
 const APPS = {
   hub: { routes: { '': homeView }, lang: 'fr' },
   client: { routes: { '': clientHome, c: clientView }, lang: 'client' },
-  partner: { routes: { '': partnerHome, s: scanView, p: partnerView, r: reportView, ativar: activateView, termos: termsView }, lang: 'pt' },
+  partner: { routes: { '': partnerHome, s: scanView, p: partnerView, r: reportView, ativar: activateView, termos: termsView, parceria: leadView }, lang: 'pt' },
   guide: { routes: { '': guideView }, lang: 'pt', all: true },
   admin: { routes: { '': adminView }, lang: 'fr', langs: ['fr', 'pt'], all: true },
   verify: { routes: { '': verifyView }, lang: 'pt', all: true },

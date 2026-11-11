@@ -1,4 +1,4 @@
-// Fonction Supabase « aviso-email » (v56) : envoie les e-mails du cycle notés dans la boîte d'envoi (table mail_outbox).
+// Fonction Supabase « aviso-email » (v56, rappel des passages sans montant ajouté en v59) : envoie les e-mails du cycle notés dans la boîte d'envoi (table mail_outbox).
 // Appelée par la base (script 031) avec le numéro interne de l'e-mail, juste après sa mise en file.
 // Sûre même si quelqu'un l'appelle à la main : elle n'envoie qu'un e-mail existant, encore « queued », une seule fois.
 // Secret déjà en place : BREVO_API_KEY.
@@ -61,6 +61,16 @@ function build(kind: string, p: Record<string, unknown>): { subject: string; htm
           ${row('Comissões do mês', brl(p.commission_cents))}${due > 0 ? row('A pagar', brl(due), true) : ''}</table>
          <p style="margin:16px 0 0">Abra « Meu mês » no seu espaço para baixar o demonstrativo (PDF ou Excel). Seu contador o vê pelo link do relatório.</p>`,
         'https://app.kombrio.com.br/partner/', 'Abrir meu espaço'),
+    };
+  }
+  if (kind === 'visits_pending') {
+    const n = Number(p.count ?? 0);
+    return {
+      subject: `Kombrio · ${n} visita(s) sem valor de conta`,
+      html: box(`Olá ${esc(p.manager || p.partner)}, faltam valores de conta`,
+        `<p style="margin:0">${n} grupo(s) Kombrio passaram no ${esc(p.partner)} e ainda estão « Pendentes », sem o valor da conta.</p>
+         <p style="margin:12px 0 0">Lance o valor (ou « Não consumiu ») em « Pendentes agora », no seu espaço: leva um minuto.</p>`,
+        'https://app.kombrio.com.br/partner/', 'Lançar os valores'),
     };
   }
   return null;
