@@ -407,3 +407,21 @@ main { overflow-wrap: break-word; }
 .sw-arch { margin-top: 14px; } .sw-arch summary { cursor: pointer; font-weight: 700; }
 .kb-toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); z-index: 50; display: flex; gap: 14px; align-items: center; padding: 12px 16px; border-radius: 12px; background: var(--deep); color: #fff; box-shadow: 0 6px 24px rgba(0,0,0,.25); max-width: calc(100% - 32px); }
 .kb-toast button { border: 0; background: none; color: var(--accent, #F6B73C); font: inherit; font-weight: 700; cursor: pointer; }
+
+/* v62 : onglets qui défilent — ombre douce du côté où il reste des onglets. */
+@media (max-width: 560px) {
+  .tabs.more-r { -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent); }
+  .tabs.more-l { -webkit-mask-image: linear-gradient(to left, #000 calc(100% - 28px), transparent); mask-image: linear-gradient(to left, #000 calc(100% - 28px), transparent); }
+  .tabs.more-l.more-r { -webkit-mask-image: linear-gradient(to right, transparent, #000 28px, #000 calc(100% - 28px), transparent); mask-image: linear-gradient(to right, transparent, #000 28px, #000 calc(100% - 28px), transparent); }
+}
+
+/* v62 : petits téléphones (360 px) — l'en-tête ne déborde plus, les tableaux défilent dans leur cadre. */
+.top { gap: 10px; }
+.top select { flex: none; }
+.brand { min-width: 0; }
+@media (max-width: 420px) {
+  .brand-app { max-width: 42vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; letter-spacing: .03em; padding: 4px 7px; }
+}
+@media (max-width: 560px) {
+  main :is(.card, details):has(table) { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+}

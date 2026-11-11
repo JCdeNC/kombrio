@@ -855,7 +855,7 @@ export default {
   'dash.col.com': "Comissões",
   'pd.tab.painel': 'Painel',
   'pd.tab.visitas': 'Visitas',
-  'pd.tab.pagamentos': "Pagamentos e documentos",
+  'pd.tab.pagamentos': "Pagamentos",
   'pd.tab.config': 'Configurações',
   'pd.tab.relatorio': 'Relatórios',
   'pd.k.visits': 'Visitas no mês',

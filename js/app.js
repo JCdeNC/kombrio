@@ -76,7 +76,7 @@ async function render() {
 
   root.innerHTML = `
     <header class="top">
-      <a class="brand" href="#/"><img src="${ICON}" alt=""><span class="brand-word">kombrio<i></i></span>${APP === 'hub' ? '' : `<span class="brand-app">${t(`app.${APP}`)}</span>`}</a>
+      <a class="brand" href="#/"><img src="${ICON}" alt=""><span class="brand-word">kombrio<i></i></span>${APP === 'hub' ? '' : `<span class="brand-app">${narrow && APP === 'admin' ? 'Admin' : t(`app.${APP}`)}</span>`}</a>
       <select id="lang" aria-label="${t('common.language')}">
         ${langs.map(([code, label]) => `<option value="${code}" ${code === getLang() ? 'selected' : ''}>${narrow ? code.toUpperCase() : label}</option>`).join('')}
       </select>
@@ -98,6 +98,14 @@ async function render() {
   }
   root.querySelectorAll('input[type=password]').forEach(addEye);
   window.scrollTo(0, 0);
+  // v62 : barre d'onglets qui défile (téléphone) — l'onglet ouvert toujours entièrement visible, et une ombre
+  // à droite ou à gauche tant qu'il reste des onglets cachés.
+  root.querySelectorAll('.tabs').forEach((nav) => {
+    const on = nav.querySelector('a.on');
+    if (on && nav.scrollWidth > nav.clientWidth) nav.scrollLeft = Math.max(0, on.offsetLeft - nav.offsetLeft - (nav.clientWidth - on.offsetWidth) / 2);
+    const edge = () => { nav.classList.toggle('more-r', nav.scrollLeft + nav.clientWidth < nav.scrollWidth - 2); nav.classList.toggle('more-l', nav.scrollLeft > 2); };
+    edge(); nav.addEventListener('scroll', edge, { passive: true });
+  });
   if (out.mount) out.mount(root.querySelector('main'), ctx);
 }
 
