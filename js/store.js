@@ -66,6 +66,9 @@ const toPayout = (r) => r && ({
   // v53 : cents = montant NET envoyé ; grossCents = avant retenue ; inssCents = INSS retenu (guide CPF).
   grossCents: num(r.gross_cents ?? r.amount_cents), inssCents: num(r.inss_cents || 0), receivedNote: r.received_note || '',
   at: r.at, paidAt: r.paid_at, receivedStatus: r.received_status || null, receivedAt: r.received_at || '',
+  // v65 : envoi par Pix Inter.
+  interStatus: r.inter_status || '', interCodigo: r.inter_codigo || '', interE2e: r.inter_e2e || '', interRecebedor: r.inter_recebedor_nome || '',
+  interHolderOk: r.inter_holder_ok ?? null, interError: r.inter_error || '', interSentAt: r.inter_sent_at || '',
 });
 // Vérification Pix de 1 R$ (dépense Kombrio, jamais une commission).
 const toPixVerif = (r) => r && ({
@@ -503,6 +506,17 @@ export async function startPayout(guideId) {
 // Récapitulatif INSS d'un mois (admin) : par partenaire et par guide, virements payés ce mois-là. month = 'AAAA-MM'.
 export async function adminInssReport(month) {
   return check(await sb.rpc('admin_inss_report', { p_month: `${month}-01` }));
+}
+// v65 : virement envoyé par Pix Banco Inter (fonction Edge « inter ») et suivi de son statut.
+export async function sendPayoutInter(payoutId) {
+  const { data, error } = await sb.functions.invoke('inter', { body: { action: 'payout_send', payout: payoutId } });
+  if (error) throw new Error('inter');
+  return data;
+}
+export async function checkPayoutInter(payoutId) {
+  const { data, error } = await sb.functions.invoke('inter', { body: { action: 'payout_check', payout: payoutId } });
+  if (error) throw new Error('inter');
+  return data;
 }
 export async function confirmPayout(payoutId, reference) {
   return check(await sb.rpc('confirm_payout', { p_payout: payoutId, p_reference: reference }));

@@ -490,6 +490,17 @@ const blockReason = (g, payoutList) => {
 };
 async function payouts({ guides, visits, payoutList, adjustments, cur, guide }) {
   const lang = getLang();
+  // v65 : envoi par Pix Banco Inter. « Payé » seulement quand la banque confirme (E2E) ; la saisie manuelle reste possible.
+  const interBlock = (p) => {
+    const st = p.interStatus;
+    const head = st ? `<div class="notice ${/FALHOU|ERRO/.test(st) ? 'bad' : 'warn'}" style="margin:8px 0 0"><b>${t('inter.st', { st: esc(st) })}</b>
+        ${p.interRecebedor ? `<br>${t('inter.holder', { name: esc(p.interRecebedor) })} ${p.interHolderOk === false ? `<b>· ${t('inter.holder.ko')}</b>` : p.interHolderOk ? '✓' : ''}` : ''}
+        ${p.interError ? `<br><span class="hint">${esc(p.interError.slice(0, 160))}</span>` : ''}</div>` : '';
+    const btn = p.interCodigo
+      ? `<button class="btn small secondary" data-inter-check="${esc(p.id)}" style="margin-top:8px">${t('inter.check')}</button>`
+      : `<button class="btn small" data-inter-send="${esc(p.id)}" style="margin-top:8px">${t('inter.send')}</button>`;
+    return head + btn;
+  };
   const due = guides.map((g) => {
     const items = visits.filter((v) => v.guideId === g.id && v.status === 'received');
     const adj = sumOf(openAdjustments(adjustments, g.id), 'guideDelta');
@@ -514,6 +525,7 @@ async function payouts({ guides, visits, payoutList, adjustments, cur, guide }) 
         <div class="spread"><b>${t('admin.out.num', { num: p.num })} · ${esc(guide(p.guideId)?.name)}</b><b>${cur(p.cents, guide(p.guideId)?.cityId)}</b></div>
         ${p.inssCents ? `<div class="hint">${t('admin.out.breakdown', { gross: cur(p.grossCents, guide(p.guideId)?.cityId), inss: cur(p.inssCents, guide(p.guideId)?.cityId) })}</div>` : ''}
         <div class="hint">${t('admin.out.sendnet', { amount: cur(p.cents, guide(p.guideId)?.cityId) })} · Pix : ${esc(guide(p.guideId)?.pixKey || tRaw('admin.missing'))}</div>
+        ${interBlock(p)}
         <form class="confirm row" data-id="${esc(p.id)}" style="align-items:flex-end;margin-top:6px">
           <div class="field" style="margin:0;flex:1"><label>${t('admin.out.ref')}</label><input name="ref" placeholder="E2E… / n° de virement"></div>
           <button class="btn small">${t('admin.out.confirm2')}</button>
@@ -594,6 +606,22 @@ async function payouts({ guides, visits, payoutList, adjustments, cur, guide }) 
         if (r && r.blocked) { notify(tRaw(`admin.out.blocked.${r.blocked}`)); return; }
         ctx.refresh(tRaw('admin.out.started'));
       }, tRaw('err.generic')));
+      const interMsg = (r) => {
+        if (!r) return tRaw('err.generic');
+        if (r.paid) return tRaw('inter.paid', { e2e: r.e2e || '' });
+        if (r.failed) return tRaw('inter.failed', { st: r.status || '' });
+        if (r.ok === false) return tRaw(`inter.err.${['status', 'pix', 'pix_key', 'amount', 'inter', 'not_sent'].includes(r.reason) ? r.reason : 'other'}`);
+        return tRaw('inter.pending', { st: r.status || '' });
+      };
+      root.querySelectorAll('[data-inter-send]').forEach((b) => confirmTwice(b, tRaw('inter.send.confirm'), async () => {
+        const r = await store.sendPayoutInter(b.dataset.interSend).catch(() => null);
+        ctx.refresh(interMsg(r));
+      }, tRaw('err.generic')));
+      root.querySelectorAll('[data-inter-check]').forEach((b) => { b.onclick = async () => {
+        b.disabled = true;
+        const r = await store.checkPayoutInter(b.dataset.interCheck).catch(() => null);
+        ctx.refresh(interMsg(r));
+      }; });
       root.querySelectorAll('form.confirm').forEach((f) => {
         f.onsubmit = async (e) => {
           e.preventDefault();
