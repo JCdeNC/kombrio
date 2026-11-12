@@ -45,7 +45,7 @@ const toPartner = (r) => r && ({
 });
 const toStay = (r) => r && ({
   id: r.id, guideId: r.guide_id, client: r.client, people: r.people, start: r.start_day, end: r.end_day,
-  token: r.token, createdAt: r.created_at, archivedAt: r.archived_at || '',
+  token: r.token, createdAt: r.created_at, archivedAt: r.archived_at || '', direct: !!r.direct,
 });
 const num = (x) => (x == null ? null : Number(x));
 // Une transaction (passage) : montants en centavos, jamais en nombres à virgule.
@@ -59,7 +59,7 @@ const toVisit = (r) => r && ({
   guideTaxKind: r.guide_tax_kind || null, floorApplied: !!r.floor_applied,
   // v59 : saisie au restaurant et présence du guide.
   tableLabel: r.table_label || '', guideMeal: !!r.guide_meal, computedCents: num(r.computed_cents), commissionNote: r.commission_note || '',
-  declaredBy: r.declared_by || null, hasPhoto: !!r.has_photo, guidePresent: !!r.guide_present,
+  declaredBy: r.declared_by || null, hasPhoto: !!r.has_photo, guidePresent: !!r.guide_present, direct: !!r.direct,
 });
 const toPayout = (r) => r && ({
   id: r.id, num: num(r.num), guideId: r.guide_id, cents: num(r.amount_cents), status: r.status, reference: r.reference,
@@ -389,6 +389,15 @@ export async function markGuidePresent(partnerToken, badgeToken) {
   return check(await sb.rpc('mark_guide_present', { p_partner_token: partnerToken, p_badge_token: badgeToken }));
 }
 // v59 : « Devenir partenaire » (établissement non partenaire).
+// v63 : vente sans QR client (comme la planilha de la loja) : le guide (code ou crachá) et le montant de la vente.
+export async function findGuides(partnerToken, q) {
+  return check(await sb.rpc('find_guides', { p_partner_token: partnerToken, p_q: q })) || [];
+}
+export async function recordDirectSale(partnerToken, guideRef, { invoiceCents, people = 1, commissionCents = null, note = null }) {
+  return check(await sb.rpc('record_direct_sale', {
+    p_partner_token: partnerToken, p_guide: guideRef, p_invoice_cents: invoiceCents, p_people: people, p_commission_cents: commissionCents, p_note: note,
+  }));
+}
 export async function createPartnerLead({ name, contact, phone, email, type, message }) {
   return check(await sb.rpc('create_partner_lead', {
     p_name: name, p_contact: contact, p_phone: phone || null, p_email: email || null, p_type: type || null, p_message: message || null,

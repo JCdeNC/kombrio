@@ -1,7 +1,7 @@
 // Vérification d'un crachá de guide (v35) : la vendeuse scanne le QR du badge.
 // Montre seulement le nom du crachá, le nom complet (qui confirme l'identité), la photo, le code, la ville et le statut. Jamais CPF, Pix, téléphone ou e-mail.
 import { t } from '../i18n.js';
-import { esc, fmtDay, notify } from '../util.js';
+import { esc, fmtDay, notify, appLink } from '../util.js';
 import * as store from '../store.js';
 
 export async function verifyView([token = '']) {
@@ -27,7 +27,8 @@ export async function verifyView([token = '']) {
         ${b.is_test ? `<p class="badge warn" style="margin-top:8px">${t('vf.test')}</p>` : ''}
       </div>
       ${partnerKey() && b.state === 'ok' ? `<div class="card no-print"><button class="btn block" id="vf-present">${t('vf.present')}</button>
-        <p class="hint" style="margin:8px 0 0">${t('vf.present.hint')}</p><div id="vf-present-msg"></div></div>` : ''}
+        <p class="hint" style="margin:8px 0 0">${t('vf.present.hint')}</p><div id="vf-present-msg"></div>
+        <a class="btn secondary block" style="margin-top:10px" href="${esc(appLink('partner', `p/${encodeURIComponent(partnerKey())}/venda/${token}`))}">${t('vd.from.badge')}</a></div>` : ''}
       <ol class="vf-steps"><li>${t('vf.step1')}</li><li>${t('vf.step2')}</li></ol>
       <p class="hint" style="text-align:center">${t('vf.checked', { at: now })}</p>
     </div>`,

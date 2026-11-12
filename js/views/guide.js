@@ -218,7 +218,7 @@ async function dashboardView(me, city, tab = 'inicio') {
   const pixOk = me.pixStatus === undefined || me.pixStatus === 'verified';
   const blocked = !pixOk || toConfirm.length > 0;
   const stayState = (s) => (s.start > today ? 'soon' : stayIsValid(s, city) ? 'active' : 'done');
-  const soonStays = stays.filter((s) => stayState(s) === 'soon' && !s.archivedAt);
+  const soonStays = stays.filter((s) => stayState(s) === 'soon' && !s.archivedAt && !s.direct);
   const soon60 = addDays(today, 60);
   const cad = me.cadasturValidUntil;
   const alertOf = (vId) => alerts.find((a) => a.visitId === vId && a.status !== 'resolved');
@@ -245,7 +245,7 @@ async function dashboardView(me, city, tab = 'inicio') {
     const sh = shareOf(v); const a = alertOf(v.id);
     return `<div class="g-tx" data-p="${esc(v.partnerId)}" data-s="${esc(v.status)}">
       <div class="spread"><span><b>${esc(pname(v.partnerId))}</b> · ${esc(stayOf(v.stayId)?.client || '')}<br>
-        <span class="hint">${fmtDay(v.at.slice(0, 10), lang)} · ${esc(store.visitRef(v))} · ${t('stay.people', { n: v.peopleServed })}${v.guidePresent ? ` · ${t('rs.present')}` : ''}${v.guideMeal ? ` · ${t('rs.meal.tag')}` : ''}${v.computedCents != null && v.declaredCents != null && v.declaredCents < v.computedCents ? ` · ${t('g.reduced')}` : ''}</span></span>
+        <span class="hint">${fmtDay(v.at.slice(0, 10), lang)} · ${esc(store.visitRef(v))} · ${t('stay.people', { n: v.peopleServed })}${v.direct ? ` · ${t('vd.tag')}` : ''}${v.guidePresent ? ` · ${t('rs.present')}` : ''}${v.guideMeal ? ` · ${t('rs.meal.tag')}` : ''}${v.computedCents != null && v.declaredCents != null && v.declaredCents < v.computedCents ? ` · ${t('g.reduced')}` : ''}</span></span>
         <span class="g-amt">${sh == null ? `<span class="hint">${t('g.amt.none')}</span>` : CASHED.includes(v.status) ? `<b>${cur(sh)}</b>` : `<b>≈ ${cur(sh)}</b><br><span class="hint">${t('g.amt.est')}</span>`}</span></div>
       ${tracker(v)}
       <div class="g-tx-f">${a ? `<span class="badge">${t('alert.short', { num: a.num, status: alertStatus(a.status) })}</span>` : problemLink(v.id)}</div>
@@ -274,7 +274,8 @@ async function dashboardView(me, city, tab = 'inicio') {
   };
   const byStart = (a, b) => (a.start < b.start ? -1 : a.start > b.start ? 1 : 0);
   const groupList = (list) => `<ul class="list sw-list">${list.map(stayItem).join('')}</ul>`;
-  const staysCard = (list, full) => {
+  const staysCard = (all, full) => {
+    const list = all.filter((s) => !s.direct);  // v63 : les ventes directes ne sont pas des clients
     const shown = list.filter((s) => !isArchived(s));
     const head = `<div class="spread"><h2 style="margin:0">${t('guide.stays')}</h2>${full ? '' : `<a class="btn small" href="#/clientes">${t('g.newqr')}</a>`}</div>`;
     if (!full) return `<div class="card">${head}${shown.length ? groupList(shown) : `<p class="hint">${t('g.stays.none')}</p>`}</div>`;
@@ -294,7 +295,7 @@ async function dashboardView(me, city, tab = 'inicio') {
   const todo = [];
   if (!pixOk) todo.push([`pix-${me.pixKeyVersion}`, t(openCheck ? 'g.todo.pixconfirm' : 'g.todo.pix')]);
   toConfirm.forEach((p) => todo.push([`po-${p.id}`, t('g.todo.payout', { amount: cur(p.cents) })]));
-  if (!stays.length) todo.push(['firstqr', t('g.todo.firstqr')]);
+  if (!stays.some((s) => !s.direct)) todo.push(['firstqr', t('g.todo.firstqr')]);
   soonStays.forEach((s) => todo.push([`send-${s.id}`, t('g.todo.send', { client: s.client, date: fmtDay(s.start, lang) })]));
   if (cad && cad < soon60) todo.push([`cad-${cad}`, t('g.todo.cad')]);
   const left = todo.filter(([k]) => !done.has(k)).length;

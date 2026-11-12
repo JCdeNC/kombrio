@@ -425,3 +425,9 @@ main { overflow-wrap: break-word; }
 @media (max-width: 560px) {
   main :is(.card, details):has(table) { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 }
+
+/* v63 : vente sans QR client */
+.vd-card { padding: 12px 16px; }
+.vd-list { display: grid; gap: 4px; margin-top: 6px; }
+.vd-opt { text-align: left; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface, #fff); font: inherit; cursor: pointer; }
+.vd-opt:hover { border-color: var(--brand-light); }

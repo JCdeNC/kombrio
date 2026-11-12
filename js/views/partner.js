@@ -125,6 +125,7 @@ export async function partnerView([token, action, visitId], ctx) {
   }
 
   // La caisse n'a accès qu'aux passages qu'elle vient d'enregistrer.
+  if (action === 'venda') return saleView(space, visitId);
   if (space.role !== 'manager' && !['passage', 'deja', 'lancar'].includes(action)) return spaceView(space);
   if (['visitas', 'pagamentos', 'config'].includes(action)) return spaceView(space, action);
   if (action === 'declarar') return declareManyView(space);
@@ -281,6 +282,83 @@ export function scannedView({ partner, city, key, role, visits }, visit, action)
   };
 }
 
+// v63 : « Venda sem QR do cliente » — comme la planilha : le guide et le montant de la vente, pour CETTE boutique.
+function saleButton(key) {
+  return `<div class="card vd-card"><div class="spread" style="align-items:center"><span><b>${t('vd.title')}</b><br><span class="hint">${t('vd.hint')}</span></span>
+    <a class="btn small" href="#/p/${encodeURIComponent(key)}/venda">${t('vd.new')}</a></div></div>`;
+}
+async function saleView({ partner, city, key, role }, guideRef = '') {
+  const lang = getLang();
+  const c = (n) => cents(n, city.currency, lang);
+  const rate = partner.commissionRate;
+  const back = `#/p/${encodeURIComponent(key)}`;
+  // Arrivée depuis le crachá du guide (B-…) : le guide est déjà choisi.
+  let preset = null;
+  if (/^B-[a-f0-9]{32}$/.test(guideRef)) { const b = await store.guideBadge(guideRef); if (b && b.state === 'ok') preset = { ref: guideRef, name: b.badge_name || b.name, code: b.code || '' }; }
+  return {
+    html: `<form class="card" id="vd">
+        <div class="spread"><h1 style="margin:0">${t('vd.title')}</h1><span class="hint">${esc(partner.name)}</span></div>
+        <p class="hint">${t('vd.form.hint')}</p>
+        <div class="field"><label for="vd-q">${t('vd.guide')}</label>
+          <input id="vd-q" autocomplete="off" placeholder="${esc(tRaw('vd.guide.ph'))}" value="${preset ? esc(`${preset.name}${preset.code ? ` · ${preset.code}` : ''}`) : ''}">
+          <input type="hidden" name="guide" value="${preset ? esc(preset.ref) : ''}">
+          <div id="vd-list" class="vd-list"></div>
+          ${preset ? `<p class="hint" style="margin:4px 0 0">✓ ${t('vd.guide.badge')}</p>` : ''}</div>
+        <div class="field"><label for="vd-v">${t('vd.amount')}</label>
+          <input id="vd-v" name="amount" class="rs-big" inputmode="decimal" placeholder="${esc(city.currency)} 0,00"></div>
+        <div class="field"><label for="vd-c">${t('rs.com', { rate: Math.round(rate * 100) })}</label>
+          <input id="vd-c" name="com" inputmode="decimal" placeholder="—">
+          <p class="hint" style="margin:4px 0 0" id="vd-c-hint">${t('rs.com.hint')}</p></div>
+        <div class="field" id="vd-note-f" hidden><label for="vd-note">${t('rs.note')}</label><input id="vd-note" name="note" maxlength="200"></div>
+        <div class="field"><label for="vd-n">${t('vd.people')}</label>
+          <input id="vd-n" name="n" type="number" min="1" max="500" step="1" inputmode="numeric" value="1" style="max-width:120px"></div>
+        <button class="btn block" id="vd-save">${t('vd.save')}</button>
+      </form>
+      <a class="btn ghost" href="${back}">${t(role === 'manager' ? 'partner.space' : 'counter.back')}</a>`,
+    mount(root, ctx) {
+      const f = root.querySelector('#vd'); const q = root.querySelector('#vd-q'); const list = root.querySelector('#vd-list');
+      (preset ? f.amount : q).focus();
+      let timer = null;
+      q.addEventListener('input', () => {
+        f.guide.value = ''; clearTimeout(timer);
+        const v = q.value.trim(); if (v.length < 2) { list.innerHTML = ''; return; }
+        timer = setTimeout(async () => {
+          const found = await store.findGuides(key, v).catch(() => []);
+          list.innerHTML = found.length ? found.map((g) => `<button type="button" class="vd-opt" data-code="${esc(g.code)}" data-label="${esc(`${g.badge_name || g.name} · ${g.code}`)}"><b>${esc(g.badge_name || g.name)}</b> <span class="hint">${esc(g.name)} · ${esc(g.code)}</span></button>`).join('')
+            : `<p class="hint" style="margin:6px 0">${t('vd.guide.none')}</p>`;
+          list.querySelectorAll('[data-code]').forEach((b) => { b.onclick = () => { f.guide.value = b.dataset.code; q.value = b.dataset.label; list.innerHTML = ''; f.amount.focus(); }; });
+        }, 250);
+      });
+      let comTouched = false;
+      const upd = () => {
+        const sum = parseCents(f.amount.value); const calc = sum == null ? null : Math.round(sum * rate);
+        if (!comTouched) f.com.value = calc == null ? '' : (calc / 100).toFixed(2).replace('.', ',');
+        root.querySelector('#vd-c-hint').textContent = calc == null ? tRaw('rs.com.hint') : tRaw('rs.com.calc', { bill: c(sum), com: c(calc) });
+        const typed = parseCents(f.com.value);
+        root.querySelector('#vd-note-f').hidden = !(calc != null && typed != null && typed < calc);
+      };
+      f.amount.addEventListener('input', upd);
+      f.com.addEventListener('input', () => { comTouched = f.com.value.trim() !== ''; upd(); });
+      f.onsubmit = async (e) => {
+        e.preventDefault();
+        if (!f.guide.value) { notify(tRaw('vd.err.guide')); q.focus(); return; }
+        const sum = parseCents(f.amount.value);
+        if (sum == null || sum <= 0) { notify(tRaw('vd.err.amount')); return; }
+        const calc = Math.round(sum * rate);
+        const com = f.com.value.trim() === '' ? calc : parseCents(f.com.value);
+        if (com == null || com > calc) { notify(tRaw('rs.err.com', { max: c(calc) })); return; }
+        const n = Number(f.n.value) || 1;
+        const btn = root.querySelector('#vd-save'); btn.disabled = true;
+        try {
+          const r = await store.recordDirectSale(key, f.guide.value, { invoiceCents: sum, people: n, commissionCents: com === calc ? null : com, note: f.note.value || null });
+          if (!r || !r.ok) { btn.disabled = false; notify(tRaw(['guide', 'guide_status', 'amount', 'commission', 'people'].includes(r && r.reason) ? `vd.err.${r.reason}` : 'err.generic')); return; }
+          ctx.go(`p/${key}/venda`, tRaw('vd.saved', { guide: r.guide, com: c(r.declared_cents) }));
+        } catch { btn.disabled = false; notify(tRaw('err.generic')); }
+      };
+    },
+  };
+}
+
 // v60 : « há 20 min », « há 2 h », sinon la date et l'heure.
 function sinceLabel(iso, lang, tz) {
   const min = Math.round((Date.now() - new Date(iso)) / 6e4);
@@ -388,6 +466,7 @@ export function spaceView(space, tab = 'painel') {
   };
   const rowTags = (v) => {
     const tags = [];
+    if (v.direct) tags.push(t('vd.tag'));
     if (v.guidePresent) tags.push(t('rs.present'));
     if (v.guideMeal) tags.push(t('rs.meal.tag'));
     if (v.computedCents != null && v.declaredCents != null && v.declaredCents < v.computedCents) tags.push(t('rs.reduced', { from: c(v.computedCents) }));
@@ -482,7 +561,7 @@ export function spaceView(space, tab = 'painel') {
   const inPending = (v) => v.status === 'visited' && Date.now() - new Date(v.at) < 16 * 36e5;
   const open = visits.filter((v) => ['visited', 'declared', 'verifying', 'disputed'].includes(v.status) && !inPending(v));
   const body = {
-    painel: `${pendingCard({ city, visits, key })}${steps}${kpis}<div class="pd-cols">${visitsCard(t('pd.totreat'), open, false)}<div class="pd-side">${chartCard}${todoCard}${adjustmentsCard(adjustments, city, lang)}${lastCard}${shortcuts}</div></div>`,
+    painel: `${saleButton(key)}${pendingCard({ city, visits, key })}${steps}${kpis}<div class="pd-cols">${visitsCard(t('pd.totreat'), open, false)}<div class="pd-side">${chartCard}${todoCard}${adjustmentsCard(adjustments, city, lang)}${lastCard}${shortcuts}</div></div>`,
     visitas: visitsCard(t('pd.all'), visits, true),
     pagamentos: `<div class="pd-cols"><div class="pd-side">${visitsCard(t('pd.topay'), toPay, false)}${payHistory}</div><div class="pd-side">${docsCard}${adjustmentsCard(adjustments, city, lang)}</div></div>`,
     config: settings,
@@ -1010,6 +1089,7 @@ function counterView({ partner, city, visits, key }) {
     html: `
       <div class="spread"><h1>${esc(partner.name)}</h1>${helpButton()}</div>
       <div class="notice ok">${t('counter.ready')}</div>
+      ${saleButton(key)}
       ${pendingCard({ city, visits, key })}
       ${partner.offer ? `<div class="card"><h2>${t('counter.offer')}</h2><div class="offer">${esc(partner.offer)}</div><p class="hint" style="margin-top:8px">${t('counter.offer.hint')}</p></div>` : ''}
       <div class="card">
