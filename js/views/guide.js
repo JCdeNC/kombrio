@@ -63,15 +63,16 @@ async function loginView() {
             <select id="g-city" name="cityId">${cities.map((c) => `<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('')}</select></div>
         </div>
         <h3 class="su-step">2. ${t('su.s.id')}</h3>
-        <div class="field" role="radiogroup" aria-label="${t('guide.signup.taxkind')}"><span class="hint">${t('guide.signup.taxkind')}</span>
-          <div class="row" style="gap:18px;margin-top:4px">
-            <label style="display:flex;gap:6px;align-items:center;font-weight:400;margin:0"><input type="radio" name="taxKind" value="cpf" checked style="width:auto">${t('guide.signup.kind.cpf')}</label>
-            <label style="display:flex;gap:6px;align-items:center;font-weight:400;margin:0"><input type="radio" name="taxKind" value="cnpj" style="width:auto">${t('guide.signup.kind.cnpj')}</label></div></div>
         <div class="grid2">
+          <div class="field"><label for="g-cpf">${t('guide.signup.cpf')}</label><input id="g-cpf" name="cpf" required inputmode="numeric" placeholder="000.000.000-00"></div>
           <div class="field"><label for="g-license">${t('guide.signup.license')}</label><input id="g-license" name="license" required inputmode="numeric" placeholder="00.000000.00-0"></div>
-          <div class="field"><label for="g-cpf" id="g-cpf-l">${t('guide.signup.cpf')}</label><input id="g-cpf" name="cpf" required inputmode="numeric" placeholder="000.000.000-00"></div>
         </div>
-        <p class="hint" style="margin-top:-6px" id="g-license-hint">${t('su.lic.hint.cpf')}</p>
+        <p class="hint" style="margin-top:-6px">${t('su.lic.hint.v64')}</p>
+        <details class="su-cnpj"><summary>${t('su.cnpj.opt')}</summary>
+          <p class="hint" style="margin:6px 0">${t('su.cnpj.hint')}</p>
+          <div class="field"><label for="g-cnpj">${t('guide.signup.cnpj')}</label><input id="g-cnpj" name="cnpj" inputmode="numeric" placeholder="00.000.000/0000-00"></div>
+        </details>
+        <p class="hint">${t('su.tax.note')}</p>
         <h3 class="su-step">3. ${t('su.s.pix')}</h3>
         <div class="grid2">
           <div class="field"><label for="g-ptype">${t('pix.type')}</label><select id="g-ptype" name="pixType">${PIX_TYPES.map((k) => `<option value="${k}"${k === 'cpf' ? ' selected' : ''}>${t(`pix.type.${k}`)}</option>`).join('')}</select></div>
@@ -91,25 +92,13 @@ async function loginView() {
       </form>`,
     mount(root, ctx) {
       mountForgot(root.querySelector('#login'));
-      // Case CPF / CNPJ : le champ s'adapte (masque, libellé, exemple) et se vide au changement.
-      let kind = 'cpf';
-      const taxIn = root.querySelector('#g-cpf');
-      const licIn = root.querySelector('#g-license');
-      // Empresa : le Cadastur est le CNPJ de l'entreprise, recopié dans le champ CNPJ (modifiable).
-      licIn.addEventListener('input', () => { if (kind === 'cnpj') queueMicrotask(() => { taxIn.value = licIn.value; }); });
-      maskTaxId(taxIn, () => kind);
-      root.querySelectorAll('input[name="taxKind"]').forEach((r) => { r.onchange = () => {
-        kind = r.value; taxIn.value = ''; licIn.value = '';
-        taxIn.placeholder = kind === 'cnpj' ? '00.000.000/0000-00' : '000.000.000-00';
-        licIn.placeholder = kind === 'cnpj' ? '00.000.000/0000-00' : '00.000000.00-0';
-        root.querySelector('#g-cpf-l').textContent = tRaw(kind === 'cnpj' ? 'guide.signup.cnpj' : 'guide.signup.cpf');
-        root.querySelector('#g-license-hint').textContent = tRaw(`su.lic.hint.${kind}`);
-        licIn.focus();
-      }; });
+      // v64 : CPF obligatoire, CNPJ facultatif (paiement en CNPJ si rempli).
+      const taxIn = root.querySelector('#g-cpf'); const cnpjIn = root.querySelector('#g-cnpj');
+      maskTaxId(taxIn, () => 'cpf'); maskTaxId(cnpjIn, () => 'cnpj');
       maskCadastur(root.querySelector('#g-license'));
       // Clé Pix CPF / CNPJ : reprise du numéro saisi plus haut (modifiable).
       const pType = root.querySelector('#g-ptype'); const pKey = root.querySelector('#g-pix');
-      const fillKey = () => { if (['cpf', 'cnpj'].includes(pType.value) && !pKey.value) pKey.value = taxIn.value; };
+      const fillKey = () => { if (!pKey.value) { if (pType.value === 'cpf') pKey.value = taxIn.value; if (pType.value === 'cnpj') pKey.value = cnpjIn.value; } };
       pType.onchange = () => { pKey.value = ''; fillKey(); pKey.placeholder = tRaw(`su.pix.ph.${pType.value}`); };
       pKey.placeholder = tRaw('su.pix.ph.cpf');
       pKey.onfocus = fillKey;
@@ -124,16 +113,17 @@ async function loginView() {
         if (f.password !== f.password2) { notify(tRaw('auth.err.mismatch')); return; }
         const phone = phoneValue(e.target, 'g-phone');
         if (!phone) { notify(tRaw('phone.err')); return; }
-        const cnpj = f.taxKind === 'cnpj';
-        if (cnpj ? !validCnpj(f.cpf) : !validCpf(f.cpf)) { notify(tRaw(cnpj ? 'guide.signup.err.cnpj' : 'guide.signup.err.cpf')); return; }
+        if (!validCpf(f.cpf)) { notify(tRaw('guide.signup.err.cpf')); return; }
+        const cnpj = onlyDigits(f.cnpj || '');
+        if (cnpj && !validCnpj(cnpj)) { notify(tRaw('guide.signup.err.cnpj')); return; }
         const lic = onlyDigits(f.license);
-        if (cnpj ? !validCnpj(lic) : (lic.length !== 11 || lic === onlyDigits(f.cpf))) { notify(tRaw(cnpj ? 'su.lic.err.cnpj' : 'guide.signup.err.license')); return; }
+        if (!((lic.length === 11 && lic !== onlyDigits(f.cpf)) || (lic.length === 14 && validCnpj(lic)))) { notify(tRaw('guide.signup.err.license')); return; }
         if (!validPixKey(f.pixType, f.pixKey)) { notify(tRaw('pix.err.key')); return; }
         if ((f.pixHolder || '').trim().length < 3) { notify(tRaw('su.pix.holder.err')); return; }
         try {
           const ready = await store.signUpGuide({
             email: f.email.trim(), password: f.password, name: f.name.trim(), phone,
-            license: f.license.trim(), cityId: f.cityId, cpf: onlyDigits(f.cpf), taxKind: cnpj ? 'cnpj' : 'cpf', pixKey: f.pixKey.trim(), pixType: f.pixType, pixHolder: f.pixHolder.trim().replace(/\s+/g, ' '), refCode: (f.refCode || '').trim(),
+            license: f.license.trim(), cityId: f.cityId, cpf: onlyDigits(f.cpf), cnpj: cnpj || null, pixKey: f.pixKey.trim(), pixType: f.pixType, pixHolder: f.pixHolder.trim().replace(/\s+/g, ' '), refCode: (f.refCode || '').trim(),
           });
           ctx.refresh(tRaw(ready ? 'guide.signup.done' : 'auth.confirm'));
         } catch (err) { notify(tRaw(err.message === 'exists' ? 'auth.err.exists' : 'auth.err.signup')); }
@@ -233,6 +223,7 @@ async function dashboardView(me, city, tab = 'inicio') {
   payouts.filter((p) => p.status === 'paid' && ['not_received', 'wrong_amount'].includes(p.receivedStatus)).forEach((p) => {
     banners += `<div class="notice bad">${t(`po.ans.${p.receivedStatus}.banner`, { num: p.num })} <a href="#/repasse/${esc(p.id)}">${t('po.detail')}</a></div>`; });
   if (!pixOk && !openCheck) banners += `<div class="notice bad">${t('pix.suspended')}</div>`;
+  if (!me.cpf) banners += `<div class="notice bad">${t('id.cpf.missing')} <a href="#/conta">${t('g.tab.conta')} →</a></div>`;
   if (cad && cad < today) banners += `<div class="notice bad">${t('g.cad.expired', { date: fmtDay(cad, lang) })}</div>`;
   else if (cad && cad < soon60) banners += `<div class="notice warn">${t('g.cad.soon', { date: fmtDay(cad, lang) })}</div>`;
   alerts.filter((a) => a.status !== 'resolved' || (a.answer && ageDays(a.resolvedAt) < 7)).forEach((a) => {
@@ -355,7 +346,15 @@ async function dashboardView(me, city, tab = 'inicio') {
   const adjCard = adjustments.length ? `<div class="card"><h2>${t('guide.adj.title')}</h2><ul class="list">${adjustments.map((a) => `<li><div class="spread"><span>${esc(store.adjNum(a.num))} · ${esc(a.reason)}</span><b>${cur(a.guideDelta)}</b></div>
       <div class="hint">${t(a.payoutId ? 'g.adj.done' : 'g.adj.next')}</div></li>`).join('')}</ul></div>` : '';
 
-  const contaBody = `${pixCard(me, pixChecks, payouts, cur, lang)}
+  // v64 : identification — CPF obligatoire (à compléter s'il manque), CNPJ facultatif.
+  const idCard = `<form class="card" id="taxids"><h2>${t('id.title')}</h2>
+      ${me.cpf ? `<p style="margin:0 0 8px">CPF <b>${esc(fmtTaxId(me.cpf).replace(/^\d{3}\.\d{3}/, '•••.•••'))}</b></p>`
+        : `<div class="notice bad" style="margin:0 0 8px">${t('id.cpf.missing')}</div>
+           <div class="field"><label for="id-cpf">CPF</label><input id="id-cpf" name="cpf" inputmode="numeric" placeholder="000.000.000-00" required></div>`}
+      <div class="field"><label for="id-cnpj">${t('su.cnpj.opt')}</label><input id="id-cnpj" name="cnpj" inputmode="numeric" placeholder="00.000.000/0000-00" value="${esc(me.cnpj ? fmtTaxId(me.cnpj) : '')}"></div>
+      <p class="hint" style="margin:-4px 0 10px">${t(me.cnpj ? 'id.paid.cnpj' : 'id.paid.cpf')}</p>
+      <button class="btn secondary">${t('common.save')}</button></form>`;
+  const contaBody = `${pixCard(me, pixChecks, payouts, cur, lang)}${idCard}
       ${WEEKLY_OPTION || me.weeklyPayout ? `<label class="card" style="display:block"><input type="checkbox" id="weekly"${me.weeklyPayout ? ' checked' : ''}> <b>${t('guide.weekly.title')}</b>
         <span class="hint" style="display:block">${t('guide.weekly.hint')}</span></label>` : ''}
       <div class="card"><div class="spread"><h2 style="margin:0">${t('g.cad.title')}</h2>
@@ -394,6 +393,23 @@ async function dashboardView(me, city, tab = 'inicio') {
       mountLogout(root, ctx);
       mountPix(root, ctx);
       mountStayActions(root, ctx);
+      const tf = root.querySelector('#taxids');
+      if (tf) {
+        if (tf.cpf) maskTaxId(tf.cpf, () => 'cpf');
+        maskTaxId(tf.cnpj, () => 'cnpj');
+        tf.onsubmit = async (e) => {
+          e.preventDefault();
+          const cpf = tf.cpf ? onlyDigits(tf.cpf.value) : null; const cnpj = onlyDigits(tf.cnpj.value);
+          if (tf.cpf && !validCpf(cpf)) { notify(tRaw('guide.signup.err.cpf')); return; }
+          if (cnpj && !validCnpj(cnpj)) { notify(tRaw('guide.signup.err.cnpj')); return; }
+          if (cnpj !== (me.cnpj || '') && !confirm(tRaw(cnpj ? 'id.confirm.cnpj' : 'id.confirm.cpf'))) return;
+          try {
+            const r = await store.setMyTaxIds(cpf, cnpj || null);
+            if (r && r.ok) ctx.refresh(tRaw('common.saved'));
+            else notify(tRaw(r && r.reason === 'cpf_locked' ? 'id.err.locked' : 'err.generic'));
+          } catch { notify(tRaw('err.generic')); }
+        };
+      }
       mountHelp(root, { kind: 'guide', send: (topic, msg, vId) => store.guideCreateAlert(topic, msg, vId),
         findCode: (c) => visits.find((x) => x.code === c)?.id || null,
         label: (vId) => { const v = visits.find((x) => x.id === vId); return v ? `${pname(v.partnerId)} · ${stayOf(v.stayId)?.client || ''} · ${store.visitRef(v)}` : ''; },

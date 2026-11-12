@@ -431,3 +431,22 @@ main { overflow-wrap: break-word; }
 .vd-list { display: grid; gap: 4px; margin-top: 6px; }
 .vd-opt { text-align: left; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface, #fff); font: inherit; cursor: pointer; }
 .vd-opt:hover { border-color: var(--brand-light); }
+
+/* v64 : CNPJ facultatif à l'inscription */
+.su-cnpj { margin: 0 0 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--bg); }
+.su-cnpj summary { cursor: pointer; font-weight: 700; }
+
+/* v64 : « Ajuda » dans l'en-tête sur téléphone (rond « ? »), le bouton de la page disparaît. */
+.top-r { display: inline-flex; align-items: center; gap: 8px; flex: none; }
+.hdr-help { width: 34px; height: 34px; border-radius: 50%; border: 1px solid rgba(255,255,255,.45); background: transparent; color: #fff; font: inherit; font-weight: 800; font-size: 1.05rem; line-height: 1; cursor: pointer; }
+.hdr-help:hover { background: rgba(255,255,255,.12); }
+@media (min-width: 561px) { .hdr-help { display: none; } }
+@media (max-width: 560px) { main .help-main { display: none; } }
+@media (max-width: 400px) {
+  .top { padding: 10px 10px; gap: 6px; }
+  .brand { gap: 6px; }
+  .brand-app { margin-left: 0; padding: 3px 6px; font-size: .58rem; letter-spacing: .02em; }
+  .top-r { gap: 6px; }
+  .hdr-help { width: 30px; height: 30px; font-size: .95rem; }
+  .top select { padding: 5px 2px; }
+}

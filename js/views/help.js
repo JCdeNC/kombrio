@@ -28,7 +28,7 @@ function findTopic(kind, q) {
 }
 
 // Petit bouton « ? Ajuda » à placer dans un en-tête.
-export const helpButton = () => `<button type="button" class="btn ghost small no-print" data-help-open="">${t('help.btn')}</button>`;
+export const helpButton = () => `<button type="button" class="btn ghost small no-print help-main" data-help-open="">${t('help.btn')}</button>`;
 // Lien « Um problema? » sous une ligne (commission ou visite).
 export const problemLink = (visitId) => `<button type="button" class="link-btn no-print" data-help-open="${esc(visitId)}">${t('help.problem')}</button>`;
 

@@ -279,7 +279,7 @@ async function validations({ guides, city, cadChecks }) {
       ${pending.length ? `<ul class="list">${pending.map((g) => `<li>
         <div class="spread"><b>${esc(g.name)}</b><span class="hint">${esc(city(g.cityId)?.name || '')}</span></div>
         <div class="hint">${esc(g.email || '')} · ${waLink(g.phone) ? `<a href="${waLink(g.phone)}" target="_blank" rel="noopener">${esc(g.phone)}</a>` : esc(g.phone || '')} · ${esc(city(g.cityId)?.licenseLabel || '')} ${esc(g.license || '')}</div>
-        <div class="hint">${g.taxKind === 'cnpj' ? 'CNPJ' : 'CPF'} ${g.cpf ? esc(fmtTaxId(g.cpf)) : `<b>${t('admin.missing')}</b>`} · ${t('admin.val.pix')} ${g.pixKey ? esc(g.pixKey) : `<b>${t('admin.missing')}</b>`}${g.pixHolder ? ` · ${t('su.pix.holder')} : <b>${esc(g.pixHolder)}</b>` : ''}</div>
+        <div class="hint">CPF ${g.cpf ? esc(fmtTaxId(g.cpf)) : `<b>${t('admin.missing')}</b>`}${g.cnpj ? ` · CNPJ ${esc(fmtTaxId(g.cnpj))} (${t('id.paid.short')})` : ''} · ${t('admin.val.pix')} ${g.pixKey ? esc(g.pixKey) : `<b>${t('admin.missing')}</b>`}${g.pixHolder ? ` · ${t('su.pix.holder')} : <b>${esc(g.pixHolder)}</b>` : ''}</div>
         ${(() => { const c = lastCheck(cadChecks, g.id); return c && c.validUntil >= today
           // Cadastur déjà vérifié et valide : il ne reste qu'à valider.
           ? `<p class="hint" style="margin:8px 0">${t('admin.cad.done', { date: fmtDay(c.checkedAt.slice(0, 10), lang), until: fmtDay(c.validUntil, lang) })}</p>
@@ -295,7 +295,7 @@ async function validations({ guides, city, cadChecks }) {
     mount(root, ctx) {
       root.querySelectorAll('[data-cad-open]').forEach((b) => { b.onclick = () => {
         const g = guides.find((x) => x.id === b.dataset.cadOpen);
-        openSheet(`${esc(g.name)} · ${esc(g.license || '')}${g.cpf ? ` · ${g.taxKind === 'cnpj' ? 'CNPJ' : 'CPF'} ${esc(fmtTaxId(g.cpf))}` : ''}`, `<iframe src="${CADASTUR_URL}" title="Cadastur"></iframe>`);
+        openSheet(`${esc(g.name)} · ${esc(g.license || '')}${g.cpf ? ` · CPF ${esc(fmtTaxId(g.cpf))}` : ''}${g.cnpj ? ` · CNPJ ${esc(fmtTaxId(g.cnpj))}` : ''}`, `<iframe src="${CADASTUR_URL}" title="Cadastur"></iframe>`);
       }; });
       // Certificat officiel : le lien du QR Code Cadastur, construit à partir du numéro.
       root.querySelectorAll('[data-cad-cert]').forEach((b) => { b.onclick = () => {
@@ -503,7 +503,7 @@ async function payouts({ guides, visits, payoutList, adjustments, cur, guide }) 
       <p class="hint">${t('admin.out.hint2')}</p>
       ${due.length ? `<ul class="list">${due.map(({ g, items, adj, total }) => `<li>
         <div class="spread"><b>${esc(g.name)}</b><b>${cur(total, g.cityId)}</b></div>
-        <div class="hint">${t('admin.out.line', { n: items.length, pix: g.pixKey || tRaw('admin.missing'), cpf: g.cpf ? `${g.taxKind === 'cnpj' ? 'CNPJ' : 'CPF'} ${fmtTaxId(g.cpf)}` : tRaw('admin.missing') })}</div>
+        <div class="hint">${t('admin.out.line', { n: items.length, pix: g.pixKey || tRaw('admin.missing'), cpf: g.taxKind === 'cnpj' && g.cnpj ? `CNPJ ${fmtTaxId(g.cnpj)}` : g.cpf ? `CPF ${fmtTaxId(g.cpf)}` : tRaw('admin.missing') })}</div>
         <div class="hint">${items.map((v) => esc(store.txNum(v.num))).join(' · ')}${adj ? ` · ${t('admin.out.adj', { amount: cur(adj, g.cityId) })}` : ''}</div>
         ${items.some((v) => (v.guideTaxKind || g.taxKind) === 'cpf') ? `<div class="hint">${t('admin.out.inss.hint')}</div>` : ''}
         ${blockReason(g, payoutList) ? `<div class="notice warn" style="margin-top:8px">${t(`admin.out.blocked.${blockReason(g, payoutList)}`)}</div>`

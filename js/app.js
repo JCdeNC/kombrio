@@ -1,7 +1,7 @@
 // Point d'entrée commun aux 4 applications : Client, Partenaire, Guide, Administrateur.
 // Chaque application a son dossier (client/, partner/, guide/, admin/) et sa page index.html
 // qui indique laquelle elle est (window.KOMBRIO_APP). Elle n'ouvre que ses propres écrans.
-import { t, LANGS, chosenLang, chooseLang, useLang, getLang, browserLang, setLangScope } from './i18n.js';
+import { t, tRaw, LANGS, chosenLang, chooseLang, useLang, getLang, browserLang, setLangScope } from './i18n.js';
 import { esc } from './util.js';
 import * as store from './store.js';
 import { VERSION, VERSION_DATE } from './version.js';
@@ -77,9 +77,10 @@ async function render() {
   root.innerHTML = `
     <header class="top">
       <a class="brand" href="#/"><img src="${ICON}" alt=""><span class="brand-word">kombrio<i></i></span>${APP === 'hub' ? '' : `<span class="brand-app">${narrow && APP === 'admin' ? 'Admin' : t(`app.${APP}`)}</span>`}</a>
+      <span class="top-r"><button type="button" class="hdr-help no-print" id="hdr-help" hidden aria-label="${esc(tRaw('help.btn'))}">?</button>
       <select id="lang" aria-label="${t('common.language')}">
         ${langs.map(([code, label]) => `<option value="${code}" ${code === getLang() ? 'selected' : ''}>${narrow ? code.toUpperCase() : label}</option>`).join('')}
-      </select>
+      </select></span>
     </header>
     <main>${message}${out.html}</main>
     <footer class="demo">
@@ -107,6 +108,10 @@ async function render() {
     edge(); nav.addEventListener('scroll', edge, { passive: true });
   });
   if (out.mount) out.mount(root.querySelector('main'), ctx);
+  // v64 : sur téléphone, « Ajuda » passe dans l'en-tête (rond « ? ») pour laisser le menu principal en évidence.
+  const pageHelp = root.querySelector('main .help-main');
+  const hdrHelp = document.getElementById('hdr-help');
+  if (pageHelp && hdrHelp) { hdrHelp.hidden = false; hdrHelp.onclick = () => pageHelp.click(); }
 }
 
 // Lien reçu par e-mail : un bouton pour le valider (voir store.confirmOtp).
