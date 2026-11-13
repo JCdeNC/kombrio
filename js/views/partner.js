@@ -38,6 +38,11 @@ export async function partnerHome(params, ctx) {
         <p class="hint">${t('pm.first.hint')}</p>
         <a class="btn secondary block" href="#/ativar">${t('pm.first.button')}</a>
       </div>
+      <div class="card">
+        <h2>${t('team.home.title')}</h2>
+        <p class="hint">${t('team.home.hint')}</p>
+        <a class="btn secondary block" href="#/equipe">${t('team.home.button')}</a>
+      </div>
       <p class="hint">${t('partner.home')}</p>`,
     mount(root, c) {
       mountForgot(root.querySelector('#login'));
@@ -108,6 +113,7 @@ export async function partnerView([token, action, visitId], ctx) {
   space.loggedIn = space.role === 'manager' && await store.hasSession();
   space.alerts = space.role === 'manager' ? await store.partnerAlerts(token) : [];
   space.closings = space.role === 'manager' ? await store.partnerClosings(token) : [];
+  if (space.role === 'manager' && action === 'equipe') space.team = await store.staffList(token).catch(() => []);
 
   if (!action) {
     const pending = readPendingStay();
@@ -126,8 +132,8 @@ export async function partnerView([token, action, visitId], ctx) {
 
   // La caisse n'a accès qu'aux passages qu'elle vient d'enregistrer.
   if (action === 'venda') return saleView(space, visitId);
-  if (space.role !== 'manager' && !['passage', 'deja', 'lancar'].includes(action)) return spaceView(space);
-  if (['visitas', 'pagamentos', 'config'].includes(action)) return spaceView(space, action);
+  if (space.role !== 'manager' && !['passage', 'deja', 'lancar', 'corrigir'].includes(action)) return spaceView(space);
+  if (['visitas', 'pagamentos', 'equipe', 'config'].includes(action)) return spaceView(space, action);
   if (action === 'declarar') return declareManyView(space);
   if (action === 'pagar') return payView(space);
   if (action === 'relatorio') return reportPage(space, visitId);
@@ -145,6 +151,10 @@ export function scannedView({ partner, city, key, role, visits }, visit, action)
   const c = (n) => cents(n, city.currency, lang);
   const fresh = action === 'passage';
   const rate = visit.rate ?? partner.commissionRate;
+  // v66 : le personnel ne voit jamais la commission ; il corrige son montant 15 min ; photo obligatoire dès 300 R$.
+  const staff = role === 'staff';
+  const fixing = staff && action === 'corrigir' && visit.canFix;
+  const photoMin = partner.photoRequiredCents;
   const back = `#/p/${encodeURIComponent(key)}`;
   let offer = '';
   if (partner.offer && fresh) {
@@ -152,28 +162,34 @@ export function scannedView({ partner, city, key, role, visits }, visit, action)
       ? `<div class="notice ok"><b>${t('partner.offer.give')}</b><div class="offer">${esc(partner.offer)}</div></div>`
       : `<div class="notice warn">${t('partner.offer.already')}</div>`;
   }
-  const head = action === 'lancar' ? '' : `<div class="notice ${fresh ? 'ok' : 'warn'}"><b>${t(fresh ? 'partner.visit.saved' : 'partner.visit.duplicate')}</b></div>`;
+  const head = action === 'lancar' || action === 'corrigir' ? '' : `<div class="notice ${fresh ? 'ok' : 'warn'}"><b>${t(fresh ? 'partner.visit.saved' : 'partner.visit.duplicate')}</b></div>`;
   const info = `<div class="spread"><h2>${esc(visit.client)}</h2><span class="hint">${esc(store.visitRef(visit))}</span></div>
         <p class="hint">${t('partner.visit.guide', { guide: visit.guideName })} · ${sinceLabel(visit.at, lang, city.timezone)}${visit.guidePresent ? ` · <span class="badge ok">${t('rs.present')}</span>` : ''}</p>`;
-  if (visit.status !== 'visited') {
+  if (visit.status !== 'visited' && !fixing) {
     return {
       html: `${head}${offer}<div class="card">${info}
         <p>${t('scan.people', { n: visit.peopleServed })}${visit.tableLabel ? ` · ${t('rs.table.short', { n: visit.tableLabel })}` : ''}</p>
-        ${visit.invoiceCents != null ? `<p>${t('rs.bill.done', { bill: c(visit.invoiceCents), com: c(visit.declaredCents || 0) })}</p>` : ''}
+        ${visit.invoiceCents != null ? `<p>${staff ? t('staff.bill.done', { bill: c(visit.invoiceCents) }) : t('rs.bill.done', { bill: c(visit.invoiceCents), com: c(visit.declaredCents || 0) })}</p>` : ''}
+        ${staff && visit.canFix ? `<a class="btn secondary small" href="${back}/corrigir/${esc(visit.id)}">${t('staff.fix')}</a>` : ''}
         ${visit.guideMeal ? `<p class="hint">${t('rs.meal.done')}</p>` : ''}</div>
         <a class="btn ghost" href="${back}">${t(role === 'manager' ? 'partner.space' : 'counter.back')}</a>`,
     };
   }
   // Autres groupes en attente (16 dernières heures) : même addition partagée.
-  const others = (visits || []).filter((v) => v.id !== visit.id && v.status === 'visited' && Date.now() - new Date(v.at) < 16 * 36e5);
+  const others = fixing ? [] : (visits || []).filter((v) => v.id !== visit.id && v.status === 'visited' && Date.now() - new Date(v.at) < 16 * 36e5);
+  const photoField = `<label class="btn ghost small rs-photo-btn" for="rs-ph">${t('rs.photo.btn')}</label>
+          <input id="rs-ph" name="photo" type="file" accept="image/*" capture="environment" hidden>
+          <span class="hint" id="rs-ph-name">${staff ? (visit.hasPhoto ? t('rs.photo.ok') : t('staff.photo.hint', { min: c(photoMin) })) : t('rs.photo.hint')}</span>`;
+  const amount0 = fixing && visit.invoiceCents != null ? (visit.invoiceCents / 100).toFixed(2).replace('.', ',') : '';
   return {
     html: `${head}${offer}
       <form class="card" id="rs">
         ${info}
         <div class="field"><label for="rs-b1">${t('rs.bill')}</label>
-          <div id="rs-bills"><input id="rs-b1" class="rs-bill rs-big" inputmode="decimal" placeholder="${esc(city.currency)} 0,00" aria-label="${esc(tRaw('rs.bill'))}"></div>
+          <div id="rs-bills"><input id="rs-b1" class="rs-bill rs-big" inputmode="decimal" placeholder="${esc(city.currency)} 0,00" aria-label="${esc(tRaw('rs.bill'))}" value="${amount0}"></div>
           <button type="button" class="btn ghost small" id="rs-add">${t('rs.bill.add')}</button></div>
-        <div class="field"><label for="rs-c">${t('rs.com', { rate: Math.round(rate * 100) })}</label>
+        ${staff ? `<div class="field">${photoField}</div>` : ''}
+        <div class="field"${staff ? ' hidden' : ''}><label for="rs-c">${t('rs.com', { rate: Math.round(rate * 100) })}</label>
           <input id="rs-c" name="com" inputmode="decimal" placeholder="—">
           <p class="hint" style="margin:4px 0 0" id="rs-c-hint">${t('rs.com.hint')}</p></div>
         <div class="field" id="rs-note-f" hidden><label for="rs-note">${t('rs.note')}</label><input id="rs-note" name="note" maxlength="200"></div>
@@ -186,9 +202,7 @@ export function scannedView({ partner, city, key, role, visits }, visit, action)
         <details class="rs-more"><summary>${t('rs.more')}</summary>
           <label style="font-weight:400;display:flex;gap:10px;align-items:center;margin:10px 0">
             <input type="checkbox" name="meal" style="width:auto"> ${t('rs.meal')}</label>
-          <label class="btn ghost small rs-photo-btn" for="rs-ph">${t('rs.photo.btn')}</label>
-          <input id="rs-ph" name="photo" type="file" accept="image/*" capture="environment" hidden>
-          <span class="hint" id="rs-ph-name">${t('rs.photo.hint')}</span>
+          ${staff ? '' : photoField}
           ${others.length ? `<div class="field" style="margin-top:12px"><b>${t('rs.split')}</b>
             <p class="hint" style="margin:2px 0 6px">${t('rs.split.hint')}</p>
             ${others.map((v) => `<label style="font-weight:400;display:flex;gap:8px"><input type="checkbox" name="with" value="${esc(v.id)}" style="width:auto">
@@ -198,7 +212,7 @@ export function scannedView({ partner, city, key, role, visits }, visit, action)
         </details>
         <button class="btn block" id="rs-save">${t('rs.save')}</button>
         <div class="row" style="gap:8px;margin-top:8px">
-          <button type="button" class="btn secondary" id="rs-later" style="flex:1">${t('rs.later')}</button>
+          <button type="button" class="btn secondary" id="rs-later" style="flex:1"${fixing ? ' hidden' : ''}>${t('rs.later')}</button>
           <button type="button" class="btn ghost" id="rs-zero" style="flex:1">${t('rs.zero')}</button>
         </div>
       </form>
@@ -206,7 +220,7 @@ export function scannedView({ partner, city, key, role, visits }, visit, action)
     mount(root, ctx) {
       const f = root.querySelector('#rs');
       const b1 = root.querySelector('#rs-b1'); if (b1 && !visit.tableLabel) b1.focus();
-      f.photo.onchange = () => { root.querySelector('#rs-ph-name').textContent = f.photo.files[0] ? tRaw('rs.photo.ok') : tRaw('rs.photo.hint'); };
+      f.photo.onchange = () => { root.querySelector('#rs-ph-name').textContent = f.photo.files[0] ? tRaw('rs.photo.ok') : staff ? tRaw('staff.photo.hint', { min: c(photoMin) }) : tRaw('rs.photo.hint'); };
       const total = () => { const list = [...f.querySelectorAll('.rs-bill')].map((i) => i.value.trim()).filter(Boolean).map(parseCents);
         return list.some((x) => x == null) ? null : list.length ? list.reduce((a, b) => a + b, 0) : null; };
       const withIds = () => [...f.querySelectorAll('[name=with]:checked')].map((b) => b.value);
@@ -251,17 +265,19 @@ export function scannedView({ partner, city, key, role, visits }, visit, action)
         const calc = Math.round(parts[0].cents * rate);
         let com = f.com.value.trim() === '' ? calc : parseCents(f.com.value);
         if (com == null || com > calc) { notify(tRaw('rs.err.com', { max: c(calc) })); return; }
+        const file = f.photo.files && f.photo.files[0];
+        if (staff && !file && !visit.hasPhoto && parts.some((x) => x.cents >= photoMin)) {
+          notify(tRaw('staff.photo.required', { min: c(photoMin) })); f.photo.click(); return; }
         busy(true);
         try {
           if (!(await people())) { busy(false); return; }
           let photo = null;
-          const file = f.photo.files && f.photo.files[0];
           if (file) photo = await photoToJpeg(file, 1000, 0.7).catch(() => null);
-          const r = await store.declareVisit(key, visit.id, { invoiceCents: parts[0].cents, commissionCents: com === calc ? null : com,
+          const r = await store.declareVisit(key, visit.id, { invoiceCents: parts[0].cents, commissionCents: staff || com === calc ? null : com,
             guideMeal: f.meal.checked, table: f.table.value, photo, note: f.note.value });
-          if (!r || !r.ok) { busy(false); notify(tRaw(['amount', 'commission', 'already', 'counter_late', 'photo'].includes(r && r.reason) ? `rs.err.${r.reason}` : 'err.generic')); return; }
-          for (const x of parts.slice(1)) await store.declareVisit(key, x.id, { invoiceCents: x.cents, table: f.table.value, note: tRaw('rs.split.note') }).catch(() => null);
-          ctx.go(`p/${key}`, tRaw('rs.saved', { com: c(r.declared_cents) }));
+          if (!r || !r.ok) { busy(false); notify(saveError(r, c, photoMin)); return; }
+          for (const x of parts.slice(1)) await store.declareVisit(key, x.id, { invoiceCents: x.cents, table: f.table.value, note: tRaw('rs.split.note'), photo: staff ? photo : null }).catch(() => null);
+          ctx.go(`p/${key}`, staff ? tRaw('staff.saved', { bill: c(r.invoice_cents) }) : tRaw('rs.saved', { com: c(r.declared_cents) }));
         } catch { busy(false); notify(tRaw('err.generic')); }
       };
       root.querySelector('#rs-later').onclick = async () => {
@@ -287,10 +303,19 @@ function saleButton(key) {
   return `<div class="card vd-card"><div class="spread" style="align-items:center"><span><b>${t('vd.title')}</b><br><span class="hint">${t('vd.hint')}</span></span>
     <a class="btn small" href="#/p/${encodeURIComponent(key)}/venda">${t('vd.new')}</a></div></div>`;
 }
+// v66 : message d'erreur d'une saisie (addition ou vente directe).
+function saveError(r, c, photoMin) {
+  const reason = r && r.reason;
+  if (reason === 'photo_required') return tRaw('staff.photo.required', { min: c(r.min_cents || photoMin) });
+  if (['quota', 'fix_late'].includes(reason)) return tRaw(`staff.err.${reason}`);
+  return tRaw(['amount', 'commission', 'already', 'counter_late', 'photo'].includes(reason) ? `rs.err.${reason}` : 'err.generic');
+}
 async function saleView({ partner, city, key, role }, guideRef = '') {
   const lang = getLang();
   const c = (n) => cents(n, city.currency, lang);
   const rate = partner.commissionRate;
+  const staff = role === 'staff';
+  const photoMin = partner.photoRequiredCents;
   const back = `#/p/${encodeURIComponent(key)}`;
   // Arrivée depuis le crachá du guide (B-…) : le guide est déjà choisi.
   let preset = null;
@@ -306,7 +331,10 @@ async function saleView({ partner, city, key, role }, guideRef = '') {
           ${preset ? `<p class="hint" style="margin:4px 0 0">✓ ${t('vd.guide.badge')}</p>` : ''}</div>
         <div class="field"><label for="vd-v">${t('vd.amount')}</label>
           <input id="vd-v" name="amount" class="rs-big" inputmode="decimal" placeholder="${esc(city.currency)} 0,00"></div>
-        <div class="field"><label for="vd-c">${t('rs.com', { rate: Math.round(rate * 100) })}</label>
+        ${staff ? `<div class="field"><label class="btn ghost small rs-photo-btn" for="vd-ph">${t('rs.photo.btn')}</label>
+          <input id="vd-ph" name="photo" type="file" accept="image/*" capture="environment" hidden>
+          <span class="hint" id="vd-ph-name">${t('staff.photo.hint', { min: c(photoMin) })}</span></div>` : ''}
+        <div class="field"${staff ? ' hidden' : ''}><label for="vd-c">${t('rs.com', { rate: Math.round(rate * 100) })}</label>
           <input id="vd-c" name="com" inputmode="decimal" placeholder="—">
           <p class="hint" style="margin:4px 0 0" id="vd-c-hint">${t('rs.com.hint')}</p></div>
         <div class="field" id="vd-note-f" hidden><label for="vd-note">${t('rs.note')}</label><input id="vd-note" name="note" maxlength="200"></div>
@@ -338,6 +366,7 @@ async function saleView({ partner, city, key, role }, guideRef = '') {
         root.querySelector('#vd-note-f').hidden = !(calc != null && typed != null && typed < calc);
       };
       f.amount.addEventListener('input', upd);
+      if (f.photo) f.photo.onchange = () => { root.querySelector('#vd-ph-name').textContent = f.photo.files[0] ? tRaw('rs.photo.ok') : tRaw('staff.photo.hint', { min: c(photoMin) }); };
       f.com.addEventListener('input', () => { comTouched = f.com.value.trim() !== ''; upd(); });
       f.onsubmit = async (e) => {
         e.preventDefault();
@@ -348,11 +377,14 @@ async function saleView({ partner, city, key, role }, guideRef = '') {
         const com = f.com.value.trim() === '' ? calc : parseCents(f.com.value);
         if (com == null || com > calc) { notify(tRaw('rs.err.com', { max: c(calc) })); return; }
         const n = Number(f.n.value) || 1;
+        const file = f.photo && f.photo.files && f.photo.files[0];
+        if (staff && !file && sum >= photoMin) { notify(tRaw('staff.photo.required', { min: c(photoMin) })); f.photo.click(); return; }
         const btn = root.querySelector('#vd-save'); btn.disabled = true;
         try {
-          const r = await store.recordDirectSale(key, f.guide.value, { invoiceCents: sum, people: n, commissionCents: com === calc ? null : com, note: f.note.value || null });
-          if (!r || !r.ok) { btn.disabled = false; notify(tRaw(['guide', 'guide_status', 'amount', 'commission', 'people'].includes(r && r.reason) ? `vd.err.${r.reason}` : 'err.generic')); return; }
-          ctx.go(`p/${key}/venda`, tRaw('vd.saved', { guide: r.guide, com: c(r.declared_cents) }));
+          const photo = file ? await photoToJpeg(file, 1000, 0.7).catch(() => null) : null;
+          const r = await store.recordDirectSale(key, f.guide.value, { invoiceCents: sum, people: n, commissionCents: staff || com === calc ? null : com, note: f.note.value || null, photo });
+          if (!r || !r.ok) { btn.disabled = false; notify(['guide', 'guide_status', 'amount', 'commission', 'people'].includes(r && r.reason) ? tRaw(`vd.err.${r.reason}`) : saveError(r, c, photoMin)); return; }
+          ctx.go(`p/${key}/venda`, staff ? tRaw('vd.saved.staff', { guide: r.guide, bill: c(r.invoice_cents) }) : tRaw('vd.saved', { guide: r.guide, com: c(r.declared_cents) }));
         } catch { btn.disabled = false; notify(tRaw('err.generic')); }
       };
     },
@@ -409,7 +441,7 @@ function txLine(v, city, lang) {
 }
 
 // Espace du gérant (v32) : tableau de bord à onglets, visites traitées en groupe (cases à cocher), liste « À faire ».
-const PD_TABS = ['painel', 'visitas', 'pagamentos', 'config'];
+const PD_TABS = ['painel', 'visitas', 'pagamentos', 'equipe', 'config'];
 const ageDays = (iso) => (iso ? Math.floor((Date.now() - new Date(iso)) / 864e5) : 0);
 const doneKey = (pid, month) => `kb-todo-${pid}-${month}`;
 const readDone = (k) => { try { return new Set(JSON.parse(localStorage.getItem(k) || '[]')); } catch { return new Set(); } };
@@ -417,6 +449,7 @@ const saveDone = (k, s) => { try { localStorage.setItem(k, JSON.stringify([...s]
 
 export function spaceView(space, tab = 'painel') {
   const { partner, city, visits, payments, adjustments = [], alerts = [], closings = [], key, role, loggedIn } = space;
+  if (role === 'staff') return staffView(space);
   if (role !== 'manager') return counterView({ partner, city, visits, key });
   const lang = getLang();
   const c = (n) => cents(n, city.currency, lang);
@@ -471,6 +504,8 @@ export function spaceView(space, tab = 'painel') {
     if (v.guideMeal) tags.push(t('rs.meal.tag'));
     if (v.computedCents != null && v.declaredCents != null && v.declaredCents < v.computedCents) tags.push(t('rs.reduced', { from: c(v.computedCents) }));
     if (v.declaredBy === 'counter') tags.push(t('rs.by.counter'));
+    if (v.billStaff) tags.push(t('staff.tag.bill', { name: v.billStaff }));
+    else if (v.scanStaff) tags.push(t('staff.tag.scan', { name: v.scanStaff }));
     const ph = v.hasPhoto ? ` <a href="#" data-photo="${esc(v.id)}">${t('rs.photo.see')}</a>` : '';
     return tags.length || ph ? `<small class="rs-tags">${tags.join(' · ')}${ph}</small>` : '';
   };
@@ -549,7 +584,8 @@ export function spaceView(space, tab = 'painel') {
       </form>
       <div class="card" style="text-align:center">
         <h2>${t('partner.qr.title')}</h2>
-        <p class="hint">${t('partner.qr.hint')}</p>
+        ${partner.counterEnabled ? '' : `<div class="notice warn">${t('team.counter.off')}</div>`}
+        <p class="hint">${t('partner.qr.hint')} ${t('team.counter.see')} <a href="${base}/equipe">${t('pd.tab.equipe')}</a></p>
         <div class="qr">${qrSvg(appLink('partner', `p/${partner.token}`))}</div>
         <button class="btn ghost no-print" id="print">${t('partner.qr.print')}</button>
       </div>
@@ -564,9 +600,10 @@ export function spaceView(space, tab = 'painel') {
     painel: `${saleButton(key)}${pendingCard({ city, visits, key })}${steps}${kpis}<div class="pd-cols">${visitsCard(t('pd.totreat'), open, false)}<div class="pd-side">${chartCard}${todoCard}${adjustmentsCard(adjustments, city, lang)}${lastCard}${shortcuts}</div></div>`,
     visitas: visitsCard(t('pd.all'), visits, true),
     pagamentos: `<div class="pd-cols"><div class="pd-side">${visitsCard(t('pd.topay'), toPay, false)}${payHistory}</div><div class="pd-side">${docsCard}${adjustmentsCard(adjustments, city, lang)}</div></div>`,
+    equipe: teamHtml(space),
     config: settings,
   }[tab];
-  const counts = { painel: 0, visitas: toDeclare.length, pagamentos: toPay.length + extraDue.length, config: 0 };
+  const counts = { painel: 0, visitas: toDeclare.length, pagamentos: toPay.length + extraDue.length, equipe: 0, config: 0 };
   const tabsNav = `<nav class="tabs no-print">${PD_TABS.map((k) => `<a href="${base}${k === 'painel' ? '' : `/${k}`}" class="${k === tab ? 'on' : ''}">${t(`pd.tab.${k}`)}${counts[k] ? `<span class="todo">${counts[k]}</span>` : ''}</a>`).join('')}</nav>`;
 
   return {
@@ -577,6 +614,7 @@ export function spaceView(space, tab = 'painel') {
       ${tabsNav}${banner}${body}</div>`,
     mount(root, ctx) {
       if (tab === 'painel') mountPending(root, ctx, key);
+      if (tab === 'equipe') mountTeam(root, ctx, key);
       mountHelp(root, { kind: 'partner', send: (topic, msg, vId) => store.partnerCreateAlert(key, topic, msg, vId),
         findCode: (c) => visits.find((x) => x.code === c)?.id || null,
         label: (vId) => { const v = visits.find((x) => x.id === vId); return v ? `${v.client || ''} · ${fmtDay(v.at.slice(0, 10), getLang())} · ${store.visitRef(v)}` : ''; },
@@ -1115,6 +1153,167 @@ function counterView({ partner, city, visits, key }) {
   };
 }
 const root = () => document.getElementById('app');
+
+// v66 : téléphone d'une personne de l'équipe — scan, vente sans QR et passages du jour ; jamais de commission ni de gestion.
+function staffView({ partner, city, visits, key, staff }) {
+  const lang = getLang();
+  const c = (n) => cents(n, city.currency, lang);
+  const done = visits.filter((v) => !(v.status === 'visited' && Date.now() - new Date(v.at) < 16 * 36e5));
+  const me = staff || { name: '', post: 'other' };
+  return {
+    html: `
+      <div class="spread"><div><h1 style="margin-bottom:2px">${esc(partner.name)}</h1>
+        <p class="hint" style="margin:0">${t('staff.hello', { name: me.name, post: tRaw(`staff.post.${me.post}`) })}</p></div>${helpButton()}</div>
+      <div class="notice ok">${t('counter.ready')}</div>
+      ${saleButton(key)}
+      ${pendingCard({ city, visits, key })}
+      ${partner.offer ? `<div class="card"><h2>${t('counter.offer')}</h2><div class="offer">${esc(partner.offer)}</div><p class="hint" style="margin-top:8px">${t('counter.offer.hint')}</p></div>` : ''}
+      <div class="card">
+        <h2>${t('staff.today')}</h2>
+        ${done.length ? `<ul class="list">${done.map((v) => `<li><div class="spread"><b>${esc(v.client || '?')}</b><span class="hint">${sinceLabel(v.at, lang, city.timezone)}</span></div>
+          <div class="hint">${esc(store.visitRef(v))} · ${t('scan.people', { n: v.peopleServed })} · ${t('partner.visit.guide', { guide: v.guideName || '?' })}${v.tableLabel ? ` · ${t('rs.table.short', { n: v.tableLabel })}` : ''}</div>
+          ${v.invoiceCents != null ? `<div class="spread" style="align-items:center"><span>${t('staff.bill.done', { bill: c(v.invoiceCents) })}${v.billStaff ? ` <span class="hint">· ${t('staff.by', { name: v.billStaff })}</span>` : ''}${v.hasPhoto ? ' 📷' : ''}</span>
+            ${v.canFix ? `<a class="btn ghost small" href="#/p/${encodeURIComponent(key)}/corrigir/${esc(v.id)}">${t('staff.fix')}</a>` : ''}</div>` : ''}</li>`).join('')}</ul>`
+          : `<p class="hint">${t('partner.visits.none')}</p>`}
+      </div>
+      <p class="hint">${t('staff.manager')}</p>
+      <p class="hint">${t('partner.linked', { name: partner.name })} <a href="#" id="unlink">${t('partner.unlink')}</a></p>`,
+    mount(r, ctx) {
+      mountPending(root(), ctx, key);
+      mountHelp(root(), { kind: 'partner', send: (topic, msg, vId) => store.partnerCreateAlert(key, topic, msg, vId),
+        findCode: (code) => visits.find((x) => x.code === code)?.id || null });
+      root().querySelector('#unlink').onclick = (e) => {
+        e.preventDefault();
+        if (!confirm(tRaw('staff.unlink.confirm'))) return;
+        try { localStorage.removeItem(ME_KEY); } catch { /* rien */ }
+        location.hash = '';
+        notify(tRaw('partner.unlinked'));
+      };
+    },
+  };
+}
+
+// v66 : onglet « Equipe » du gérant — ajouter une personne (lien + QR + code, 24 h), renvoyer un lien, retirer ; ancien QR caisse.
+const TEAM_POSTS = ['reception', 'waiter', 'cashier', 'other'];
+function teamHtml({ partner, city, team = [] }) {
+  const lang = getLang();
+  const invite = (m) => {
+    const link = appLink('partner', `equipe/${m.invite.enroll_token}`);
+    const msg = tRaw('team.wa', { name: m.name, partner: partner.name, link, code: m.invite.code });
+    return `<div class="team-invite">
+      <div class="qr">${qrSvg(link)}</div>
+      <div><p style="margin:0 0 4px">${t('team.invite.scan')}</p>
+        <p style="margin:0 0 4px">${t('team.invite.code', { code: m.invite.code })}</p>
+        <p class="hint" style="margin:0 0 8px">${t('team.invite.until', { at: fmtMoment(m.invite.expires, lang, city.timezone) })}</p>
+        <div class="row" style="gap:6px"><a class="btn small" href="https://wa.me/?text=${encodeURIComponent(msg)}" target="_blank" rel="noopener">${t('team.invite.wa')}</a>
+          <button type="button" class="btn ghost small" data-copy="${esc(link)}">${t('team.invite.copy')}</button></div></div></div>`;
+  };
+  const state = (m) => (m.revoked_at ? `<span class="badge">${t('team.st.revoked')}</span>`
+    : m.active ? `<span class="badge ok">${t('team.st.active')}</span>` : `<span class="badge warn">${t('team.st.waiting')}</span>`);
+  const line = (m) => `<li${m.revoked_at ? ' style="opacity:.6"' : ''}>
+      <div class="spread"><span><b>${esc(m.name)}</b> <span class="hint">· ${t(`staff.post.${m.post}`)}</span></span>${state(m)}</div>
+      <div class="hint">${m.revoked_at ? t('team.revoked.at', { at: fmtMoment(m.revoked_at, lang, city.timezone) })
+        : `${m.last_seen ? t('team.seen', { at: fmtMoment(m.last_seen, lang, city.timezone) }) : t('team.seen.never')} · ${t('team.today', { scans: m.scans_today, bills: m.bills_today })}`}</div>
+      ${!m.revoked_at && m.invite ? invite(m) : ''}
+      ${m.revoked_at ? '' : `<div class="row" style="gap:6px;margin-top:6px">
+        <button type="button" class="btn ghost small" data-reinvite="${esc(m.id)}">${t(m.active ? 'team.newphone' : 'team.newlink')}</button>
+        <button type="button" class="btn ghost small" data-revoke="${esc(m.id)}" data-name="${esc(m.name)}">${t('team.revoke')}</button></div>`}
+    </li>`;
+  return `<div class="pd-cols"><div class="pd-side">
+      <form class="card" id="team-add">
+        <h2>${t('team.add')}</h2>
+        <p class="hint">${t('team.add.hint')}</p>
+        <div class="grid2">
+          <div class="field"><label for="tm-name">${t('team.name')}</label><input id="tm-name" name="name" required maxlength="60" autocomplete="off"></div>
+          <div class="field"><label for="tm-post">${t('team.post')}</label><select id="tm-post" name="post">${TEAM_POSTS.map((k) => `<option value="${k}">${t(`staff.post.${k}`)}</option>`).join('')}</select></div>
+        </div>
+        <button class="btn">${t('team.add.button')}</button>
+      </form>
+      <div class="card"><h2>${t('team.list')}</h2>
+        ${team.length ? `<ul class="list">${team.map(line).join('')}</ul>` : `<p class="hint">${t('team.none')}</p>`}</div>
+    </div><div class="pd-side">
+      <div class="card"><h2>${t('team.sees.title')}</h2>
+        <ul class="team-rules"><li>✓ ${t('team.sees.1')}</li><li>✓ ${t('team.sees.2')}</li><li>✓ ${t('team.sees.3')}</li>
+          <li>✗ ${t('team.sees.4')}</li><li>✗ ${t('team.sees.5')}</li></ul>
+        <p class="hint">${t('team.sees.rules')}</p></div>
+      <div class="card"><h2>${t('team.counter.title')}</h2>
+        <p>${partner.counterEnabled ? t('team.counter.on') : t('team.counter.off')}</p>
+        <p class="hint">${t('team.counter.hint')}</p>
+        <button type="button" class="btn ${partner.counterEnabled ? 'ghost' : 'secondary'} small" id="team-counter" data-on="${partner.counterEnabled ? '1' : ''}">${t(partner.counterEnabled ? 'team.counter.cut' : 'team.counter.restore')}</button></div>
+    </div></div>`;
+}
+function mountTeam(r, ctx, key) {
+  const rt = root();
+  const f = rt.querySelector('#team-add');
+  if (f) f.onsubmit = async (e) => {
+    e.preventDefault();
+    const b = f.querySelector('button'); b.disabled = true;
+    try {
+      const res = await store.staffInvite(key, f.name.value.trim(), f.post.value);
+      if (!res || !res.ok) { b.disabled = false; notify(tRaw(['name', 'full'].includes(res && res.reason) ? `team.err.${res.reason}` : 'err.generic')); return; }
+      ctx.refresh(tRaw('team.added', { name: f.name.value.trim() }));
+    } catch { b.disabled = false; notify(tRaw('err.generic')); }
+  };
+  rt.querySelectorAll('[data-reinvite]').forEach((b) => { b.onclick = async () => {
+    b.disabled = true;
+    try { const res = await store.staffReinvite(key, b.dataset.reinvite); if (!res || !res.ok) throw new Error(); ctx.refresh(tRaw('team.link.new')); }
+    catch { b.disabled = false; notify(tRaw('err.generic')); }
+  }; });
+  rt.querySelectorAll('[data-revoke]').forEach((b) => { b.onclick = async () => {
+    if (!confirm(tRaw('team.revoke.confirm', { name: b.dataset.name }))) return;
+    b.disabled = true;
+    try { const res = await store.staffRevoke(key, b.dataset.revoke); if (!res || !res.ok) throw new Error(); ctx.refresh(tRaw('team.revoked', { name: b.dataset.name })); }
+    catch { b.disabled = false; notify(tRaw('err.generic')); }
+  }; });
+  rt.querySelectorAll('[data-copy]').forEach((b) => { b.onclick = async () => {
+    try { await navigator.clipboard.writeText(b.dataset.copy); notify(tRaw('team.copied')); } catch { prompt('', b.dataset.copy); }
+  }; });
+  const cb = rt.querySelector('#team-counter');
+  if (cb) cb.onclick = async () => {
+    const on = !!cb.dataset.on;
+    if (on && !confirm(tRaw('team.counter.confirm'))) return;
+    cb.disabled = true;
+    try { if (!(await store.partnerSetCounter(key, !on))) throw new Error(); ctx.refresh(tRaw(on ? 'team.counter.cut.done' : 'team.counter.restore.done')); }
+    catch { cb.disabled = false; notify(tRaw('err.generic')); }
+  };
+}
+
+// v66 : inscription du téléphone d'une personne de l'équipe — par le lien (#/equipe/E-…) ou avec le code à 6 chiffres.
+export async function staffEnrollView([ref = ''], ctx) {
+  let failed = false;
+  if (ref) {
+    const r = await store.staffEnroll(ref).catch(() => null);
+    if (r && r.ok) {
+      try { localStorage.setItem(ME_KEY, r.token); } catch { /* rien */ }
+      return { html: '', mount: () => ctx.replace(`p/${r.token}`, tRaw('team.enroll.ok', { name: r.name, partner: r.partner })) };
+    }
+    failed = r && r.reason === 'busy' ? 'busy' : 'invalid';
+  }
+  return {
+    html: `<p><a href="#/">← ${t('pm.title')}</a></p>
+      ${failed ? `<div class="notice bad">${t(`team.enroll.${failed}`)}</div>` : ''}
+      <form class="card" id="enroll">
+        <h1>${t('team.enroll.title')}</h1>
+        <p class="hint">${t('team.enroll.hint')}</p>
+        <div class="field"><label for="en-code">${t('team.enroll.code')}</label>
+          <input id="en-code" name="code" required inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" class="rs-big" placeholder="000000"></div>
+        <button class="btn block">${t('team.enroll.button')}</button>
+      </form>`,
+    mount(rt) {
+      const f = rt.querySelector('#enroll');
+      f.onsubmit = async (e) => {
+        e.preventDefault();
+        const code = f.code.value.replace(/\D/g, '');
+        if (code.length !== 6) { notify(tRaw('team.enroll.invalid')); return; }
+        const b = f.querySelector('button'); b.disabled = true;
+        const r = await store.staffEnroll(code).catch(() => null);
+        if (!r || !r.ok) { b.disabled = false; notify(tRaw(r && r.reason === 'busy' ? 'team.enroll.busy' : 'team.enroll.invalid')); return; }
+        try { localStorage.setItem(ME_KEY, r.token); } catch { /* rien */ }
+        ctx.replace(`p/${r.token}`, tRaw('team.enroll.ok', { name: r.name, partner: r.partner }));
+      };
+    },
+  };
+}
 
 // Conditions générales du partenaire (brouillon v1, à faire relire par un avocat avant le pilote).
 export async function termsView() {

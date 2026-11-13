@@ -42,6 +42,8 @@ const toPartner = (r) => r && ({
   photo: r.photo || '', address: r.address || '', reportToken: r.report_token || '', managerToken: r.manager_token || '',
   activationCode: r.activation_code || '', managerName: r.manager_name || '', managerEmail: r.manager_email || '',
   managerPhone: r.manager_phone || '', commissionRate: r.commission_rate == null ? 0.1 : Number(r.commission_rate), termsVersion: r.terms_version || '', termsAcceptedAt: r.terms_accepted_at || '', termsSha: r.terms_sha256 || '', circleEnabled: !!r.circle_enabled, founderUntil: r.founder_until || '',
+  // v66 : ancien QR caisse actif ou coupé ; photo de l'addition obligatoire (personnel) à partir de ce montant.
+  counterEnabled: r.counter_enabled !== false, photoRequiredCents: r.photo_required_cents == null ? 30000 : Number(r.photo_required_cents),
 });
 const toStay = (r) => r && ({
   id: r.id, guideId: r.guide_id, client: r.client, people: r.people, start: r.start_day, end: r.end_day,
@@ -60,6 +62,8 @@ const toVisit = (r) => r && ({
   // v59 : saisie au restaurant et présence du guide.
   tableLabel: r.table_label || '', guideMeal: !!r.guide_meal, computedCents: num(r.computed_cents), commissionNote: r.commission_note || '',
   declaredBy: r.declared_by || null, hasPhoto: !!r.has_photo, guidePresent: !!r.guide_present, direct: !!r.direct,
+  // v66 : équipe du partenaire (qui a scanné, qui a saisi ; correction possible 15 min par la même personne).
+  scanStaff: r.scan_staff || '', billStaff: r.bill_staff || '', byMe: !!r.by_me, canFix: !!r.can_fix,
 });
 const toPayout = (r) => r && ({
   id: r.id, num: num(r.num), guideId: r.guide_id, cents: num(r.amount_cents), status: r.status, reference: r.reference,
@@ -283,7 +287,7 @@ export async function partnerSpace(token) {
   const d = check(await sb.rpc('partner_space', { p_token: token }));
   if (!d) return null;
   const codes = await sb.rpc('partner_visit_codes', { p_token: token }).then((x) => x.data || {}, () => ({}));
-  return { role: d.role, partner: toPartner(d.partner), city: toCity(d.city), visits: (d.visits || []).map((v) => toVisit({ ...v, code: codes[v.id] })), payments: (d.payments || []).map(toPayment),
+  return { role: d.role, staff: d.staff || null, partner: toPartner(d.partner), city: toCity(d.city), visits: (d.visits || []).map((v) => toVisit({ ...v, code: codes[v.id] })), payments: (d.payments || []).map(toPayment),
     adjustments: (d.adjustments || []).map(toAdjustment) };
 }
 // Relevé du comptable (lecture seule), à partir de son lien. null si le lien n'est pas reconnu.
@@ -396,10 +400,33 @@ export async function markGuidePresent(partnerToken, badgeToken) {
 export async function findGuides(partnerToken, q) {
   return check(await sb.rpc('find_guides', { p_partner_token: partnerToken, p_q: q })) || [];
 }
-export async function recordDirectSale(partnerToken, guideRef, { invoiceCents, people = 1, commissionCents = null, note = null }) {
+export async function recordDirectSale(partnerToken, guideRef, { invoiceCents, people = 1, commissionCents = null, note = null, photo = null }) {
   return check(await sb.rpc('record_direct_sale', {
-    p_partner_token: partnerToken, p_guide: guideRef, p_invoice_cents: invoiceCents, p_people: people, p_commission_cents: commissionCents, p_note: note,
+    p_partner_token: partnerToken, p_guide: guideRef, p_invoice_cents: invoiceCents, p_people: people, p_commission_cents: commissionCents, p_note: note, p_photo: photo,
   }));
+}
+// v66 : « Minha equipe » — le gérant invite, renvoie un lien, retire ; le téléphone de la personne s'inscrit avec le lien ou le code.
+export async function staffList(managerToken) {
+  return check(await sb.rpc('staff_list', { p_manager_token: managerToken })) || [];
+}
+export async function staffInvite(managerToken, name, post) {
+  return check(await sb.rpc('staff_invite', { p_manager_token: managerToken, p_name: name, p_post: post }));
+}
+export async function staffReinvite(managerToken, staffId) {
+  return check(await sb.rpc('staff_reinvite', { p_manager_token: managerToken, p_staff: staffId }));
+}
+export async function staffRevoke(managerToken, staffId) {
+  return check(await sb.rpc('staff_revoke', { p_manager_token: managerToken, p_staff: staffId }));
+}
+export async function staffEnroll(ref) {
+  return check(await sb.rpc('staff_enroll', { p_ref: ref }));
+}
+export async function partnerSetCounter(managerToken, enabled) {
+  return check(await sb.rpc('partner_set_counter', { p_manager_token: managerToken, p_enabled: enabled }));
+}
+// v66 : photo de l'addition pour l'admin, seulement dans un litige (alerte sur le passage).
+export async function adminBillPhoto(visitId) {
+  return check(await sb.rpc('admin_bill_photo', { p_visit: visitId }));
 }
 export async function createPartnerLead({ name, contact, phone, email, type, message }) {
   return check(await sb.rpc('create_partner_lead', {

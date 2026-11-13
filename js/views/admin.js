@@ -137,6 +137,7 @@ async function alertas({ alerts }) {
           ${a.status === 'new' ? `<button class="btn small" data-st="in_progress">${t('admin.al.take')}</button>` : ''}
           ${a.status !== 'resolved' ? `<button class="btn small secondary" data-st="${a.status}">${t('admin.al.save')}</button><button class="btn small ghost" data-st="resolved">${t('admin.al.close')}</button>`
             : `<button class="btn small ghost" data-st="in_progress">${t('admin.al.reopen')}</button>`}
+          ${a.visitId ? `<button type="button" class="btn small ghost" data-bphoto="${esc(a.visitId)}">${t('admin.al.photo')}</button>` : ''}
         </div></form></li>`;
   };
   return {
@@ -148,6 +149,13 @@ async function alertas({ alerts }) {
       </div>
       <div class="card"><h2>${t('admin.al.list')}</h2>${list.length ? `<ul class="list">${list.map(item).join('')}</ul>` : `<p class="hint">${t('admin.al.none')}</p>`}</div>`,
     mount(root, ctx) {
+      // v66 : photo de l'addition, seulement dans un litige (consultation notée au journal).
+      root.querySelectorAll('[data-bphoto]').forEach((b) => { b.onclick = async (e) => {
+        e.preventDefault();
+        const src = await store.adminBillPhoto(b.dataset.bphoto).catch(() => null);
+        if (!src) { notify(tRaw('admin.al.nophoto')); return; }
+        const w = window.open(); if (w) { w.document.title = 'Kombrio'; const img = w.document.createElement('img'); img.src = src; img.style.maxWidth = '100%'; w.document.body.appendChild(img); }
+      }; });
       root.querySelectorAll('.al-form').forEach((f) => {
         f.querySelectorAll('[data-st]').forEach((b) => {
           b.onclick = async (e) => {
