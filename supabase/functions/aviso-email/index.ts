@@ -1,4 +1,4 @@
-// Fonction Supabase « aviso-email » (v56, rappel des passages sans montant ajouté en v59) : envoie les e-mails du cycle notés dans la boîte d'envoi (table mail_outbox).
+// Fonction Supabase « aviso-email » (v56 ; rappel des passages v59 ; bilan hebdomadaire admin + n° Brevo v66) : envoie les e-mails du cycle notés dans la boîte d'envoi (table mail_outbox).
 // Appelée par la base (script 031) avec le numéro interne de l'e-mail, juste après sa mise en file.
 // Sûre même si quelqu'un l'appelle à la main : elle n'envoie qu'un e-mail existant, encore « queued », une seule fois.
 // Secret déjà en place : BREVO_API_KEY.
@@ -73,6 +73,24 @@ function build(kind: string, p: Record<string, unknown>): { subject: string; htm
         'https://app.kombrio.com.br/partner/', 'Lançar os valores'),
     };
   }
+  if (kind === 'admin_report') {
+    // v66 : bilan hebdomadaire pour l'administration (en français), envoyé par la routine du lundi.
+    const items = Array.isArray(p.items) ? (p.items as Record<string, unknown>[]) : [];
+    const grave = Number(p.grave ?? 0), att = Number(p.attention ?? 0);
+    const dot: Record<string, string> = { grave: '#D64545', attention: '#F6B73C', ok: '#007F65', info: '#8AA0A8' };
+    const order: Record<string, number> = { grave: 0, attention: 1, ok: 2, info: 3 };
+    const lines = [...items].sort((a, b) => (order[String(a.level)] ?? 9) - (order[String(b.level)] ?? 9))
+      .map((i) => `<tr><td style="padding:6px 10px 6px 0;vertical-align:top"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${dot[String(i.level)] ?? '#8AA0A8'}"></span></td><td style="padding:6px 0">${esc(i.text)}</td></tr>`).join('');
+    const verdict = grave > 0 ? `${grave} problème(s) grave(s) à régler` : att > 0 ? `${att} point(s) à regarder` : 'tout va bien';
+    return {
+      subject: `Kombrio · bilan de la semaine : ${verdict}`,
+      html: box(`Bilan du ${esc(p.date)} : ${verdict}`,
+        `<table style="border-collapse:collapse;width:100%;font-size:14px">${lines}</table>
+         <p style="margin:16px 0 0;color:#5B6F78;font-size:13px">Recevoir cet e-mail prouve que la chaîne complète marche : base → fonction → Brevo → boîte de réception.
+         Pas de bilan un lundi = quelque chose est cassé (GitHub envoie aussi une alerte si la routine échoue).</p>`,
+        'https://app.kombrio.com.br/admin/', 'Ouvrir l’admin'),
+    };
+  }
   return null;
 }
 
@@ -103,7 +121,9 @@ Deno.serve(async (req) => {
         to: [{ email: m.to_email }], subject: mail.subject, htmlContent: mail.html }),
     });
     if (!r.ok) { await fail(`brevo ${r.status} ${(await r.text()).slice(0, 200)}`); return json({ error: 'brevo', status: r.status }, 502); }
-    await admin(`/rest/v1/mail_outbox?id=eq.${id}`, { method: 'PATCH', body: JSON.stringify({ attempts: (m.attempts || 0) + 1 }) });
+    const sent = await r.json().catch(() => ({}));
+    await admin(`/rest/v1/mail_outbox?id=eq.${id}`, { method: 'PATCH',
+      body: JSON.stringify({ attempts: (m.attempts || 0) + 1, provider_id: sent?.messageId ?? null }) });
     return json({ ok: true });
   } catch (e) {
     return json({ error: 'crash', detail: String((e as Error)?.message ?? e).slice(0, 200) }, 500);
