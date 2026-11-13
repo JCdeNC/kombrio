@@ -662,7 +662,10 @@ async function stayView(me, city, stayId) {
         <div class="spread"><h1>${esc(stay.client)}</h1>${validity(stay, valid, lang)}</div>
         <p class="hint">${t('stay.people', { n: stay.people })} · ${fmtDay(stay.start, lang)} → ${fmtDay(stay.end, lang)}</p>
         <div class="qr">${qrSvg(scanLink)}</div>
-        <p class="hint" style="text-align:center">${t('guide.stay.qr.hint')}</p>
+        <p class="hint" style="text-align:center">${t('guide.stay.qr.hint')}${stay.code ? `<br>${t('gg.client.code', { code: stay.code })}` : ''}</p>
+        ${valid && !stay.direct ? `<button type="button" class="btn block" id="ggopen" style="margin-bottom:10px">${t('gg.open')}</button>
+          <div id="ggbox" class="gg-box" hidden><div class="qr" id="ggqr"></div><p class="hint" id="gghint">${t('gg.hint')}</p>
+            <button type="button" class="btn ghost small" id="ggclose">${t('gg.close')}</button></div>` : ''}
         <div class="row">
           <a class="btn" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent(share)}">${t('guide.stay.whatsapp')}</a>
           <button type="button" class="btn secondary" id="sendqr">${t('guide.stay.sendqr')}</button>
@@ -675,6 +678,21 @@ async function stayView(me, city, stayId) {
         ${visits.length ? `<ul class="list">${visits.map(visitItem).join('')}</ul>` : `<p class="hint">${t('guide.stay.visits.none')}</p>`}
       </div>`,
     mount(root) {
+      // v67 : QR « Guia + grupo » — renouvelé chaque minute tant qu'il est affiché (preuve que le guide est là).
+      const ggOpen = root.querySelector('#ggopen');
+      if (ggOpen) {
+        let timer = null;
+        const box = root.querySelector('#ggbox');
+        const refresh = async () => {
+          if (!document.body.contains(box) || box.hidden) { clearInterval(timer); return; }
+          const r = await store.guideGroupToken(stay.id).catch(() => null);
+          if (!r || !r.ok) { root.querySelector('#ggqr').innerHTML = ''; root.querySelector('#gghint').textContent = tRaw('gg.err'); return; }
+          root.querySelector('#ggqr').innerHTML = qrSvg(appLink('partner', `gg/${r.token}`));
+          root.querySelector('#gghint').textContent = tRaw('gg.hint');
+        };
+        ggOpen.onclick = () => { box.hidden = false; ggOpen.hidden = true; refresh(); clearInterval(timer); timer = setInterval(refresh, 50000); };
+        root.querySelector('#ggclose').onclick = () => { box.hidden = true; ggOpen.hidden = false; clearInterval(timer); };
+      }
       root.querySelector('#sendqr').onclick = async () => {
         const blob = await qrCardBlob(scanLink, {
           title: stay.client, line1: tRaw('client.valid.until', { end: fmtDay(stay.end, lang) }), line2: tRaw('guide.stay.qr.hint'),

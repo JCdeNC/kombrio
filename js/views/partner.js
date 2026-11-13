@@ -131,7 +131,7 @@ export async function partnerView([token, action, visitId], ctx) {
   }
 
   // La caisse n'a accès qu'aux passages qu'elle vient d'enregistrer.
-  if (action === 'venda') return saleView(space, visitId);
+  if (action === 'venda' || action === 'conta') return billView(space, visitId || '');
   if (space.role !== 'manager' && !['passage', 'deja', 'lancar', 'corrigir'].includes(action)) return spaceView(space);
   if (['visitas', 'pagamentos', 'equipe', 'config'].includes(action)) return spaceView(space, action);
   if (action === 'declarar') return declareManyView(space);
@@ -154,7 +154,10 @@ export function scannedView({ partner, city, key, role, visits }, visit, action)
   // v66 : le personnel ne voit jamais la commission ; il corrige son montant 15 min ; photo obligatoire dès 300 R$.
   const staff = role === 'staff';
   const fixing = staff && action === 'corrigir' && visit.canFix;
-  const photoMin = partner.photoRequiredCents;
+  const photoMin = 0;
+  const photoNeeded = staff && partner.staffPhotoRequired;
+  // v67 : groupe enregistré par son QR client seul → question obligatoire « O guia está com o grupo ? ».
+  const ask = visit.status === 'visited' && visit.mode === 1 && !visit.guidePresent && !visit.direct;
   const back = `#/p/${encodeURIComponent(key)}`;
   let offer = '';
   if (partner.offer && fresh) {
@@ -179,12 +182,19 @@ export function scannedView({ partner, city, key, role, visits }, visit, action)
   const others = fixing ? [] : (visits || []).filter((v) => v.id !== visit.id && v.status === 'visited' && Date.now() - new Date(v.at) < 16 * 36e5);
   const photoField = `<label class="btn ghost small rs-photo-btn" for="rs-ph">${t('rs.photo.btn')}</label>
           <input id="rs-ph" name="photo" type="file" accept="image/*" capture="environment" hidden>
-          <span class="hint" id="rs-ph-name">${staff ? (visit.hasPhoto ? t('rs.photo.ok') : t('staff.photo.hint', { min: c(photoMin) })) : t('rs.photo.hint')}</span>`;
+          <span class="hint" id="rs-ph-name">${staff ? (visit.hasPhoto ? t('rs.photo.ok') : t(photoNeeded ? 'staff.photo.hint' : 'staff.photo.opt')) : t('rs.photo.hint')}</span>`;
   const amount0 = fixing && visit.invoiceCents != null ? (visit.invoiceCents / 100).toFixed(2).replace('.', ',') : '';
   return {
     html: `${head}${offer}
       <form class="card" id="rs">
         ${info}
+        ${ask ? `<div class="notice warn" id="rs-ask"><div id="rs-ask-card" class="bill-card"></div><b>${t('bill.ask')}</b>
+          <div class="row" style="gap:8px;margin-top:8px"><button type="button" class="btn small" data-ask="yes">${t('bill.ask.yes')}</button>
+            <button type="button" class="btn ghost small" data-ask="no">${t('bill.ask.no')}</button></div>
+          <div id="rs-gp" hidden style="margin-top:10px"><label for="rs-g">${t('bill.guide')}</label>
+            <div class="row" style="gap:6px;flex-wrap:nowrap"><button type="button" class="btn secondary" id="rs-gscan">📷</button>
+              <input id="rs-g" autocomplete="off" placeholder="${esc(tRaw('bill.guide.code.ph'))}" autocapitalize="characters"></div>
+            <p class="hint" style="margin:4px 0 0">${t('bill.ask.yes.hint')}</p></div></div>` : ''}
         <div class="field"><label for="rs-b1">${t('rs.bill')}</label>
           <div id="rs-bills"><input id="rs-b1" class="rs-bill rs-big" inputmode="decimal" placeholder="${esc(city.currency)} 0,00" aria-label="${esc(tRaw('rs.bill'))}" value="${amount0}"></div>
           <button type="button" class="btn ghost small" id="rs-add">${t('rs.bill.add')}</button></div>
@@ -220,7 +230,30 @@ export function scannedView({ partner, city, key, role, visits }, visit, action)
     mount(root, ctx) {
       const f = root.querySelector('#rs');
       const b1 = root.querySelector('#rs-b1'); if (b1 && !visit.tableLabel) b1.focus();
-      f.photo.onchange = () => { root.querySelector('#rs-ph-name').textContent = f.photo.files[0] ? tRaw('rs.photo.ok') : staff ? tRaw('staff.photo.hint', { min: c(photoMin) }) : tRaw('rs.photo.hint'); };
+      f.photo.onchange = () => { root.querySelector('#rs-ph-name').textContent = f.photo.files[0] ? tRaw('rs.photo.ok') : staff ? tRaw(photoNeeded ? 'staff.photo.hint' : 'staff.photo.opt') : tRaw('rs.photo.hint'); };
+      // v67 : réponse à « O guia está com o grupo ? » (obligatoire avant d'enregistrer).
+      let answer = ask ? null : 'no';
+      if (ask) {
+        store.visitGuideCard(key, visit.id).then((g) => { const el = root.querySelector('#rs-ask-card'); if (el && g) el.innerHTML = guideCardHtml(g); }).catch(() => {});
+        root.querySelectorAll('[data-ask]').forEach((b) => { b.onclick = () => {
+          answer = b.dataset.ask;
+          root.querySelectorAll('[data-ask]').forEach((x) => x.classList.toggle('ghost', x !== b));
+          root.querySelector('#rs-gp').hidden = answer !== 'yes';
+          if (answer === 'yes') root.querySelector('#rs-g').focus();
+        }; });
+        root.querySelector('#rs-gscan').onclick = async () => { const txt = await scanQr(); const ref = refOf(txt); if (ref) root.querySelector('#rs-g').value = ref; else if (txt) notify(tRaw('bill.err.qr')); };
+      }
+      // Avant d'enregistrer : la question est répondue ; « Sim » → le guide est identifié (mode 2).
+      const guideStep = async () => {
+        if (answer == null) { notify(tRaw('bill.ask.err')); root.querySelector('#rs-ask').scrollIntoView({ block: 'center' }); return false; }
+        if (answer !== 'yes') return true;
+        const ref = root.querySelector('#rs-g').value.trim();
+        if (!ref) { notify(tRaw('bill.ask.guide')); root.querySelector('#rs-g').focus(); return false; }
+        const r = await store.setVisitGuide(key, visit.id, ref).catch(() => null);
+        if (!r || !r.ok) { notify(saveError(r, c, 0)); return false; }
+        answer = 'done';
+        return true;
+      };
       const total = () => { const list = [...f.querySelectorAll('.rs-bill')].map((i) => i.value.trim()).filter(Boolean).map(parseCents);
         return list.some((x) => x == null) ? null : list.length ? list.reduce((a, b) => a + b, 0) : null; };
       const withIds = () => [...f.querySelectorAll('[name=with]:checked')].map((b) => b.value);
@@ -266,10 +299,11 @@ export function scannedView({ partner, city, key, role, visits }, visit, action)
         let com = f.com.value.trim() === '' ? calc : parseCents(f.com.value);
         if (com == null || com > calc) { notify(tRaw('rs.err.com', { max: c(calc) })); return; }
         const file = f.photo.files && f.photo.files[0];
-        if (staff && !file && !visit.hasPhoto && parts.some((x) => x.cents >= photoMin)) {
-          notify(tRaw('staff.photo.required', { min: c(photoMin) })); f.photo.click(); return; }
+        if (photoNeeded && !file && !visit.hasPhoto && parts[0].cents > 0) {
+          notify(tRaw('staff.photo.required')); f.photo.click(); return; }
         busy(true);
         try {
+          if (!(await guideStep())) { busy(false); return; }
           if (!(await people())) { busy(false); return; }
           let photo = null;
           if (file) photo = await photoToJpeg(file, 1000, 0.7).catch(() => null);
@@ -283,6 +317,7 @@ export function scannedView({ partner, city, key, role, visits }, visit, action)
       root.querySelector('#rs-later').onclick = async () => {
         busy(true);
         try {
+          if (!(await guideStep())) { busy(false); return; }
           if (!(await people())) { busy(false); return; }
           if (f.table.value.trim() !== visit.tableLabel) await store.setVisitTable(key, visit.id, f.table.value);
           ctx.go(`p/${key}`, tRaw('rs.later.saved'));
@@ -300,93 +335,219 @@ export function scannedView({ partner, city, key, role, visits }, visit, action)
 
 // v63 : « Venda sem QR do cliente » — comme la planilha : le guide et le montant de la vente, pour CETTE boutique.
 function saleButton(key) {
-  return `<div class="card vd-card"><div class="spread" style="align-items:center"><span><b>${t('vd.title')}</b><br><span class="hint">${t('vd.hint')}</span></span>
-    <a class="btn small" href="#/p/${encodeURIComponent(key)}/venda">${t('vd.new')}</a></div></div>`;
+  return `<div class="card vd-card"><div class="spread" style="align-items:center"><span><b>${t('bill.button')}</b><br><span class="hint">${t('bill.button.hint')}</span></span>
+    <a class="btn" href="#/p/${encodeURIComponent(key)}/conta">${t('bill.new')}</a></div></div>`;
 }
 // v66 : message d'erreur d'une saisie (addition ou vente directe).
 function saveError(r, c, photoMin) {
   const reason = r && r.reason;
-  if (reason === 'photo_required') return tRaw('staff.photo.required', { min: c(r.min_cents || photoMin) });
+  if (reason === 'photo_required') return tRaw('staff.photo.required');
   if (['quota', 'fix_late'].includes(reason)) return tRaw(`staff.err.${reason}`);
+  if (['gg_expired', 'guide', 'guide_status', 'client', 'other_guide', 'mismatch', 'empty', 'expired', 'notyet', 'people'].includes(reason)) return tRaw(`bill.err.${reason}`);
   return tRaw(['amount', 'commission', 'already', 'counter_late', 'photo'].includes(reason) ? `rs.err.${reason}` : 'err.generic');
 }
-async function saleView({ partner, city, key, role }, guideRef = '') {
+// v67 : scanner de QR dans l'app (caméra arrière) : BarcodeDetector si le téléphone le permet, sinon jsQR.
+const JSQR = 'https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js';
+export const refOf = (text) => { const m = String(text || '').match(/(GG-[a-f0-9]{64}|B-[a-f0-9]{32}|C-[a-f0-9]{32})/); return m ? m[1] : null; };
+const loadScript = (src) => new Promise((resolve, reject) => {
+  if (window.jsQR) { resolve(); return; }
+  const el = document.createElement('script'); el.src = src; el.onload = resolve; el.onerror = reject; document.head.appendChild(el);
+});
+export function scanQr() {
+  const box = document.createElement('div'); box.className = 'qr-scan';
+  box.innerHTML = `<video playsinline muted></video><p>${esc(tRaw('bill.scan.hint'))}</p><button type="button" class="btn secondary">${esc(tRaw('bill.scan.cancel'))}</button>`;
+  document.body.appendChild(box);
+  const video = box.querySelector('video'); let stream = null; let done = false;
+  const stop = () => { done = true; if (stream) stream.getTracks().forEach((x) => x.stop()); box.remove(); };
+  return new Promise((resolve) => {
+    box.querySelector('button').onclick = () => { stop(); resolve(null); };
+    (async () => {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
+        if (done) { stream.getTracks().forEach((x) => x.stop()); return; }
+        video.srcObject = stream; await video.play();
+        let detector = null;
+        if ('BarcodeDetector' in window) { try { detector = new window.BarcodeDetector({ formats: ['qr_code'] }); } catch { detector = null; } }
+        if (!detector) await loadScript(JSQR);
+        const canvas = document.createElement('canvas'); const g = canvas.getContext('2d', { willReadFrequently: true });
+        const tick = async () => {
+          if (done) return;
+          try {
+            let text = null;
+            if (video.readyState >= 2) {
+              if (detector) { const codes = await detector.detect(video); text = codes[0] && codes[0].rawValue; }
+              else {
+                canvas.width = video.videoWidth; canvas.height = video.videoHeight; g.drawImage(video, 0, 0);
+                const img = g.getImageData(0, 0, canvas.width, canvas.height); const res = window.jsQR(img.data, img.width, img.height); text = res && res.data;
+              }
+            }
+            if (text) { stop(); resolve(text); return; }
+          } catch { /* image suivante */ }
+          setTimeout(tick, 200);
+        };
+        tick();
+      } catch { stop(); notify(tRaw('bill.scan.err')); resolve(null); }
+    })();
+  });
+}
+
+// Petite carte : photo, nom et code du guide (pour voir tout de suite s'il est là).
+function guideCardHtml(g) {
+  if (!g) return '';
+  const shown = g.badge_name || g.name || '?';
+  const ini = String(shown).split(/\s+/).filter(Boolean).map((w) => w[0]).slice(0, 2).join('').toUpperCase();
+  const ph = g.photo && String(g.photo).startsWith('data:image/') ? `<img src="${esc(g.photo)}" alt="">` : `<span class="bill-ini">${esc(ini)}</span>`;
+  return `<div class="bill-guide">${ph}<span><b>${esc(shown)}</b><br><span class="hint">${t('bill.guide.of', { code: g.code || '—' })}</span></span></div>`;
+}
+
+// v67 : la fiche du serveur. Deux cas : « Guia presente » (mode 2) ou « Só clientes » (mode 1). Scan ou code, puis le montant.
+export function billView({ partner, city, key, role }, preset = '') {
   const lang = getLang();
   const c = (n) => cents(n, city.currency, lang);
-  const rate = partner.commissionRate;
   const staff = role === 'staff';
-  const photoMin = partner.photoRequiredCents;
+  const photoNeeded = staff && partner.staffPhotoRequired;
   const back = `#/p/${encodeURIComponent(key)}`;
-  // Arrivée depuis le crachá du guide (B-…) : le guide est déjà choisi.
-  let preset = null;
-  if (/^B-[a-f0-9]{32}$/.test(guideRef)) { const b = await store.guideBadge(guideRef); if (b && b.state === 'ok') preset = { ref: guideRef, name: b.badge_name || b.name, code: b.code || '' }; }
+  const scanBtn = (what) => `<button type="button" class="btn secondary" data-scan="${what}">📷 ${t('bill.scan')}</button>`;
   return {
-    html: `<form class="card" id="vd">
-        <div class="spread"><h1 style="margin:0">${t('vd.title')}</h1><span class="hint">${esc(partner.name)}</span></div>
-        <p class="hint">${t('vd.form.hint')}</p>
-        <div class="field"><label for="vd-q">${t('vd.guide')}</label>
-          <input id="vd-q" autocomplete="off" placeholder="${esc(tRaw('vd.guide.ph'))}" value="${preset ? esc(`${preset.name}${preset.code ? ` · ${preset.code}` : ''}`) : ''}">
-          <input type="hidden" name="guide" value="${preset ? esc(preset.ref) : ''}">
-          <div id="vd-list" class="vd-list"></div>
-          ${preset ? `<p class="hint" style="margin:4px 0 0">✓ ${t('vd.guide.badge')}</p>` : ''}</div>
-        <div class="field"><label for="vd-v">${t('vd.amount')}</label>
-          <input id="vd-v" name="amount" class="rs-big" inputmode="decimal" placeholder="${esc(city.currency)} 0,00"></div>
-        ${staff ? `<div class="field"><label class="btn ghost small rs-photo-btn" for="vd-ph">${t('rs.photo.btn')}</label>
-          <input id="vd-ph" name="photo" type="file" accept="image/*" capture="environment" hidden>
-          <span class="hint" id="vd-ph-name">${t('staff.photo.hint', { min: c(photoMin) })}</span></div>` : ''}
-        <div class="field"${staff ? ' hidden' : ''}><label for="vd-c">${t('rs.com', { rate: Math.round(rate * 100) })}</label>
-          <input id="vd-c" name="com" inputmode="decimal" placeholder="—">
-          <p class="hint" style="margin:4px 0 0" id="vd-c-hint">${t('rs.com.hint')}</p></div>
-        <div class="field" id="vd-note-f" hidden><label for="vd-note">${t('rs.note')}</label><input id="vd-note" name="note" maxlength="200"></div>
-        <div class="field"><label for="vd-n">${t('vd.people')}</label>
-          <input id="vd-n" name="n" type="number" min="1" max="500" step="1" inputmode="numeric" value="1" style="max-width:120px"></div>
-        <button class="btn block" id="vd-save">${t('vd.save')}</button>
+    html: `<form class="card" id="bill" autocomplete="off">
+        <div class="spread"><h1 style="margin:0">${t('bill.title')}</h1><span class="hint">${esc(partner.name)}</span></div>
+        <p class="hint">${t('bill.hint')}</p>
+        <div class="bill-cases">
+          <label class="bill-case"><input type="radio" name="case" value="guide"><span><b>${t('bill.case.guide')}</b><br><small>${t('bill.case.guide.hint')}</small></span></label>
+          <label class="bill-case"><input type="radio" name="case" value="clients"><span><b>${t('bill.case.clients')}</b><br><small>${t('bill.case.clients.hint')}</small></span></label>
+        </div>
+        <div id="b-guide" hidden>
+          <div class="field"><label for="b-g">${t('bill.guide')}</label>
+            <div class="row bill-in">${scanBtn('guide')}<input id="b-g" placeholder="${esc(tRaw('bill.guide.ph'))}"></div>
+            <div id="b-g-list" class="vd-list"></div></div>
+          <div id="b-g-card"></div>
+        </div>
+        <div id="b-client" hidden>
+          <div class="field"><label for="b-c">${t('bill.client')} <span class="hint" id="b-c-opt">${t('bill.optional')}</span></label>
+            <div class="row bill-in">${scanBtn('client')}<input id="b-c" maxlength="6" autocapitalize="characters" placeholder="${esc(tRaw('bill.client.ph'))}" style="text-transform:uppercase"></div></div>
+          <div id="b-c-card"></div>
+          <div id="b-ask" class="notice warn" hidden><b>${t('bill.ask')}</b>
+            <div class="row" style="gap:8px;margin-top:8px"><button type="button" class="btn small" data-ask="yes">${t('bill.ask.yes')}</button>
+              <button type="button" class="btn ghost small" data-ask="no">${t('bill.ask.no')}</button></div></div>
+        </div>
+        <div id="b-rest" hidden>
+          <div class="field"><label for="b-v">${t('bill.amount')}</label>
+            <input id="b-v" name="amount" class="rs-big" inputmode="decimal" placeholder="${esc(city.currency)} 0,00"></div>
+          <div class="grid2 rs-keep2">
+            <div class="field"><label for="b-n">${t('rs.people')}</label><input id="b-n" name="n" type="number" min="1" max="500" step="1" inputmode="numeric" value="1"></div>
+            <div class="field"><label for="b-t">${t('rs.table')}</label><input id="b-t" name="table" maxlength="20" placeholder="${t('rs.table.ph')}"></div>
+          </div>
+          <div class="field"><label class="btn ghost small rs-photo-btn" for="b-ph">${t('bill.photo')}</label>
+            <input id="b-ph" name="photo" type="file" accept="image/*" capture="environment" hidden>
+            <span class="hint" id="b-ph-name">${t(photoNeeded ? 'staff.photo.hint' : 'staff.photo.opt')}</span></div>
+          ${staff ? '' : `<details class="rs-more"><summary>${t('bill.com.more')}</summary>
+            <div class="field" style="margin-top:8px"><label for="b-com">${t('bill.com', { rate: Math.round(partner.commissionRate * 100) })}</label>
+              <input id="b-com" name="com" inputmode="decimal" placeholder="—"><p class="hint" style="margin:4px 0 0">${t('bill.com.hint')}</p></div>
+            <div class="field"><label for="b-note">${t('rs.note')}</label><input id="b-note" name="note" maxlength="200"></div></details>`}
+          <button class="btn block" id="b-save">${t('bill.save')}</button>
+          <button type="button" class="btn secondary block" id="b-arrive" style="margin-top:8px" hidden>${t('bill.arrive')}</button>
+        </div>
       </form>
       <a class="btn ghost" href="${back}">${t(role === 'manager' ? 'partner.space' : 'counter.back')}</a>`,
     mount(root, ctx) {
-      const f = root.querySelector('#vd'); const q = root.querySelector('#vd-q'); const list = root.querySelector('#vd-list');
-      (preset ? f.amount : q).focus();
-      let timer = null;
+      const f = root.querySelector('#bill');
+      const $ = (sel) => root.querySelector(sel);
+      // État de la fiche : le cas, le guide (QR « Guia + grupo », crachá ou code), le client (QR ou code), la réponse à la question.
+      const st = { mode: null, guide: null, client: null, group: null, answer: null };
+      const show = () => {
+        const guideCase = st.mode === 'guide';
+        $('#b-guide').hidden = !guideCase;
+        $('#b-client').hidden = !st.mode || (guideCase && !!st.group);
+        $('#b-c-opt').hidden = !guideCase;
+        $('#b-ask').hidden = !(st.mode === 'clients' && st.client && !st.answer);
+        const ready = guideCase ? !!st.guide : (!!st.client && st.answer === 'no');
+        $('#b-rest').hidden = !ready;
+        $('#b-arrive').hidden = !(ready && (st.client || st.group));
+        f.querySelectorAll('[name=case]').forEach((r) => { r.checked = r.value === st.mode; r.closest('label').classList.toggle('on', r.checked); });
+      };
+      const setMode = (m) => { st.mode = m; if (m === 'guide' && st.answer !== 'yes') st.answer = null; show(); };
+      f.querySelectorAll('[name=case]').forEach((r) => { r.onchange = () => setMode(r.value); });
+      const card = (el, html) => { $(el).innerHTML = html; };
+      const setGuide = async (ref, label) => {
+        const r = await store.identifyRef(key, ref).catch(() => null);
+        if (!r || !r.ok || r.kind === 'client') { notify(saveError(r && r.ok ? { reason: 'guide' } : r, c, 0)); return; }
+        st.guide = ref; st.group = r.kind === 'guide_group' ? r.client : null;
+        if (st.mode !== 'guide') setMode('guide');
+        $('#b-g').value = label || (r.guide.badge_name || r.guide.name);
+        card('#b-g-card', `${guideCardHtml(r.guide)}${st.group ? `<p class="bill-client">✓ ${t('bill.group', { client: st.group.client, n: st.group.people })}</p>` : ''}`);
+        if (st.group) { f.n.value = st.group.people; st.client = null; card('#b-c-card', ''); }
+        show(); if (!$('#b-rest').hidden) f.amount.focus();
+      };
+      const setClient = async (ref) => {
+        const r = await store.identifyRef(key, ref).catch(() => null);
+        if (!r || !r.ok || r.kind !== 'client') { notify(tRaw('bill.err.client')); return; }
+        if (!r.client.valid) { notify(tRaw('bill.err.expired')); return; }
+        if (st.mode === 'guide' && st.group) { notify(tRaw('bill.err.mismatch')); return; }
+        st.client = ref; if (!st.mode) st.mode = 'clients';
+        $('#b-c').value = r.client.code || '';
+        f.n.value = r.client.people;
+        card('#b-c-card', `<p class="bill-client">✓ ${t('bill.group', { client: r.client.client, n: r.client.people })}</p>${st.mode === 'clients' ? guideCardHtml(r.guide) : ''}`);
+        show();
+      };
+      // Scanner : le type du QR décide (crachá ou « Guia + grupo » → guide ; QR client → client).
+      root.querySelectorAll('[data-scan]').forEach((b) => { b.onclick = async () => {
+        const txt = await scanQr(); if (!txt) return;
+        const ref = refOf(txt);
+        if (!ref) { notify(tRaw('bill.err.qr')); return; }
+        if (ref.startsWith('C-')) await setClient(ref); else await setGuide(ref);
+      }; });
+      // Code ou nom du guide tapé : suggestions (guides validés de la ville).
+      let timer = null; const q = $('#b-g'); const list = $('#b-g-list');
       q.addEventListener('input', () => {
-        f.guide.value = ''; clearTimeout(timer);
+        st.guide = null; st.group = null; card('#b-g-card', ''); show(); clearTimeout(timer);
         const v = q.value.trim(); if (v.length < 2) { list.innerHTML = ''; return; }
         timer = setTimeout(async () => {
           const found = await store.findGuides(key, v).catch(() => []);
           list.innerHTML = found.length ? found.map((g) => `<button type="button" class="vd-opt" data-code="${esc(g.code)}" data-label="${esc(`${g.badge_name || g.name} · ${g.code}`)}"><b>${esc(g.badge_name || g.name)}</b> <span class="hint">${esc(g.name)} · ${esc(g.code)}</span></button>`).join('')
             : `<p class="hint" style="margin:6px 0">${t('vd.guide.none')}</p>`;
-          list.querySelectorAll('[data-code]').forEach((b) => { b.onclick = () => { f.guide.value = b.dataset.code; q.value = b.dataset.label; list.innerHTML = ''; f.amount.focus(); }; });
+          list.querySelectorAll('[data-code]').forEach((b) => { b.onclick = () => { list.innerHTML = ''; setGuide(b.dataset.code, b.dataset.label); }; });
         }, 250);
       });
-      let comTouched = false;
-      const upd = () => {
-        const sum = parseCents(f.amount.value); const calc = sum == null ? null : Math.round(sum * rate);
-        if (!comTouched) f.com.value = calc == null ? '' : (calc / 100).toFixed(2).replace('.', ',');
-        root.querySelector('#vd-c-hint').textContent = calc == null ? tRaw('rs.com.hint') : tRaw('rs.com.calc', { bill: c(sum), com: c(calc) });
-        const typed = parseCents(f.com.value);
-        root.querySelector('#vd-note-f').hidden = !(calc != null && typed != null && typed < calc);
-      };
-      f.amount.addEventListener('input', upd);
-      if (f.photo) f.photo.onchange = () => { root.querySelector('#vd-ph-name').textContent = f.photo.files[0] ? tRaw('rs.photo.ok') : tRaw('staff.photo.hint', { min: c(photoMin) }); };
-      f.com.addEventListener('input', () => { comTouched = f.com.value.trim() !== ''; upd(); });
-      f.onsubmit = async (e) => {
-        e.preventDefault();
-        if (!f.guide.value) { notify(tRaw('vd.err.guide')); q.focus(); return; }
-        const sum = parseCents(f.amount.value);
-        if (sum == null || sum <= 0) { notify(tRaw('vd.err.amount')); return; }
-        const calc = Math.round(sum * rate);
-        const com = f.com.value.trim() === '' ? calc : parseCents(f.com.value);
-        if (com == null || com > calc) { notify(tRaw('rs.err.com', { max: c(calc) })); return; }
+      // Code client tapé (6 lettres).
+      $('#b-c').addEventListener('input', (e) => {
+        const v = e.target.value.toUpperCase().replace(/[^A-Z]/g, '');
+        st.client = null; st.answer = st.mode === 'guide' ? st.answer : null; card('#b-c-card', ''); show();
+        if (v.length === 6) setClient(v);
+      });
+      root.querySelectorAll('[data-ask]').forEach((b) => { b.onclick = () => {
+        if (b.dataset.ask === 'yes') { st.answer = 'yes'; setMode('guide'); notify(tRaw('bill.ask.yes.hint')); q.focus(); }
+        else { st.answer = 'no'; show(); f.amount.focus(); }
+      }; });
+      f.photo.onchange = () => { $('#b-ph-name').textContent = f.photo.files[0] ? tRaw('rs.photo.ok') : tRaw(photoNeeded ? 'staff.photo.hint' : 'staff.photo.opt'); };
+      const send = async (withAmount) => {
+        const sum = withAmount ? parseCents(f.amount.value) : null;
+        if (withAmount && (sum == null || sum <= 0)) { notify(tRaw('vd.err.amount')); f.amount.focus(); return; }
+        const file = f.photo.files && f.photo.files[0];
+        if (withAmount && photoNeeded && !file) { notify(tRaw('staff.photo.required')); f.photo.click(); return; }
+        let com = null;
+        if (withAmount && f.com && f.com.value.trim()) {
+          const calc = Math.round(sum * partner.commissionRate);
+          com = parseCents(f.com.value);
+          if (com == null || com > calc) { notify(tRaw('rs.err.com', { max: c(calc) })); return; }
+        }
         const n = Number(f.n.value) || 1;
-        const file = f.photo && f.photo.files && f.photo.files[0];
-        if (staff && !file && sum >= photoMin) { notify(tRaw('staff.photo.required', { min: c(photoMin) })); f.photo.click(); return; }
-        const btn = root.querySelector('#vd-save'); btn.disabled = true;
+        f.querySelectorAll('button').forEach((x) => { x.disabled = true; });
         try {
-          const photo = file ? await photoToJpeg(file, 1000, 0.7).catch(() => null) : null;
-          const r = await store.recordDirectSale(key, f.guide.value, { invoiceCents: sum, people: n, commissionCents: staff || com === calc ? null : com, note: f.note.value || null, photo });
-          if (!r || !r.ok) { btn.disabled = false; notify(['guide', 'guide_status', 'amount', 'commission', 'people'].includes(r && r.reason) ? tRaw(`vd.err.${r.reason}`) : saveError(r, c, photoMin)); return; }
-          ctx.go(`p/${key}/venda`, staff ? tRaw('vd.saved.staff', { guide: r.guide, bill: c(r.invoice_cents) }) : tRaw('vd.saved', { guide: r.guide, com: c(r.declared_cents) }));
-        } catch { btn.disabled = false; notify(tRaw('err.generic')); }
+          const photo = withAmount && file ? await photoToJpeg(file, 1000, 0.7).catch(() => null) : null;
+          const r = await store.recordBill(key, { guide: st.mode === 'guide' ? st.guide : null, client: st.client, invoiceCents: sum, people: n,
+            table: f.table.value || null, photo, note: f.note ? f.note.value || null : null, commissionCents: com });
+          if (!r || !r.ok) { f.querySelectorAll('button').forEach((x) => { x.disabled = false; }); notify(saveError(r, c, 0)); return; }
+          const msg = tRaw(r.mode === 2 ? 'bill.saved.2' : 'bill.saved.1', { guide: r.guide || '', bill: sum == null ? '' : c(sum) });
+          if (!r.client) ctx.go(`p/${key}`, msg);
+          else ctx.go(`p/${key}/${r.duplicate ? 'deja' : 'passage'}/${r.visit_id}`, msg);
+        } catch { f.querySelectorAll('button').forEach((x) => { x.disabled = false; }); notify(tRaw('err.generic')); }
       };
+      f.onsubmit = (e) => { e.preventDefault(); send(true); };
+      $('#b-arrive').onclick = () => send(false);
+      // Arrivée avec un QR déjà lu (crachá depuis la page du guide, QR « Guia + grupo » ouvert par l'appareil photo).
+      const pre = refOf(preset);
+      if (pre) { if (pre.startsWith('C-')) setClient(pre); else setGuide(pre); }
+      show();
     },
   };
 }
@@ -459,7 +620,7 @@ export function spaceView(space, tab = 'painel') {
   const toDeclare = visits.filter((v) => v.status === 'visited');
   const toPay = visits.filter((v) => v.status === 'declared');
   const extraDue = adjustments.filter((a) => a.partnerStatus === 'extra_due');
-  const payCents = toPay.reduce((s, v) => s + (v.declaredCents || 0), 0) + extraDue.reduce((s, a) => s + a.deltaCents, 0);
+  const payCents = toPay.reduce((s, v) => s + (v.dueCents || 0), 0) + extraDue.reduce((s, a) => s + a.deltaCents, 0);
   const late = toPay.length ? Math.max(...toPay.map((v) => ageDays(v.declaredAt))) : 0;
   const lastPay = payments[0];
   const rejected = lastPay && lastPay.status === 'rejected' && toPay.length ? lastPay : null;
@@ -500,7 +661,8 @@ export function spaceView(space, tab = 'painel') {
   const rowTags = (v) => {
     const tags = [];
     if (v.direct) tags.push(t('vd.tag'));
-    if (v.guidePresent) tags.push(t('rs.present'));
+    if (v.mode === 2) tags.push(v.feeCents ? t('mode2.tag.fee', { fee: c(v.feeCents) }) : t('mode2.tag'));
+    if (v.guidePresent && v.mode !== 2) tags.push(t('rs.present'));
     if (v.guideMeal) tags.push(t('rs.meal.tag'));
     if (v.computedCents != null && v.declaredCents != null && v.declaredCents < v.computedCents) tags.push(t('rs.reduced', { from: c(v.computedCents) }));
     if (v.declaredBy === 'counter') tags.push(t('rs.by.counter'));
@@ -648,7 +810,7 @@ export function spaceView(space, tab = 'painel') {
       const refresh = () => {
         const list = sel(); const decl = list.filter((v) => v.status === 'visited'); const pay = list.filter((v) => v.status === 'declared');
         const missing = decl.filter((v) => billOf(v) == null).length;
-        const total = pay.reduce((s, v) => s + v.declaredCents, 0) + decl.reduce((s, v) => s + (billOf(v) != null ? Math.round(billOf(v) * (v.rate ?? partner.commissionRate)) : 0), 0);
+        const total = pay.reduce((s, v) => s + v.dueCents, 0) + decl.reduce((s, v) => s + (billOf(v) != null ? Math.round(billOf(v) * (v.rate ?? partner.commissionRate)) : 0), 0);
         const info = root.querySelector('#pd-sel');
         if (info) info.textContent = list.length ? tRaw('pd.sel.n', { n: list.length, amount: c(total) }) + (missing ? ` · ${tRaw('pd.sel.missing', { n: missing })}` : '') : tRaw('pd.sel.none');
         const bd = root.querySelector('#pd-declare'); if (bd) bd.disabled = !decl.length || missing > 0 || pay.length > 0;
@@ -776,7 +938,7 @@ function payView({ partner, city, visits, key }) {
           <label class="spread" style="font-weight:400;align-items:center">
             <span><input type="checkbox" name="sel" value="${esc(v.id)}"${!pre || pre.includes(v.id) ? ' checked' : ''} style="width:auto;margin-right:8px"><b>${esc(v.client || '?')}</b>
               <span class="hint"> · ${esc(store.visitRef(v))} · ${fmtDay(v.at.slice(0, 10), lang)}</span></span>
-            <b>${c(v.declaredCents)}</b>
+            <b>${c(v.dueCents)}${v.feeCents ? `<br><small class="hint">${t('mode2.pay.line', { com: c(v.declaredCents), fee: c(v.feeCents) })}</small>` : ''}</b>
           </label></li>`).join('')}</ul>
         <div class="stat" style="margin:12px 0"><span>${t('partner.pay.total')}</span><b id="total">${c(0)}</b></div>
         ${pixKey ? `<div style="text-align:center">
@@ -798,7 +960,7 @@ function payView({ partner, city, visits, key }) {
       const chosen = () => todo.filter((v) => form.querySelector(`[value="${v.id}"]`).checked);
       let payload = '';
       const update = () => {
-        const total = chosen().reduce((s, v) => s + v.declaredCents, 0);
+        const total = chosen().reduce((s, v) => s + v.dueCents, 0);
         root.querySelector('#total').textContent = c(total);
         if (pixKey) {
           payload = pixPayload({ key: pixKey, amount: total / 100, txid: `KBR${partner.id.replace(/-/g, '').slice(0, 10)}` });
@@ -981,8 +1143,8 @@ function monthPage(space, month, closings) {
   // Le Pix unique couvre tout ce qui est déclaré et pas encore payé (tous mois confondus), plus les compléments dus.
   const toPay = visits.filter((v) => v.status === 'declared');
   const extra = adjustments.filter((a) => a.partnerStatus === 'extra_due').reduce((s, a) => s + a.deltaCents, 0);
-  const payCents = toPay.reduce((s, v) => s + (v.declaredCents || 0), 0) + extra;
-  const verifying = visits.filter((v) => v.status === 'verifying').reduce((s, v) => s + (v.declaredCents || 0), 0);
+  const payCents = toPay.reduce((s, v) => s + (v.dueCents || 0), 0) + extra;
+  const verifying = visits.filter((v) => v.status === 'verifying').reduce((s, v) => s + (v.dueCents || 0), 0);
   const doc = latestOf(closings, m);
   const step = (n, title, ok, body) => `<div class="card"><div class="spread"><h2 style="margin:0">${n}. ${title}</h2>
       <span class="badge ${ok ? 'ok' : 'warn'}">${t(ok ? 'mes.ok' : 'mes.todo')}</span></div>${body}</div>`;
@@ -1061,6 +1223,7 @@ function docPage(space, sel, closings, back) {
         ${row(t('doc.t.visits'), `${T.visits ?? 0} · ${t('pd.k.people', { n: T.people ?? 0 })}`)}
         ${row(t('doc.t.bills'), c(T.invoice_cents))}
         ${row(t('doc.t.commission'), c(T.commission_cents), true)}
+        ${T.fee_cents ? row(t('doc.t.fee'), c(T.fee_cents), true) : ''}
         ${row(t('doc.t.received'), c(T.received_cents))}
         ${row(t('doc.t.guides'), c(T.guide_cents))}
         ${row(t('doc.t.kombrio'), c(T.kombrio_cents))}
@@ -1074,7 +1237,7 @@ function docPage(space, sel, closings, back) {
       ${lines.length ? `<div class="table-wrap"><table>
         <tr><th>${t('report.col.id')}</th><th>${t('report.col.date')}</th><th>${t('report.col.client')}</th><th>${t('report.col.guide')}</th><th>${t('report.col.people')}</th><th>${t('pd.col.bill')}</th><th>${t('doc.col.rate')}</th><th>${t('report.col.amount')}</th><th>${t('report.col.status')}</th></tr>
         ${lines.map((l) => `<tr><td style="white-space:nowrap">${esc(store.visitRef(l))}</td><td style="white-space:nowrap">${esc(fmtDay(String(l.day).slice(0, 10), lang))}</td><td>${esc(l.client || '')}</td><td>${esc(l.guide || '')}</td><td>${l.people ?? ''}</td>
-          <td>${l.invoice_cents != null ? c(l.invoice_cents) : '—'}</td><td>${l.rate != null ? `${Math.round(Number(l.rate) * 100)} %` : '—'}</td><td>${l.commission_cents != null ? c(l.commission_cents) : '—'}</td><td>${esc(pLabel(l.status))}</td></tr>`).join('')}
+          <td>${l.invoice_cents != null ? c(l.invoice_cents) : '—'}</td><td>${l.rate != null ? `${Math.round(Number(l.rate) * 100)} %` : '—'}</td><td>${l.commission_cents != null ? c(l.commission_cents) : '—'}${l.fee_cents ? `<br><small>${t('mode2.doc.fee', { fee: c(l.fee_cents) })}</small>` : ''}</td><td>${esc(pLabel(l.status))}</td></tr>`).join('')}
       </table></div>` : `<p class="hint">${t('report.none')}</p>`}
       ${(doc.payments || []).length ? `<h2 style="margin-top:16px">${t('doc.payments')}</h2><div class="table-wrap"><table>
         <tr><th>N°</th><th>${t('common.date')}</th><th>${t('common.amount')}</th><th>Pix</th><th>${t('report.col.status')}</th></tr>
@@ -1104,7 +1267,7 @@ function docPage(space, sel, closings, back) {
           tRaw('pd.col.bill'), tRaw('doc.col.rate'), tRaw('report.col.amount'), tRaw('report.col.status')].map(cell);
         const body = lines.map((l) => [store.visitRef(l), String(l.day).slice(0, 10), l.client, l.guide, l.people, num(l.invoice_cents),
           l.rate != null ? `${Math.round(Number(l.rate) * 100)}%` : '', num(l.commission_cents), pLabel(l.status)].map(cell));
-        const sum = [[tRaw('doc.t.commission'), num(T.commission_cents)], [tRaw('doc.t.received'), num(T.received_cents)], [tRaw('doc.t.guides'), num(T.guide_cents)],
+        const sum = [[tRaw('doc.t.commission'), num(T.commission_cents)], [tRaw('doc.t.fee'), num(T.fee_cents || 0)], [tRaw('doc.t.received'), num(T.received_cents)], [tRaw('doc.t.guides'), num(T.guide_cents)],
           [tRaw('doc.t.kombrio'), num(T.kombrio_cents)], [tRaw('doc.t.inss'), num(T.inss_cents)], [tRaw('doc.t.topay'), num(T.to_pay_cents)]].map(([a, b]) => [cell(a), cell(b)]);
         const csv = '﻿' + [[cell(tRaw('doc.a.title')), cell(doc.doc_code), cell(tRaw('doc.version', { v: doc.version }))], [], head, ...body, [], ...sum, [], [cell(tRaw('doc.mention'))], [cell(`SHA-256 ${doc.sha256}`)]]
           .map((r) => r.join(';')).join('\r\n');
@@ -1236,6 +1399,10 @@ function teamHtml({ partner, city, team = [] }) {
         <ul class="team-rules"><li>✓ ${t('team.sees.1')}</li><li>✓ ${t('team.sees.2')}</li><li>✓ ${t('team.sees.3')}</li>
           <li>✗ ${t('team.sees.4')}</li><li>✗ ${t('team.sees.5')}</li></ul>
         <p class="hint">${t('team.sees.rules')}</p></div>
+      <div class="card"><h2>${t('team.photo.title')}</h2>
+        <p>${partner.staffPhotoRequired ? t('team.photo.on') : t('team.photo.off')}</p>
+        <p class="hint">${t('team.photo.hint')}</p>
+        <button type="button" class="btn ${partner.staffPhotoRequired ? 'ghost' : 'secondary'} small" id="team-photo" data-on="${partner.staffPhotoRequired ? '1' : ''}">${t(partner.staffPhotoRequired ? 'team.photo.cut' : 'team.photo.restore')}</button></div>
       <div class="card"><h2>${t('team.counter.title')}</h2>
         <p>${partner.counterEnabled ? t('team.counter.on') : t('team.counter.off')}</p>
         <p class="hint">${t('team.counter.hint')}</p>
@@ -1268,6 +1435,13 @@ function mountTeam(r, ctx, key) {
   rt.querySelectorAll('[data-copy]').forEach((b) => { b.onclick = async () => {
     try { await navigator.clipboard.writeText(b.dataset.copy); notify(tRaw('team.copied')); } catch { prompt('', b.dataset.copy); }
   }; });
+  const pb = rt.querySelector('#team-photo');
+  if (pb) pb.onclick = async () => {
+    const on = !!pb.dataset.on;
+    pb.disabled = true;
+    try { if (!(await store.partnerSetStaffPhoto(key, !on))) throw new Error(); ctx.refresh(tRaw(on ? 'team.photo.cut.done' : 'team.photo.restore.done')); }
+    catch { pb.disabled = false; notify(tRaw('err.generic')); }
+  };
   const cb = rt.querySelector('#team-counter');
   if (cb) cb.onclick = async () => {
     const on = !!cb.dataset.on;
@@ -1276,6 +1450,14 @@ function mountTeam(r, ctx, key) {
     try { if (!(await store.partnerSetCounter(key, !on))) throw new Error(); ctx.refresh(tRaw(on ? 'team.counter.cut.done' : 'team.counter.restore.done')); }
     catch { cb.disabled = false; notify(tRaw('err.generic')); }
   };
+}
+
+// v67 : QR « Guia + grupo » lu par l'appareil photo du téléphone : la fiche s'ouvre avec le guide et le groupe.
+export async function groupQrView([tok = ''], ctx) {
+  let me = null;
+  try { me = localStorage.getItem(ME_KEY); } catch { /* rien */ }
+  if (me && tok) return { html: '', mount: () => ctx.replace(`p/${me}/conta/${tok}`) };
+  return { html: `<div class="notice warn">${t('bill.gg.nophone')}</div><p><a class="btn" href="#/">${t('pm.title')}</a></p>` };
 }
 
 // v66 : inscription du téléphone d'une personne de l'équipe — par le lien (#/equipe/E-…) ou avec le code à 6 chiffres.

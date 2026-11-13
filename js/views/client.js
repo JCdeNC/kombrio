@@ -34,6 +34,7 @@ export async function clientView([token]) {
         <p>${validity(stay, valid, lang)}</p>
         ${valid ? `<div class="qr">${qrSvg(appLink('partner', `s/${stay.token}`))}</div>
           <p><b>${t('client.show')}</b></p>
+          ${stay.code ? `<p class="client-code">${t('client.code', { code: stay.code })}</p>` : ''}
           <p class="hint">${t('client.people', { n: stay.people, end: fmtDay(stay.end, lang) })}</p>
           <button type="button" class="btn block" id="saveqr">${t('client.saveqr')}</button>
           <p class="hint" style="margin-top:8px">${t('client.saveqr.hint')}</p>

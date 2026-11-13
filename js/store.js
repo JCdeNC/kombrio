@@ -44,10 +44,13 @@ const toPartner = (r) => r && ({
   managerPhone: r.manager_phone || '', commissionRate: r.commission_rate == null ? 0.1 : Number(r.commission_rate), termsVersion: r.terms_version || '', termsAcceptedAt: r.terms_accepted_at || '', termsSha: r.terms_sha256 || '', circleEnabled: !!r.circle_enabled, founderUntil: r.founder_until || '',
   // v66 : ancien QR caisse actif ou coupé ; photo de l'addition obligatoire (personnel) à partir de ce montant.
   counterEnabled: r.counter_enabled !== false, photoRequiredCents: r.photo_required_cents == null ? 30000 : Number(r.photo_required_cents),
+  // v67 : photo de la note obligatoire pour l'équipe (réglage du gérant) ; frais du mode 2 (réglés par Kombrio).
+  staffPhotoRequired: r.staff_photo_required !== false, mode2FeeRate: r.mode2_fee_rate == null ? 0.03 : Number(r.mode2_fee_rate),
+  mode2FeeCapCents: r.mode2_fee_cap_cents == null ? 9900 : Number(r.mode2_fee_cap_cents),
 });
 const toStay = (r) => r && ({
   id: r.id, guideId: r.guide_id, client: r.client, people: r.people, start: r.start_day, end: r.end_day,
-  token: r.token, createdAt: r.created_at, archivedAt: r.archived_at || '', direct: !!r.direct,
+  token: r.token, createdAt: r.created_at, archivedAt: r.archived_at || '', direct: !!r.direct, code: r.code || '',
 });
 const num = (x) => (x == null ? null : Number(x));
 // Une transaction (passage) : montants en centavos, jamais en nombres à virgule.
@@ -64,6 +67,9 @@ const toVisit = (r) => r && ({
   declaredBy: r.declared_by || null, hasPhoto: !!r.has_photo, guidePresent: !!r.guide_present, direct: !!r.direct,
   // v66 : équipe du partenaire (qui a scanné, qui a saisi ; correction possible 15 min par la même personne).
   scanStaff: r.scan_staff || '', billStaff: r.bill_staff || '', byMe: !!r.by_me, canFix: !!r.can_fix,
+  // v67 : mode 1 (clients seuls, 80/20) ou 2 (guide présent : 100 % guide + frais payés par le partenaire). À payer = commission + frais.
+  mode: r.mode == null ? 1 : Number(r.mode), feeCents: num(r.fee_cents) || 0, feeRate: r.fee_rate == null ? null : Number(r.fee_rate),
+  dueCents: r.declared_cents == null ? null : Number(r.declared_cents) + (Number(r.fee_cents) || 0),
 });
 const toPayout = (r) => r && ({
   id: r.id, num: num(r.num), guideId: r.guide_id, cents: num(r.amount_cents), status: r.status, reference: r.reference,
@@ -423,6 +429,32 @@ export async function staffEnroll(ref) {
 }
 export async function partnerSetCounter(managerToken, enabled) {
   return check(await sb.rpc('partner_set_counter', { p_manager_token: managerToken, p_enabled: enabled }));
+}
+// v67 : fiche du serveur (guide présent / clients seuls), QR « Guia + grupo », réglages.
+export async function identifyRef(token, ref) {
+  return check(await sb.rpc('identify_ref', { p_token: token, p_ref: ref }));
+}
+export async function recordBill(token, { guide = null, client = null, invoiceCents = null, people = null, table = null, photo = null, note = null, commissionCents = null }) {
+  return check(await sb.rpc('record_bill', {
+    p_token: token, p_guide: guide, p_client: client, p_invoice_cents: invoiceCents, p_people: people, p_table: table,
+    p_photo: photo, p_note: note, p_commission_cents: commissionCents,
+  }));
+}
+export async function setVisitGuide(token, visitId, guideRef) {
+  return check(await sb.rpc('set_visit_guide', { p_token: token, p_visit: visitId, p_guide: guideRef }));
+}
+export async function visitGuideCard(token, visitId) {
+  return check(await sb.rpc('visit_guide_card', { p_token: token, p_visit: visitId }));
+}
+export async function partnerSetStaffPhoto(managerToken, on) {
+  return check(await sb.rpc('partner_set_staff_photo', { p_manager_token: managerToken, p_on: on }));
+}
+export async function guideGroupToken(stayId) {
+  return check(await sb.rpc('guide_group_token', { p_stay: stayId }));
+}
+// Admin : frais du mode 2 d'un partenaire (taux et plafond mensuel), journalisés par le trigger d'audit.
+export async function setPartnerFees(partnerId, rate, capCents) {
+  check(await sb.from('partners').update({ mode2_fee_rate: rate, mode2_fee_cap_cents: capCents }).eq('id', partnerId));
 }
 // v66 : photo de l'addition pour l'admin, seulement dans un litige (alerte sur le passage).
 export async function adminBillPhoto(visitId) {

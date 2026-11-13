@@ -966,6 +966,13 @@ async function partners({ partnerList, cityList, city }) {
           </div>` : ''}
           <div class="row" style="margin-top:8px"><button type="button" class="btn ghost small" data-renewm="${esc(p.id)}">${t('admin.part.manager.renew')}</button></div>
         </details>
+        <details style="margin-top:8px"><summary>${t('admin.part.fees', { rate: (p.mode2FeeRate * 100).toLocaleString('pt-BR'), cap: cents(p.mode2FeeCapCents, 'BRL', getLang()) })}</summary>
+          <form class="pfees row" data-id="${esc(p.id)}" style="gap:8px;margin-top:8px;align-items:flex-end">
+            <div class="field" style="margin:0"><label>${t('admin.part.fees.rate')}</label><input name="rate" inputmode="decimal" value="${esc(String(p.mode2FeeRate * 100).replace('.', ','))}" style="max-width:90px"></div>
+            <div class="field" style="margin:0"><label>${t('admin.part.fees.cap')}</label><input name="cap" inputmode="decimal" value="${esc((p.mode2FeeCapCents / 100).toFixed(2).replace('.', ','))}" style="max-width:120px"></div>
+            <button class="btn small secondary">${t('common.save')}</button></form>
+          <p class="hint" style="margin:6px 0 0">${t('admin.part.fees.hint')}</p>
+        </details>
         <details style="margin-top:8px"><summary>${t('admin.part.qr')}</summary>
           <div class="qr">${qrSvg(appLink('partner', `p/${p.token}`))}</div>
           <div class="row">
@@ -991,6 +998,14 @@ async function partners({ partnerList, cityList, city }) {
       mountActive(root, ctx);
       mountPlus(root, ctx);
       maskTaxId(root.querySelector('#p-tax'));
+      // v67 : frais du mode 2 (guide présent) réglés par Kombrio pour chaque partenaire.
+      root.querySelectorAll('.pfees').forEach((form) => { form.onsubmit = async (e) => {
+        e.preventDefault();
+        const rate = Number(String(form.rate.value).replace(',', '.')) / 100;
+        const cap = parseCents(form.cap.value);
+        if (!(rate >= 0 && rate <= 0.5) || cap == null || cap < 0) { notify(tRaw('admin.part.fees.err')); return; }
+        try { await store.setPartnerFees(form.dataset.id, rate, cap); ctx.refresh(tRaw('common.saved')); } catch { notify(tRaw('err.generic')); }
+      }; });
       root.querySelectorAll('.pdetails').forEach((form) => {
         form.onsubmit = async (e) => {
           e.preventDefault();

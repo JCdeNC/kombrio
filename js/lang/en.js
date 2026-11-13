@@ -110,4 +110,5 @@ export default {
   'client.disclosure': 'Some partners may pay a commercial fee for recommendations attributed to your guide and to Kombrio. You remain entirely free to visit these places or not, and to buy or not.',
   // v59
   'client.onlylist': 'Only the places on this list are Kombrio partners. Anywhere else, your QR gives no offer.',
+  'client.code': "Code: <b>{code}</b>",
 };

@@ -450,3 +450,20 @@ main { overflow-wrap: break-word; }
   .hdr-help { width: 30px; height: 30px; font-size: .95rem; }
   .top select { padding: 5px 2px; }
 }
+
+/* v67 : fiche du serveur (deux cas), scanner intégré, QR « Guia + grupo » */
+.bill-cases { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 12px 0; }
+.bill-case { display: flex; gap: 8px; align-items: flex-start; padding: 12px; border: 2px solid var(--line); border-radius: 12px; cursor: pointer; font-weight: 400; }
+.bill-case input { width: auto; margin-top: 4px; }
+.bill-case.on { border-color: var(--brand, #0f766e); background: rgba(15, 118, 110, .06); }
+.bill-in { gap: 6px; flex-wrap: nowrap; }
+.bill-in input { flex: 1; min-width: 0; }
+.bill-guide { display: flex; gap: 10px; align-items: center; margin: 6px 0 10px; }
+.bill-guide img, .bill-ini { width: 56px; height: 56px; border-radius: 50%; object-fit: cover; flex: none; }
+.bill-ini { display: grid; place-items: center; background: var(--line); font-weight: 700; }
+.bill-client { margin: 6px 0; font-weight: 600; }
+.qr-scan { position: fixed; inset: 0; z-index: 1000; background: #000; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 16px; color: #fff; }
+.qr-scan video { width: 100%; max-width: 480px; max-height: 70vh; border-radius: 12px; object-fit: cover; }
+.gg-box { text-align: center; margin-bottom: 10px; }
+.client-code { font-size: 1.1em; letter-spacing: .08em; }
+@media (max-width: 420px) { .bill-cases { grid-template-columns: 1fr; } }
