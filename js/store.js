@@ -51,6 +51,8 @@ const toPartner = (r) => r && ({
   commissionModel: r.commission_model === 'per_person' ? 'per_person' : 'percent', perPersonCents: num(r.per_person_cents) || 0,
   // v69 : bonus « X tous les N clients » et repas offert au guide présent « 1 tous les N clients » (0 = aucun).
   bonusEvery: num(r.bonus_every) || 0, bonusCents: num(r.bonus_cents) || 0, mealEvery: num(r.meal_every) || 0,
+  // v70 : prix Kombrio pour le client (prix normal → prix Kombrio) et dates de l'offre (vides = toujours).
+  offerPriceCents: num(r.offer_price_cents), offerPromoCents: num(r.offer_promo_cents), offerStart: r.offer_start || '', offerEnd: r.offer_end || '',
 });
 const toStay = (r) => r && ({
   id: r.id, guideId: r.guide_id, client: r.client, people: r.people, start: r.start_day, end: r.end_day,
@@ -272,7 +274,8 @@ export async function listPartners() {
 }
 // Version publique, sans code secret (page du client, noms pour le guide).
 export async function publicPartners(cityId) {
-  return check(await sb.rpc('public_partners', { p_city: cityId })).map((r) => ({ ...r, offer: r.offer || '' }));
+  return check(await sb.rpc('public_partners', { p_city: cityId })).map((r) => ({
+    ...r, offer: r.offer || '', offerPriceCents: num(r.offer_price_cents), offerPromoCents: num(r.offer_promo_cents), offerEnd: r.offer_end || '' }));
 }
 export async function addPartner(p) {
   check(await sb.from('partners').insert({
@@ -337,6 +340,12 @@ export async function setPartnerOffer(token, offer) {
   check(await sb.rpc('set_partner_offer', { p_token: token, p_offer: offer }));
 }
 
+// v70 : offre complète du partenaire (cadeau, prix Kombrio, dates) ; offre valable tel jour ?
+export async function setPartnerOfferFull(managerToken, { offer, priceCents, promoCents, start, end }) {
+  return check(await sb.rpc('set_partner_offer_full', {
+    p_manager_token: managerToken, p_offer: offer, p_price_cents: priceCents, p_promo_cents: promoCents, p_start: start || null, p_end: end || null }));
+}
+export const offerActive = (p, day) => (!p.offerStart || day >= p.offerStart) && (!p.offerEnd || day <= p.offerEnd);
 export async function setCommissionRate(managerToken, rate) {
   return check(await sb.rpc('set_commission_rate', { p_manager_token: managerToken, p_rate: rate }));
 }

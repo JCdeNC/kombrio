@@ -93,6 +93,8 @@ export default {
   'client.filter.all': 'All',
   'ptype.restaurant.many': 'Restaurants',
   'ptype.shop.many': 'Shops',
+  'client.price': 'Kombrio price:',
+  'client.offer.until': 'Until {day}',
   'client.offer': 'Kombrio offer:',
   'client.directions': 'Directions',
   'client.saveqr': 'Save the QR to my photos',

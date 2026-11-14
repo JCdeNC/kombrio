@@ -2,7 +2,7 @@
 // Sans passage en attente, le même QR ouvre son espace (historique, offre, QR à imprimer).
 // Pas de compte : tout passe par le code secret du QR Partenaire, vérifié par la base.
 import { t, tRaw, getLang } from '../i18n.js';
-import { esc, money, cents, parseCents, fmtMoment, fmtDay, qrSvg, appLink, readFileAsDataUrl, notify, pixPayload, pixKeyOf, photoToJpeg, confirmTwice, fmtTaxId, locale, phoneField, phoneValue } from '../util.js';
+import { todayIn, esc, money, cents, parseCents, fmtMoment, fmtDay, qrSvg, appLink, readFileAsDataUrl, notify, pixPayload, pixKeyOf, photoToJpeg, confirmTwice, fmtTaxId, locale, phoneField, phoneValue } from '../util.js';
 import * as store from '../store.js';
 import { statusBadge, notFound, forgotLink, mountForgot, resetView, lastMonths, shortMonth, delta, barChart } from './shared.js';
 import { readPendingStay, clearPendingStay } from './scan.js';
@@ -18,6 +18,9 @@ const rateText = (partner, visit, c) => {
   const every = visit ? visit.bonusEvery : partner.bonusEvery;
   return every > 0 ? base + tRaw('rate.bonus', { amount: c((visit ? visit.bonusCents : partner.bonusCents) || 0), n: every }) : base;
 };
+// v70 : offre valable aujourd'hui ? ligne « prix Kombrio » (prix normal → prix Kombrio).
+const offerOn = (partner, city) => store.offerActive(partner, todayIn(city.timezone));
+const priceLine = (partner, c) => (partner.offerPromoCents ? tRaw('offer.price', { promo: c(partner.offerPromoCents), price: c(partner.offerPriceCents) }) : '');
 // v69 : repas offerts au guide présent sur ce passage.
 const mealsOf = (visit) => (visit.guidePresent ? (visit.meals || store.mealsFor(visit.mealEvery, visit.peopleServed)) : 0);
 
@@ -169,8 +172,10 @@ export function scannedView({ partner, city, key, role, visits }, visit, action)
   const ask = visit.status === 'visited' && visit.mode === 1 && !visit.guidePresent && !visit.direct;
   const back = `#/p/${encodeURIComponent(key)}`;
   let offer = '';
-  if (partner.offer && fresh) {
-    offer = visit.offerGiven
+  const on = offerOn(partner, city);
+  if (on && partner.offerPromoCents) offer += `<div class="notice ok"><b>${esc(priceLine(partner, c))}</b></div>`;
+  if (on && partner.offer && fresh) {
+    offer += visit.offerGiven
       ? `<div class="notice ok"><b>${t('partner.offer.give')}</b><div class="offer">${esc(partner.offer)}</div></div>`
       : `<div class="notice warn">${t('partner.offer.already')}</div>`;
   }
@@ -778,6 +783,16 @@ export function spaceView(space, tab = 'painel') {
         <h2>${t('partner.offer.title')}</h2>
         <p class="hint">${t('partner.offer.hint')}</p>
         <div class="field"><input name="offer" value="${esc(partner.offer || '')}" maxlength="120" placeholder="${t('partner.offer.none')}"></div>
+        <p class="hint" style="margin:8px 0 4px"><b>${t('offer.price.title')}</b> ${t('offer.price.hint')}</p>
+        <div class="grid2 rs-keep2">
+          <div class="field"><label for="o-pr">${t('offer.price.normal')}</label><input id="o-pr" name="price" inputmode="decimal" placeholder="75,00" value="${partner.offerPriceCents ? (partner.offerPriceCents / 100).toFixed(2).replace('.', ',') : ''}"></div>
+          <div class="field"><label for="o-pm">${t('offer.price.kombrio')}</label><input id="o-pm" name="promo" inputmode="decimal" placeholder="60,00" value="${partner.offerPromoCents ? (partner.offerPromoCents / 100).toFixed(2).replace('.', ',') : ''}"></div>
+        </div>
+        <div class="grid2 rs-keep2">
+          <div class="field"><label for="o-st">${t('offer.start')}</label><input id="o-st" name="start" type="date" value="${esc(partner.offerStart)}"></div>
+          <div class="field"><label for="o-en">${t('offer.end')}</label><input id="o-en" name="end" type="date" value="${esc(partner.offerEnd)}"></div>
+        </div>
+        <p class="hint" style="margin:0 0 8px">${t('offer.dates.hint')}</p>
         <button class="btn secondary">${t('common.save')}</button>
       </form>
       <div class="card" style="text-align:center">
@@ -907,7 +922,13 @@ export function spaceView(space, tab = 'painel') {
       const offerForm = root.querySelector('#offer');
       if (offerForm) offerForm.onsubmit = async (e) => {
         e.preventDefault();
-        await store.setPartnerOffer(key, new FormData(e.target).get('offer'));
+        const f = e.target;
+        const price = f.price.value.trim() ? parseCents(f.price.value) : null;
+        const promo = f.promo.value.trim() ? parseCents(f.promo.value) : null;
+        if ((price == null) !== (promo == null) || (promo != null && (promo <= 0 || promo >= price))) { notify(tRaw('offer.price.err')); return; }
+        if (f.start.value && f.end.value && f.end.value < f.start.value) { notify(tRaw('offer.dates.err')); return; }
+        const ok = await store.setPartnerOfferFull(key, { offer: f.offer.value, priceCents: price, promoCents: promo, start: f.start.value, end: f.end.value }).catch(() => false);
+        if (!ok) { notify(tRaw('err.generic')); return; }
         ctx.refresh(tRaw('common.saved'));
       };
       const pr = root.querySelector('#print'); if (pr) pr.onclick = () => window.print();
@@ -1351,7 +1372,8 @@ function counterView({ partner, city, visits, key }) {
       <div class="notice ok">${t('counter.ready')}</div>
       ${saleButton(key)}
       ${pendingCard({ city, visits, key })}
-      ${partner.offer ? `<div class="card"><h2>${t('counter.offer')}</h2><div class="offer">${esc(partner.offer)}</div><p class="hint" style="margin-top:8px">${t('counter.offer.hint')}</p></div>` : ''}
+      ${offerOn(partner, city) && partner.offerPromoCents ? `<div class="card"><h2>${t('counter.offer')}</h2><div class="offer">${esc(priceLine(partner, (n) => cents(n, city.currency, getLang())))}</div></div>` : ''}
+      ${offerOn(partner, city) && partner.offer ? `<div class="card"><h2>${t('counter.offer')}</h2><div class="offer">${esc(partner.offer)}</div><p class="hint" style="margin-top:8px">${t('counter.offer.hint')}</p></div>` : ''}
       <div class="card">
         <h2>${t('counter.today')}</h2>
         ${done.length ? `<ul class="list">${done.map((v) => `<li><div class="spread"><b>${esc(v.client || '?')}</b><span class="hint">${sinceLabel(v.at, lang, city.timezone)}</span></div>
@@ -1389,7 +1411,8 @@ function staffView({ partner, city, visits, key, staff }) {
       <div class="notice ok">${t('counter.ready')}</div>
       ${saleButton(key)}
       ${pendingCard({ city, visits, key })}
-      ${partner.offer ? `<div class="card"><h2>${t('counter.offer')}</h2><div class="offer">${esc(partner.offer)}</div><p class="hint" style="margin-top:8px">${t('counter.offer.hint')}</p></div>` : ''}
+      ${offerOn(partner, city) && partner.offerPromoCents ? `<div class="card"><h2>${t('counter.offer')}</h2><div class="offer">${esc(priceLine(partner, (n) => cents(n, city.currency, getLang())))}</div></div>` : ''}
+      ${offerOn(partner, city) && partner.offer ? `<div class="card"><h2>${t('counter.offer')}</h2><div class="offer">${esc(partner.offer)}</div><p class="hint" style="margin-top:8px">${t('counter.offer.hint')}</p></div>` : ''}
       <div class="card">
         <h2>${t('staff.today')}</h2>
         ${done.length ? `<ul class="list">${done.map((v) => `<li><div class="spread"><b>${esc(v.client || '?')}</b><span class="hint">${sinceLabel(v.at, lang, city.timezone)}</span></div>

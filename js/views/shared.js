@@ -1,5 +1,5 @@
 // Morceaux d'écran communs à plusieurs pages.
-import { t, tRaw } from '../i18n.js';
+import { t, tRaw, getLang } from '../i18n.js';
 import { esc, initials, fmtDay, money, cents, notify, mapsLink, locale } from '../util.js';
 import * as store from '../store.js';
 
@@ -91,7 +91,7 @@ const TYPE_ICON = {
   shop: '<svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8h14l-1 12H6L5 8z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/></svg>',
 };
 export function partnerShowcase(partners, city) {
-  const list = [...partners].sort((a, b) => (b.offer ? 1 : 0) - (a.offer ? 1 : 0) || a.name.localeCompare(b.name));
+  const list = [...partners].sort((a, b) => (b.offer || b.offerPromoCents ? 1 : 0) - (a.offer || a.offerPromoCents ? 1 : 0) || a.name.localeCompare(b.name));
   const types = [...new Set(list.map((p) => p.type))];
   const chips = types.length > 1
     ? `<div class="chips">${['all', ...types].map((k, i) => `<button type="button" class="chip${i ? '' : ' on'}" data-f="${esc(k)}">${k === 'all' ? t('client.filter.all') : t(`ptype.${k}.many`)}</button>`).join('')}</div>`
@@ -102,7 +102,9 @@ export function partnerShowcase(partners, city) {
       <div class="pbody">
         <h3>${esc(p.name)}</h3>
         <div class="hint">${t(`ptype.${p.type}`)}${p.area ? ` · ${esc(p.area)}` : ''}</div>
+        ${p.offerPromoCents ? `<div class="offer"><b>${t('client.price')}</b> ${esc(cents(p.offerPromoCents, city.currency, getLang()))} <s class="hint">${esc(cents(p.offerPriceCents, city.currency, getLang()))}</s></div>` : ''}
         ${p.offer ? `<div class="offer"><b>${t('client.offer')}</b> ${esc(p.offer)}</div>` : ''}
+        ${p.offerEnd && (p.offer || p.offerPromoCents) ? `<div class="hint">${t('client.offer.until', { day: fmtDay(p.offerEnd, getLang()) })}</div>` : ''}
         <a class="btn ghost small" target="_blank" rel="noopener" href="${esc(mapsLink(p, city.name))}">${t('client.directions')}</a>
       </div>
     </article>`).join('')}</div>`;
