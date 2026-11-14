@@ -653,6 +653,7 @@ async function stayView(me, city, stayId) {
     <div class="spread"><b>${esc(partnerName(v.partnerId))}</b>${statusBadge(v)}</div>
     <div class="hint">${fmtMoment(v.at, lang, city.timezone)} · ${t('stay.people', { n: v.people })}</div>
     ${guideAmounts(v, city, lang) ? `<div>${guideAmounts(v, city, lang)}</div>` : ''}
+    ${v.mode === 2 && v.status === 'received' && v.receivedAt ? `<div class="hint">${t('guide.j1', { day: fmtDay(store.nextBusinessDay(new Intl.DateTimeFormat('en-CA', { timeZone: city.timezone }).format(new Date(v.receivedAt))), lang) })}</div>` : ''}
   </li>`;
 
   return {

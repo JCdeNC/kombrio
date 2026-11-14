@@ -610,6 +610,19 @@ export async function adjustCommission(visitId, cents, reason) {
 export async function settleAdjustment(adjustmentId, ref) {
   return check(await sb.rpc('settle_adjustment', { p_adjustment: adjustmentId, p_ref: ref }));
 }
+// v72 : paiement rapide J+1 du guide présent — virement des seuls passages « guide présent » reçus ; liste des virements à faire.
+export async function startPayoutExpress(guideId) {
+  return check(await sb.rpc('start_payout_express', { p_guide: guideId }));
+}
+export async function expressPayoutsDue() {
+  return check(await sb.rpc('express_payouts_due')) || [];
+}
+// Jour ouvré suivant ('AAAA-MM-JJ'), samedi et dimanche sautés (jours fériés non gérés).
+export function nextBusinessDay(day) {
+  const d = new Date(`${day}T12:00:00Z`); const w = d.getUTCDay();
+  d.setUTCDate(d.getUTCDate() + (w === 5 ? 3 : w === 6 ? 2 : 1));
+  return d.toISOString().slice(0, 10);
+}
 export async function startPayout(guideId) {
   return check(await sb.rpc('start_payout', { p_guide: guideId }));
 }

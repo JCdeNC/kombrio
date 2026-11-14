@@ -517,7 +517,8 @@ async function payouts({ guides, visits, payoutList, adjustments, cur, guide }) 
   const running = payoutList.filter((p) => p.status === 'in_progress');
   const paid = payoutList.filter((p) => p.status === 'paid');
   return {
-    html: `<div class="card">
+    html: `<div class="card" id="j1"><h2>${t('admin.j1.title')}</h2><p class="hint">…</p></div>
+    <div class="card">
       <h2>${t('admin.out.title')}</h2>
       <p class="hint">${t('admin.out.hint2')}</p>
       ${due.length ? `<ul class="list">${due.map(({ g, items, adj, total }) => `<li>
@@ -609,6 +610,23 @@ async function payouts({ guides, visits, payoutList, adjustments, cur, guide }) 
           <tr><th colspan="5">${t('admin.inss.total')}</th><th>${cur(r.inss_total_cents)}</th><th></th></tr>
         </table></div>` : `<p class="hint">${t('admin.inss.none')}</p>`;
       };
+      // v72 : virements J+1 (guide présent) — date limite = jour ouvré suivant le paiement du partenaire.
+      const j1 = root.querySelector('#j1');
+      if (j1) store.expressPayoutsDue().then((rows) => {
+        const today = new Date().toISOString().slice(0, 10);
+        j1.innerHTML = `<h2>${t('admin.j1.title')}</h2><p class="hint">${t('admin.j1.hint')}</p>${rows.length ? `<ul class="list">${rows.map((r) => {
+          const g = guides.find((x) => x.id === r.guide_id) || {};
+          const late = r.due <= today;
+          return `<li><div class="spread"><b>${esc(g.name || '?')}</b><b>${cur(Number(r.cents), g.cityId)}</b></div>
+            <div class="hint">${t('admin.j1.line', { n: r.visits })} · <span class="badge ${late ? 'bad' : 'warn'}">${t('admin.j1.due', { day: fmtDay(r.due, getLang()) })}</span></div>
+            ${blockReason(g, payoutList) ? `<div class="notice warn" style="margin-top:8px">${t(`admin.out.blocked.${blockReason(g, payoutList)}`)}</div>`
+              : `<button class="btn small" style="margin-top:8px" data-start-j1="${esc(r.guide_id)}">${t('admin.j1.start')}</button>`}</li>`; }).join('')}</ul>` : `<p class="hint">${t('admin.j1.none')}</p>`}`;
+        j1.querySelectorAll('[data-start-j1]').forEach((b) => confirmTwice(b, tRaw('admin.j1.confirm'), async () => {
+          const r = await store.startPayoutExpress(b.dataset.startJ1);
+          if (r && r.blocked) { notify(tRaw(`admin.out.blocked.${r.blocked}`)); return; }
+          ctx.refresh(tRaw('admin.out.started'));
+        }, tRaw('err.generic')));
+      }).catch(() => { j1.innerHTML = `<h2>${t('admin.j1.title')}</h2><div class="notice warn">${t('admin.j1.notinstalled')}</div>`; });
       root.querySelectorAll('[data-start]').forEach((b) => confirmTwice(b, tRaw('admin.out.start.confirm'), async () => {
         const r = await store.startPayout(b.dataset.start);
         if (r && r.blocked) { notify(tRaw(`admin.out.blocked.${r.blocked}`)); return; }
