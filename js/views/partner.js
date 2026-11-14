@@ -15,8 +15,10 @@ const ME_KEY = 'kombrio-partner';
 const rateText = (partner, visit, c) => {
   const pp = visit ? (visit.perPersonCents ?? null) : (partner.commissionModel === 'per_person' ? partner.perPersonCents : null);
   const base = pp != null ? tRaw('rate.per_person', { amount: c(pp) }) : `${Math.round(((visit && visit.rate) ?? partner.commissionRate) * 100)} %`;
+  const cc = visit ? visit.childCents : (partner.askChildren ? partner.childCents : null);
   const every = visit ? visit.bonusEvery : partner.bonusEvery;
-  return every > 0 ? base + tRaw('rate.bonus', { amount: c((visit ? visit.bonusCents : partner.bonusCents) || 0), n: every }) : base;
+  const withKids = cc != null && pp != null ? base + tRaw('rate.child', { amount: c(cc) }) : base;
+  return every > 0 ? withKids + tRaw('rate.bonus', { amount: c((visit ? visit.bonusCents : partner.bonusCents) || 0), n: every }) : withKids;
 };
 // v70 : offre valable aujourd'hui ? ligne « prix Kombrio » (prix normal → prix Kombrio).
 const offerOn = (partner, city) => store.offerActive(partner, todayIn(city.timezone));
@@ -222,6 +224,7 @@ export function scannedView({ partner, city, key, role, visits }, visit, action)
         <div class="grid2 rs-keep2">
           <div class="field"><label for="rs-n">${t('rs.people')}</label>
             <input id="rs-n" name="n" type="number" min="1" max="500" step="1" inputmode="numeric" value="${visit.peopleServed}"></div>
+          ${visit.childCents != null || (partner.askChildren && visit.perPersonCents != null) ? `<div class="field"><label for="rs-k">${t('rs.children')}</label><input id="rs-k" name="kids" type="number" min="0" max="500" step="1" inputmode="numeric" value="${visit.children || 0}"></div>` : ''}
           <div class="field"><label for="rs-t">${t('rs.table')}</label>
             <input id="rs-t" name="table" maxlength="20" value="${esc(visit.tableLabel)}" placeholder="${t('rs.table.ph')}"></div>
         </div>
@@ -287,7 +290,7 @@ export function scannedView({ partner, city, key, role, visits }, visit, action)
       const upd = () => {
         const sum = total();
         const mine = sum == null ? null : shares(sum)[0].cents;
-        const calc = mine == null ? null : store.commissionFor(partner, visit, mine, Number(f.n.value) || visit.peopleServed);
+        const calc = mine == null ? null : store.commissionFor(partner, visit, mine, Number(f.n.value) || visit.peopleServed, f.kids ? Number(f.kids.value) || 0 : 0);
         if (!comTouched) f.com.value = calc == null ? '' : (calc / 100).toFixed(2).replace('.', ',');
         const hint = root.querySelector('#rs-c-hint');
         hint.textContent = calc == null ? tRaw('rs.com.hint') : tRaw('rs.com.calc', { bill: c(mine), com: c(calc) });
@@ -304,6 +307,11 @@ export function scannedView({ partner, city, key, role, visits }, visit, action)
         const n = Number(f.n.value);
         if (!Number.isInteger(n) || n < 1 || n > 500) { notify(tRaw('partner.people.err')); return false; }
         if (n !== visit.peopleServed) await store.setPeopleServed(key, visit.id, n).catch(() => false);
+        if (f.kids) {
+          const k = Number(f.kids.value) || 0;
+          if (!Number.isInteger(k) || k < 0 || k > n) { notify(tRaw('rs.children.err')); return false; }
+          if (k !== (visit.children || 0)) await store.setVisitChildren(key, visit.id, k).catch(() => null);
+        }
         return true;
       };
       const busy = (on) => f.querySelectorAll('button').forEach((b) => { b.disabled = on; });
@@ -312,7 +320,7 @@ export function scannedView({ partner, city, key, role, visits }, visit, action)
         const sum = total();
         if (sum == null) { notify(tRaw('rs.err.bill')); return; }
         const parts = shares(sum);
-        const calc = store.commissionFor(partner, visit, parts[0].cents, Number(f.n.value) || visit.peopleServed);
+        const calc = store.commissionFor(partner, visit, parts[0].cents, Number(f.n.value) || visit.peopleServed, f.kids ? Number(f.kids.value) || 0 : 0);
         let com = f.com.value.trim() === '' ? calc : parseCents(f.com.value);
         if (com == null || com > calc) { notify(tRaw('rs.err.com', { max: c(calc) })); return; }
         const file = f.photo.files && f.photo.files[0];
@@ -452,6 +460,7 @@ export function billView({ partner, city, key, role }, preset = '') {
             <input id="b-v" name="amount" class="rs-big" inputmode="decimal" placeholder="${esc(city.currency)} 0,00"></div>
           <div class="grid2 rs-keep2">
             <div class="field"><label for="b-n">${t('rs.people')}</label><input id="b-n" name="n" type="number" min="1" max="500" step="1" inputmode="numeric" value="1"></div>
+            ${partner.askChildren ? `<div class="field"><label for="b-k">${t('rs.children')}</label><input id="b-k" name="kids" type="number" min="0" max="500" step="1" inputmode="numeric" value="0"></div>` : ''}
             <div class="field"><label for="b-t">${t('rs.table')}</label><input id="b-t" name="table" maxlength="20" placeholder="${t('rs.table.ph')}"></div>
           </div>
           <div class="field"><label class="btn ghost small rs-photo-btn" for="b-ph">${t('bill.photo')}</label>
@@ -543,17 +552,20 @@ export function billView({ partner, city, key, role }, preset = '') {
         if (withAmount && photoNeeded && !file) { notify(tRaw('staff.photo.required')); f.photo.click(); return; }
         let com = null;
         if (withAmount && f.com && f.com.value.trim()) {
-          const calc = store.commissionFor(partner, null, sum, Number(f.n.value) || 1);
+          const calc = store.commissionFor(partner, null, sum, Number(f.n.value) || 1, f.kids ? Number(f.kids.value) || 0 : 0);
           com = parseCents(f.com.value);
           if (com == null || com > calc) { notify(tRaw('rs.err.com', { max: c(calc) })); return; }
         }
         const n = Number(f.n.value) || 1;
+        const kids = f.kids ? Number(f.kids.value) || 0 : 0;
+        if (!Number.isInteger(kids) || kids < 0 || kids > n) { notify(tRaw('rs.children.err')); return; }
         f.querySelectorAll('button').forEach((x) => { x.disabled = true; });
         try {
           const photo = withAmount && file ? await photoToJpeg(file, 1000, 0.7).catch(() => null) : null;
           const r = await store.recordBill(key, { guide: st.mode === 'guide' ? st.guide : null, client: st.client, invoiceCents: sum, people: n,
             table: f.table.value || null, photo, note: f.note ? f.note.value || null : null, commissionCents: com });
           if (!r || !r.ok) { f.querySelectorAll('button').forEach((x) => { x.disabled = false; }); notify(saveError(r, c, 0)); return; }
+          if (kids && r.visit_id) await store.setVisitChildren(key, r.visit_id, kids).catch(() => null);
           const msg = tRaw(r.mode === 2 ? 'bill.saved.2' : 'bill.saved.1', { guide: r.guide || '', bill: sum == null ? '' : c(sum) })
             + (r.meals ? ` · ${tRaw('meal.due', { n: r.meals })}` : '');
           if (!r.client) ctx.go(`p/${key}`, msg);
@@ -762,7 +774,9 @@ export function spaceView(space, tab = 'painel') {
         <div id="m-pp"${partner.commissionModel === 'per_person' ? '' : ' hidden'}>
           <div class="field"><label for="m-amount">${t('partner.model.amount')}</label>
             <input id="m-amount" name="pp" inputmode="decimal" placeholder="${esc(city.currency)} 10,00" value="${partner.perPersonCents ? (partner.perPersonCents / 100).toFixed(2).replace('.', ',') : ''}"></div>
-          <p class="hint">${t('partner.model.hint')}</p></div>
+          <p class="hint">${t('partner.model.hint')}</p>
+          <div class="field"><label for="m-child">${t('partner.model.child')}</label>
+            <input id="m-child" name="child" inputmode="decimal" placeholder="${t('partner.model.child.ph')}" value="${partner.childCents ? (partner.childCents / 100).toFixed(2).replace('.', ',') : ''}"></div></div>
         <button class="btn secondary">${t('common.save')}</button>
       </form>
       <form class="card" id="extras">
@@ -902,7 +916,10 @@ export function spaceView(space, tab = 'painel') {
         if (fd.get('model') === 'per_person') {
           const pp = parseCents(String(fd.get('pp') || ''));
           if (pp == null || pp < 100 || pp > 50000) { notify(tRaw('partner.model.err')); return; }
+          const ch = String(fd.get('child') || '').trim() ? parseCents(String(fd.get('child'))) : 0;
+          if (ch == null || (ch > 0 && (ch < 100 || ch > 50000))) { notify(tRaw('partner.model.child.err')); return; }
           if (!(await store.setCommissionModel(key, 'per_person', pp))) { notify(tRaw('err.generic')); return; }
+          if (ch !== partner.childCents && !(await store.setChildCents(key, ch))) { notify(tRaw('err.generic')); return; }
         } else {
           await store.setCommissionRate(key, Number(fd.get('rate')));
           if (partner.commissionModel === 'per_person') await store.setCommissionModel(key, 'percent');

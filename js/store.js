@@ -52,6 +52,7 @@ const toPartner = (r) => r && ({
   // v69 : bonus « X tous les N clients » et repas offert au guide présent « 1 tous les N clients » (0 = aucun).
   bonusEvery: num(r.bonus_every) || 0, bonusCents: num(r.bonus_cents) || 0, mealEvery: num(r.meal_every) || 0,
   // v70 : prix Kombrio pour le client (prix normal → prix Kombrio) et dates de l'offre (vides = toujours).
+  childCents: num(r.child_cents) || 0, askChildren: !!r.ask_children, // v71 : forfait enfant (0 = comme un adulte)
   offerPriceCents: num(r.offer_price_cents), offerPromoCents: num(r.offer_promo_cents), offerStart: r.offer_start || '', offerEnd: r.offer_end || '',
 });
 const toStay = (r) => r && ({
@@ -75,6 +76,7 @@ const toVisit = (r) => r && ({
   scanStaff: r.scan_staff || '', billStaff: r.bill_staff || '', byMe: !!r.by_me, canFix: !!r.can_fix,
   // v67 : mode 1 (clients seuls, 80/20) ou 2 (guide présent : 100 % guide + frais payés par le partenaire). À payer = commission + frais.
   bonusEvery: num(r.bonus_every) || 0, bonusCents: num(r.bonus_cents) || 0, mealEvery: num(r.meal_every) || 0, meals: num(r.meals) || 0, // v69
+  children: num(r.children) || 0, childCents: num(r.child_cents), // v71 : enfants du groupe et forfait enfant figé
   perPersonCents: num(r.per_person_cents), // v68 : forfait figé sur le passage (null = % de l'addition)
   mode: r.mode == null ? 1 : Number(r.mode), feeCents: num(r.fee_cents) || 0, feeRate: r.fee_rate == null ? null : Number(r.fee_rate),
   dueCents: r.declared_cents == null ? null : Number(r.declared_cents) + (Number(r.fee_cents) || 0),
@@ -354,14 +356,23 @@ export async function setCommissionModel(managerToken, model, perPersonCents = n
   return check(await sb.rpc('set_commission_model', { p_manager_token: managerToken, p_model: model, p_per_person_cents: perPersonCents }));
 }
 // v68 : commission d'un passage, comme le calcule la base (commission_for).
-export function commissionFor(partner, visit, invoiceCents, people) {
+export function commissionFor(partner, visit, invoiceCents, people, children = 0) {
   const pp = visit ? (visit.perPersonCents ?? null) : forfaitOf(partner);
   if (invoiceCents == null) return null;
   const n = Math.max(1, Number(people) || 1);
+  const cc = visit ? (visit.childCents ?? null) : (partner.askChildren ? partner.childCents : null);
+  const kids = cc == null ? 0 : Math.min(n, Math.max(0, Number(children) || 0));
   const every = visit ? visit.bonusEvery : partner.bonusEvery;
   const bonus = invoiceCents > 0 && every > 0 ? Math.floor(n / every) * ((visit ? visit.bonusCents : partner.bonusCents) || 0) : 0;
   if (pp == null) return Math.round(invoiceCents * ((visit && visit.rate) ?? partner.commissionRate)) + bonus;
-  return invoiceCents === 0 ? 0 : n * pp + bonus;
+  return invoiceCents === 0 ? 0 : (n - kids) * pp + kids * cc + bonus;
+}
+// v71 : forfait enfant — le serveur indique les enfants du groupe ; le gérant fixe le montant par enfant.
+export async function setVisitChildren(token, visitId, children) {
+  return check(await sb.rpc('set_visit_children', { p_token: token, p_visit: visitId, p_children: children }));
+}
+export async function setChildCents(managerToken, cents) {
+  return check(await sb.rpc('set_child_cents', { p_manager_token: managerToken, p_cents: cents }));
 }
 // v69 : repas offerts au guide présent sur un passage (« 1 tous les N clients »).
 export const mealsFor = (every, people) => (every > 0 ? Math.floor(Math.max(1, Number(people) || 1) / every) : 0);
