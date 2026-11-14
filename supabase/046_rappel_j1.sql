@@ -2,7 +2,9 @@
 --   - Chaque jour ouvré à 8 h (heure de Rio), s'il y a des virements J+1 en attente (guide présent, partenaire a payé),
 --     un e-mail part aux deux boîtes de l'administration avec la liste : guide, montant, date limite.
 --   - Rien en attente = pas d'e-mail.
---   - Le modèle d'e-mail « j1_reminder » est dans la fonction aviso-email (à redéployer avant ce script).
+--   - L'e-mail passe par le modèle « admin_report » déjà en ligne (pastille rouge = à payer aujourd'hui, orange = demain).
+--     Un modèle dédié « j1_reminder » est prêt dans aviso-email : quand la fonction sera redéployée, remplacer 'admin_report'
+--     par 'j1_reminder' et le contenu par jsonb_build_object('date', …, 'rows', rows).
 -- Aucune donnée existante n'est modifiée. À lancer APRÈS 045, une fois, dans Supabase › SQL Editor. Peut être relancé sans danger.
 
 alter table mail_outbox drop constraint if exists mail_outbox_kind_check;
@@ -24,7 +26,16 @@ begin
         group by g.id, g.name) x;
   if jsonb_array_length(rows) = 0 then return 0; end if;
   foreach dest in array array['jean.c@kombrio.com.br', 'kombrio.admin@gmail.com'] loop
-    perform queue_mail('j1_reminder', dest, jsonb_build_object('date', to_char(today, 'DD/MM/YYYY'), 'rows', rows));
+    perform queue_mail('admin_report', dest, jsonb_build_object(
+      'run', 'j1', 'date', to_char(now() at time zone 'America/Sao_Paulo', 'DD/MM/YYYY HH24:MI'),
+      'grave', (select count(*) from jsonb_array_elements(rows) r where (r->>'late')::boolean),
+      'attention', (select count(*) from jsonb_array_elements(rows) r where not (r->>'late')::boolean),
+      'items', (select jsonb_agg(jsonb_build_object(
+          'level', case when (r->>'late')::boolean then 'grave' else 'attention' end,
+          'text', 'Virement J+1 à faire : ' || (r->>'guide') || ', R$ ' || replace(to_char((r->>'cents')::bigint / 100.0, 'FM999990.00'), '.', ',')
+                  || case when (r->>'late')::boolean then ' — AUJOURD''HUI au plus tard' else ' — avant le ' || (r->>'due') end
+                  || '. Admin › Virements › « Virements J+1 ».'))
+        from jsonb_array_elements(rows) r)));
   end loop;
   perform log_event('system', 'j1_reminder_sent', null, null, null, jsonb_build_object('n', jsonb_array_length(rows)));
   return jsonb_array_length(rows);
