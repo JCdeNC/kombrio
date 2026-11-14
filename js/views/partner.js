@@ -14,8 +14,12 @@ const ME_KEY = 'kombrio-partner';
 // v68 : libellé de la commission — « 10 % » ou « R$ 10,00 / cliente » (forfait figé sur le passage, sinon celui du partenaire).
 const rateText = (partner, visit, c) => {
   const pp = visit ? (visit.perPersonCents ?? null) : (partner.commissionModel === 'per_person' ? partner.perPersonCents : null);
-  return pp != null ? tRaw('rate.per_person', { amount: c(pp) }) : `${Math.round(((visit && visit.rate) ?? partner.commissionRate) * 100)} %`;
+  const base = pp != null ? tRaw('rate.per_person', { amount: c(pp) }) : `${Math.round(((visit && visit.rate) ?? partner.commissionRate) * 100)} %`;
+  const every = visit ? visit.bonusEvery : partner.bonusEvery;
+  return every > 0 ? base + tRaw('rate.bonus', { amount: c((visit ? visit.bonusCents : partner.bonusCents) || 0), n: every }) : base;
 };
+// v69 : repas offerts au guide présent sur ce passage.
+const mealsOf = (visit) => (visit.guidePresent ? (visit.meals || store.mealsFor(visit.mealEvery, visit.peopleServed)) : 0);
 
 // L'app ouverte sans lien (icône sur l'écran d'accueil) : on rouvre l'espace du partenaire de ce téléphone.
 // Lien unique https://app.kombrio.com.br/partner/ : le gérant se connecte (ou fait son premier accès) ;
@@ -179,6 +183,7 @@ export function scannedView({ partner, city, key, role, visits }, visit, action)
         <p>${t('scan.people', { n: visit.peopleServed })}${visit.tableLabel ? ` · ${t('rs.table.short', { n: visit.tableLabel })}` : ''}</p>
         ${visit.invoiceCents != null ? `<p>${staff ? t('staff.bill.done', { bill: c(visit.invoiceCents) }) : t('rs.bill.done', { bill: c(visit.invoiceCents), com: c(visit.declaredCents || 0) })}</p>` : ''}
         ${staff && visit.canFix ? `<a class="btn secondary small" href="${back}/corrigir/${esc(visit.id)}">${t('staff.fix')}</a>` : ''}
+        ${mealsOf(visit) ? `<p><b>${t('meal.due', { n: mealsOf(visit) })}</b></p>` : ''}
         ${visit.guideMeal ? `<p class="hint">${t('rs.meal.done')}</p>` : ''}</div>
         <a class="btn ghost" href="${back}">${t(role === 'manager' ? 'partner.space' : 'counter.back')}</a>`,
     };
@@ -193,6 +198,7 @@ export function scannedView({ partner, city, key, role, visits }, visit, action)
     html: `${head}${offer}
       <form class="card" id="rs">
         ${info}
+        ${mealsOf(visit) ? `<div class="notice ok"><b>${t('meal.due', { n: mealsOf(visit) })}</b></div>` : ''}
         ${ask ? `<div class="notice warn" id="rs-ask"><div id="rs-ask-card" class="bill-card"></div><b>${t('bill.ask')}</b>
           <div class="row" style="gap:8px;margin-top:8px"><button type="button" class="btn small" data-ask="yes">${t('bill.ask.yes')}</button>
             <button type="button" class="btn ghost small" data-ask="no">${t('bill.ask.no')}</button></div>
@@ -216,7 +222,8 @@ export function scannedView({ partner, city, key, role, visits }, visit, action)
         </div>
         <details class="rs-more"><summary>${t('rs.more')}</summary>
           <label style="font-weight:400;display:flex;gap:10px;align-items:center;margin:10px 0">
-            <input type="checkbox" name="meal" style="width:auto"> ${t('rs.meal')}</label>
+            <input type="checkbox" name="meal" style="width:auto"${mealsOf(visit) ? ' checked' : ''}> ${t('rs.meal')}</label>
+          ${visit.mealEvery > 0 ? `<p class="hint" style="margin:-4px 0 8px">${t('meal.rule', { n: visit.mealEvery })}</p>` : ''}
           ${staff ? '' : photoField}
           ${others.length ? `<div class="field" style="margin-top:12px"><b>${t('rs.split')}</b>
             <p class="hint" style="margin:2px 0 6px">${t('rs.split.hint')}</p>
@@ -542,7 +549,8 @@ export function billView({ partner, city, key, role }, preset = '') {
           const r = await store.recordBill(key, { guide: st.mode === 'guide' ? st.guide : null, client: st.client, invoiceCents: sum, people: n,
             table: f.table.value || null, photo, note: f.note ? f.note.value || null : null, commissionCents: com });
           if (!r || !r.ok) { f.querySelectorAll('button').forEach((x) => { x.disabled = false; }); notify(saveError(r, c, 0)); return; }
-          const msg = tRaw(r.mode === 2 ? 'bill.saved.2' : 'bill.saved.1', { guide: r.guide || '', bill: sum == null ? '' : c(sum) });
+          const msg = tRaw(r.mode === 2 ? 'bill.saved.2' : 'bill.saved.1', { guide: r.guide || '', bill: sum == null ? '' : c(sum) })
+            + (r.meals ? ` · ${tRaw('meal.due', { n: r.meals })}` : '');
           if (!r.client) ctx.go(`p/${key}`, msg);
           else ctx.go(`p/${key}/${r.duplicate ? 'deja' : 'passage'}/${r.visit_id}`, msg);
         } catch { f.querySelectorAll('button').forEach((x) => { x.disabled = false; }); notify(tRaw('err.generic')); }
@@ -752,6 +760,20 @@ export function spaceView(space, tab = 'painel') {
           <p class="hint">${t('partner.model.hint')}</p></div>
         <button class="btn secondary">${t('common.save')}</button>
       </form>
+      <form class="card" id="extras">
+        <h2>${t('partner.extras.title')}</h2>
+        <p class="hint">${t('partner.extras.hint')}</p>
+        <div class="grid2 rs-keep2">
+          <div class="field"><label for="x-bc">${t('partner.extras.bonus')}</label>
+            <input id="x-bc" name="bc" inputmode="decimal" placeholder="0,00" value="${partner.bonusCents ? (partner.bonusCents / 100).toFixed(2).replace('.', ',') : ''}"></div>
+          <div class="field"><label for="x-be">${t('partner.extras.every')}</label>
+            <input id="x-be" name="be" type="number" min="0" max="50" step="1" inputmode="numeric" value="${partner.bonusEvery || ''}" placeholder="3"></div>
+        </div>
+        <div class="field"><label for="x-me">${t('partner.extras.meal')}</label>
+          <input id="x-me" name="me" type="number" min="0" max="50" step="1" inputmode="numeric" value="${partner.mealEvery || ''}" placeholder="0" style="max-width:120px">
+          <p class="hint" style="margin:4px 0 0">${t('partner.extras.meal.hint')}</p></div>
+        <button class="btn secondary">${t('common.save')}</button>
+      </form>
       <form class="card" id="offer">
         <h2>${t('partner.offer.title')}</h2>
         <p class="hint">${t('partner.offer.hint')}</p>
@@ -870,6 +892,16 @@ export function spaceView(space, tab = 'painel') {
           await store.setCommissionRate(key, Number(fd.get('rate')));
           if (partner.commissionModel === 'per_person') await store.setCommissionModel(key, 'percent');
         }
+        ctx.refresh(tRaw('common.saved'));
+      };
+      const extrasForm = root.querySelector('#extras');
+      if (extrasForm) extrasForm.onsubmit = async (e) => {
+        e.preventDefault();
+        const be = Number(extrasForm.be.value) || 0; const me = Number(extrasForm.me.value) || 0;
+        const bc = extrasForm.bc.value.trim() ? parseCents(extrasForm.bc.value) : 0;
+        const okB = (be === 0 && !bc) || (Number.isInteger(be) && be >= 1 && be <= 50 && bc != null && bc >= 100 && bc <= 50000);
+        if (!okB || !Number.isInteger(me) || me < 0 || me > 50) { notify(tRaw('partner.extras.err')); return; }
+        if (!(await store.setPartnerExtras(key, be && bc ? be : 0, be && bc ? bc : 0, me))) { notify(tRaw('err.generic')); return; }
         ctx.refresh(tRaw('common.saved'));
       };
       const offerForm = root.querySelector('#offer');
@@ -1264,7 +1296,7 @@ function docPage(space, sel, closings, back) {
       ${lines.length ? `<div class="table-wrap"><table>
         <tr><th>${t('report.col.id')}</th><th>${t('report.col.date')}</th><th>${t('report.col.client')}</th><th>${t('report.col.guide')}</th><th>${t('report.col.people')}</th><th>${t('pd.col.bill')}</th><th>${t('doc.col.rate')}</th><th>${t('report.col.amount')}</th><th>${t('report.col.status')}</th></tr>
         ${lines.map((l) => `<tr><td style="white-space:nowrap">${esc(store.visitRef(l))}</td><td style="white-space:nowrap">${esc(fmtDay(String(l.day).slice(0, 10), lang))}</td><td>${esc(l.client || '')}</td><td>${esc(l.guide || '')}</td><td>${l.people ?? ''}</td>
-          <td>${l.invoice_cents != null ? c(l.invoice_cents) : '—'}</td><td>${l.rate != null ? `${Math.round(Number(l.rate) * 100)} %` : '—'}</td><td>${l.commission_cents != null ? c(l.commission_cents) : '—'}${l.fee_cents ? `<br><small>${t('mode2.doc.fee', { fee: c(l.fee_cents) })}</small>` : ''}</td><td>${esc(pLabel(l.status))}</td></tr>`).join('')}
+          <td>${l.invoice_cents != null ? c(l.invoice_cents) : '—'}</td><td>${l.per_person_cents != null ? esc(tRaw('rate.per_person', { amount: c(Number(l.per_person_cents)) })) : l.rate != null ? `${Math.round(Number(l.rate) * 100)} %` : '—'}</td><td>${l.commission_cents != null ? c(l.commission_cents) : '—'}${l.fee_cents ? `<br><small>${t('mode2.doc.fee', { fee: c(l.fee_cents) })}</small>` : ''}</td><td>${esc(pLabel(l.status))}</td></tr>`).join('')}
       </table></div>` : `<p class="hint">${t('report.none')}</p>`}
       ${(doc.payments || []).length ? `<h2 style="margin-top:16px">${t('doc.payments')}</h2><div class="table-wrap"><table>
         <tr><th>N°</th><th>${t('common.date')}</th><th>${t('common.amount')}</th><th>Pix</th><th>${t('report.col.status')}</th></tr>
@@ -1293,7 +1325,7 @@ function docPage(space, sel, closings, back) {
         const head = [tRaw('report.col.id'), tRaw('report.col.date'), tRaw('report.col.client'), tRaw('report.col.guide'), tRaw('report.col.people'),
           tRaw('pd.col.bill'), tRaw('doc.col.rate'), tRaw('report.col.amount'), tRaw('report.col.status')].map(cell);
         const body = lines.map((l) => [store.visitRef(l), String(l.day).slice(0, 10), l.client, l.guide, l.people, num(l.invoice_cents),
-          l.rate != null ? `${Math.round(Number(l.rate) * 100)}%` : '', num(l.commission_cents), pLabel(l.status)].map(cell));
+          l.per_person_cents != null ? tRaw('rate.per_person', { amount: (Number(l.per_person_cents) / 100).toFixed(2) }) : l.rate != null ? `${Math.round(Number(l.rate) * 100)}%` : '', num(l.commission_cents), pLabel(l.status)].map(cell));
         const sum = [[tRaw('doc.t.commission'), num(T.commission_cents)], [tRaw('doc.t.fee'), num(T.fee_cents || 0)], [tRaw('doc.t.received'), num(T.received_cents)], [tRaw('doc.t.guides'), num(T.guide_cents)],
           [tRaw('doc.t.kombrio'), num(T.kombrio_cents)], [tRaw('doc.t.inss'), num(T.inss_cents)], [tRaw('doc.t.topay'), num(T.to_pay_cents)]].map(([a, b]) => [cell(a), cell(b)]);
         const csv = '﻿' + [[cell(tRaw('doc.a.title')), cell(doc.doc_code), cell(tRaw('doc.version', { v: doc.version }))], [], head, ...body, [], ...sum, [], [cell(tRaw('doc.mention'))], [cell(`SHA-256 ${doc.sha256}`)]]
