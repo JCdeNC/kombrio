@@ -966,6 +966,15 @@ async function partners({ partnerList, cityList, city }) {
           </div>` : ''}
           <div class="row" style="margin-top:8px"><button type="button" class="btn ghost small" data-renewm="${esc(p.id)}">${t('admin.part.manager.renew')}</button></div>
         </details>
+        <details style="margin-top:8px"><summary>${t('admin.part.model', { rate: p.commissionModel === 'per_person' ? tRaw('rate.per_person', { amount: cents(p.perPersonCents, 'BRL', getLang()) }) : `${Math.round(p.commissionRate * 100)} %` })}</summary>
+          <form class="pmodel row" data-id="${esc(p.id)}" style="gap:8px;margin-top:8px;align-items:flex-end">
+            <div class="field" style="margin:0"><label>${t('admin.part.model.kind')}</label><select name="model">
+              <option value="percent"${p.commissionModel !== 'per_person' ? ' selected' : ''}>${t('partner.model.percent')}</option>
+              <option value="per_person"${p.commissionModel === 'per_person' ? ' selected' : ''}>${t('partner.model.per_person')}</option></select></div>
+            <div class="field" style="margin:0"><label>${t('admin.part.model.value')}</label><input name="val" inputmode="decimal" value="${esc(p.commissionModel === 'per_person' ? (p.perPersonCents / 100).toFixed(2).replace('.', ',') : String(Math.round(p.commissionRate * 100)))}" style="max-width:110px"></div>
+            <button class="btn small secondary">${t('common.save')}</button></form>
+          <p class="hint" style="margin:6px 0 0">${t('admin.part.model.hint')}</p>
+        </details>
         <details style="margin-top:8px"><summary>${t('admin.part.fees', { rate: (p.mode2FeeRate * 100).toLocaleString('pt-BR'), cap: cents(p.mode2FeeCapCents, 'BRL', getLang()) })}</summary>
           <form class="pfees row" data-id="${esc(p.id)}" style="gap:8px;margin-top:8px;align-items:flex-end">
             <div class="field" style="margin:0"><label>${t('admin.part.fees.rate')}</label><input name="rate" inputmode="decimal" value="${esc(String(p.mode2FeeRate * 100).replace('.', ','))}" style="max-width:90px"></div>
@@ -998,6 +1007,15 @@ async function partners({ partnerList, cityList, city }) {
       mountActive(root, ctx);
       mountPlus(root, ctx);
       maskTaxId(root.querySelector('#p-tax'));
+      // v68 : modèle de commission (% de l'addition ou forfait par client), pour les prochains passages.
+      root.querySelectorAll('.pmodel').forEach((form) => { form.onsubmit = async (e) => {
+        e.preventDefault();
+        const pp = form.model.value === 'per_person';
+        const rate = Number(String(form.val.value).replace(',', '.')) / 100;
+        const ppc = parseCents(form.val.value);
+        if (pp ? (ppc == null || ppc < 100 || ppc > 50000) : !(rate >= 0.01 && rate <= 0.5)) { notify(tRaw('admin.part.model.err')); return; }
+        try { await store.setPartnerCommission(form.dataset.id, { model: form.model.value, rate, perPersonCents: ppc }); ctx.refresh(tRaw('common.saved')); } catch { notify(tRaw('err.generic')); }
+      }; });
       // v67 : frais du mode 2 (guide présent) réglés par Kombrio pour chaque partenaire.
       root.querySelectorAll('.pfees').forEach((form) => { form.onsubmit = async (e) => {
         e.preventDefault();

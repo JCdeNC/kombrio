@@ -11,6 +11,11 @@ import { helpButton, problemLink, mountHelp, topicLabel, alertStatus } from './h
 const MAX_RECEIPT = 1.5 * 1024 * 1024;
 export const TERMS_VERSION = 'v1 · 30/10/2026';
 const ME_KEY = 'kombrio-partner';
+// v68 : libellé de la commission — « 10 % » ou « R$ 10,00 / cliente » (forfait figé sur le passage, sinon celui du partenaire).
+const rateText = (partner, visit, c) => {
+  const pp = visit ? (visit.perPersonCents ?? null) : (partner.commissionModel === 'per_person' ? partner.perPersonCents : null);
+  return pp != null ? tRaw('rate.per_person', { amount: c(pp) }) : `${Math.round(((visit && visit.rate) ?? partner.commissionRate) * 100)} %`;
+};
 
 // L'app ouverte sans lien (icône sur l'écran d'accueil) : on rouvre l'espace du partenaire de ce téléphone.
 // Lien unique https://app.kombrio.com.br/partner/ : le gérant se connecte (ou fait son premier accès) ;
@@ -199,7 +204,7 @@ export function scannedView({ partner, city, key, role, visits }, visit, action)
           <div id="rs-bills"><input id="rs-b1" class="rs-bill rs-big" inputmode="decimal" placeholder="${esc(city.currency)} 0,00" aria-label="${esc(tRaw('rs.bill'))}" value="${amount0}"></div>
           <button type="button" class="btn ghost small" id="rs-add">${t('rs.bill.add')}</button></div>
         ${staff ? `<div class="field">${photoField}</div>` : ''}
-        <div class="field"${staff ? ' hidden' : ''}><label for="rs-c">${t('rs.com', { rate: Math.round(rate * 100) })}</label>
+        <div class="field"${staff ? ' hidden' : ''}><label for="rs-c">${t('rs.com', { rate: rateText(partner, visit, c) })}</label>
           <input id="rs-c" name="com" inputmode="decimal" placeholder="—">
           <p class="hint" style="margin:4px 0 0" id="rs-c-hint">${t('rs.com.hint')}</p></div>
         <div class="field" id="rs-note-f" hidden><label for="rs-note">${t('rs.note')}</label><input id="rs-note" name="note" maxlength="200"></div>
@@ -270,7 +275,7 @@ export function scannedView({ partner, city, key, role, visits }, visit, action)
       const upd = () => {
         const sum = total();
         const mine = sum == null ? null : shares(sum)[0].cents;
-        const calc = mine == null ? null : Math.round(mine * rate);
+        const calc = mine == null ? null : store.commissionFor(partner, visit, mine, Number(f.n.value) || visit.peopleServed);
         if (!comTouched) f.com.value = calc == null ? '' : (calc / 100).toFixed(2).replace('.', ',');
         const hint = root.querySelector('#rs-c-hint');
         hint.textContent = calc == null ? tRaw('rs.com.hint') : tRaw('rs.com.calc', { bill: c(mine), com: c(calc) });
@@ -295,7 +300,7 @@ export function scannedView({ partner, city, key, role, visits }, visit, action)
         const sum = total();
         if (sum == null) { notify(tRaw('rs.err.bill')); return; }
         const parts = shares(sum);
-        const calc = Math.round(parts[0].cents * rate);
+        const calc = store.commissionFor(partner, visit, parts[0].cents, Number(f.n.value) || visit.peopleServed);
         let com = f.com.value.trim() === '' ? calc : parseCents(f.com.value);
         if (com == null || com > calc) { notify(tRaw('rs.err.com', { max: c(calc) })); return; }
         const file = f.photo.files && f.photo.files[0];
@@ -441,7 +446,7 @@ export function billView({ partner, city, key, role }, preset = '') {
             <input id="b-ph" name="photo" type="file" accept="image/*" capture="environment" hidden>
             <span class="hint" id="b-ph-name">${t(photoNeeded ? 'staff.photo.hint' : 'staff.photo.opt')}</span></div>
           ${staff ? '' : `<details class="rs-more"><summary>${t('bill.com.more')}</summary>
-            <div class="field" style="margin-top:8px"><label for="b-com">${t('bill.com', { rate: Math.round(partner.commissionRate * 100) })}</label>
+            <div class="field" style="margin-top:8px"><label for="b-com">${t('bill.com', { rate: rateText(partner, null, c) })}</label>
               <input id="b-com" name="com" inputmode="decimal" placeholder="—"><p class="hint" style="margin:4px 0 0">${t('bill.com.hint')}</p></div>
             <div class="field"><label for="b-note">${t('rs.note')}</label><input id="b-note" name="note" maxlength="200"></div></details>`}
           <button class="btn block" id="b-save">${t('bill.save')}</button>
@@ -526,7 +531,7 @@ export function billView({ partner, city, key, role }, preset = '') {
         if (withAmount && photoNeeded && !file) { notify(tRaw('staff.photo.required')); f.photo.click(); return; }
         let com = null;
         if (withAmount && f.com && f.com.value.trim()) {
-          const calc = Math.round(sum * partner.commissionRate);
+          const calc = store.commissionFor(partner, null, sum, Number(f.n.value) || 1);
           com = parseCents(f.com.value);
           if (com == null || com > calc) { notify(tRaw('rs.err.com', { max: c(calc) })); return; }
         }
@@ -617,6 +622,7 @@ export function spaceView(space, tab = 'painel') {
   const base = `#/p/${encodeURIComponent(key)}`;
   const month = monthOf(new Date().toISOString(), city.timezone);
   const rate = Math.round(partner.commissionRate * 100);
+  const rateLbl = rateText(partner, null, c);
   const toDeclare = visits.filter((v) => v.status === 'visited');
   const toPay = visits.filter((v) => v.status === 'declared');
   const extraDue = adjustments.filter((a) => a.partnerStatus === 'extra_due');
@@ -675,7 +681,7 @@ export function spaceView(space, tab = 'painel') {
       <div class="spread" style="padding:12px 14px 6px"><h2 style="margin:0">${title}</h2>
         ${filters ? `<select id="pd-filter" style="width:auto">${['all', 'visited', 'declared', 'verifying', 'paid'].map((f) => `<option value="${f}">${t(`pd.f.${f}`)}</option>`).join('')}</select>` : ''}</div>
       ${list.some((v) => v.status === 'visited') ? `<p class="hint" style="padding:0 14px;margin:0 0 6px">${t('bill.rule')}</p>` : ''}
-      ${list.length ? `<div class="pd-rows"><div class="pd-row pd-head"><span></span><span>${t('pd.col.date')}</span><span>${t('pd.col.who')}</span><span>${t('pd.col.status')}</span><span class="pd-r">${t('pd.col.bill')}</span><span class="pd-r">${t('pd.col.com', { rate })}</span></div>
+      ${list.length ? `<div class="pd-rows"><div class="pd-row pd-head"><span></span><span>${t('pd.col.date')}</span><span>${t('pd.col.who')}</span><span>${t('pd.col.status')}</span><span class="pd-r">${t('pd.col.bill')}</span><span class="pd-r">${t('pd.col.com', { rate: rateLbl })}</span></div>
         ${list.map(row).join('')}</div>
         <div class="pd-bar"><span id="pd-sel">${t('pd.sel.none')}</span>
           <span class="row" style="gap:6px"><button class="btn secondary small" id="pd-declare" disabled>${t('pd.declare')}</button><button class="btn small" id="pd-pay" disabled>${t('pd.pay')}</button></span></div>`
@@ -684,7 +690,7 @@ export function spaceView(space, tab = 'painel') {
 
   const todo = [];
   if (fresh || !partner.offer) todo.push(['offer', t('pd.todo.offer')]);
-  if (fresh) todo.push(['qr', t('pd.todo.qr')], ['rate', t('pd.todo.rate', { rate })]);
+  if (fresh) todo.push(['qr', t('pd.todo.qr')], ['rate', t('pd.todo.rate', { rate: rateLbl })]);
   if (toDeclare.length) todo.push([`decl-${toDeclare.length}`, t('pd.todo.declare', { n: toDeclare.length })]);
   if (payCents > 0) todo.push([`pay-${payCents}`, t('pd.todo.pay', { amount: c(payCents) })]);
   adjustments.filter((a) => a.partnerStatus === 'refund_due').forEach((a) => todo.push([`ref-${a.num}`, t('pd.todo.refund', { amount: c(-a.deltaCents), num: store.adjNum(a.num) })]));
@@ -708,7 +714,7 @@ export function spaceView(space, tab = 'painel') {
   const kpis = `<div class="pd-kpis">
       <div class="pd-kpi"><span>${t('pd.k.visits')}</span><b>${now.n}${delta(now.n, before.n)}</b><em>${t('pd.k.people', { n: now.people })}</em></div>
       <div class="pd-kpi"><span>${t('pd.k.bills')}</span><b>${c(now.bills)}${delta(now.bills, before.bills)}</b><em>${t('dash.vs', { month: esc(monthLabel(prevMonth, lang)) })}</em></div>
-      <div class="pd-kpi"><span>${t('dash.k.com')}</span><b>${c(now.com)}${delta(now.com, before.com)}</b><em>${t('pd.k.rate', { rate })}</em></div>
+      <div class="pd-kpi"><span>${t('dash.k.com')}</span><b>${c(now.com)}${delta(now.com, before.com)}</b><em>${t('pd.k.rate', { rate: rateLbl })}</em></div>
       <div class="pd-kpi ${late >= 15 || partner.status === 'paused' ? 'bad' : payCents > 0 ? 'warn' : ''}"><span>${t('pd.k.topay')}</span><b>${c(payCents)}</b><em>${payCents > 0 ? (late >= 7 ? t('pd.k.late', { n: late }) : t('pd.k.due')) : t('pd.k.nothing')}</em></div>
     </div>`;
   const chartCard = `<div class="card"><h2 style="margin:0">${t('dash.6m')}</h2>
@@ -734,8 +740,16 @@ export function spaceView(space, tab = 'painel') {
 
   const settings = `<form class="card" id="rate">
         <h2>${t('partner.rate.title')}</h2>
+        <div class="field" style="display:grid;gap:6px">
+          <label style="font-weight:400;display:flex;gap:10px;align-items:center"><input type="radio" name="model" value="percent" style="width:auto"${partner.commissionModel !== 'per_person' ? ' checked' : ''}> ${t('partner.model.percent')}</label>
+          <label style="font-weight:400;display:flex;gap:10px;align-items:center"><input type="radio" name="model" value="per_person" style="width:auto"${partner.commissionModel === 'per_person' ? ' checked' : ''}> ${t('partner.model.per_person')}</label></div>
+        <div id="m-percent"${partner.commissionModel === 'per_person' ? ' hidden' : ''}>
         <p class="hint">${t('partner.rate.hint')}</p>
-        <div class="field"><select name="rate">${[5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 20].map((n) => `<option value="${n / 100}"${rate === n ? ' selected' : ''}>${n} %${n === 10 ? ` (${t('partner.rate.suggested')})` : ''}</option>`).join('')}</select></div>
+        <div class="field"><select name="rate">${[5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 20].map((n) => `<option value="${n / 100}"${rate === n ? ' selected' : ''}>${n} %${n === 10 ? ` (${t('partner.rate.suggested')})` : ''}</option>`).join('')}</select></div></div>
+        <div id="m-pp"${partner.commissionModel === 'per_person' ? '' : ' hidden'}>
+          <div class="field"><label for="m-amount">${t('partner.model.amount')}</label>
+            <input id="m-amount" name="pp" inputmode="decimal" placeholder="${esc(city.currency)} 10,00" value="${partner.perPersonCents ? (partner.perPersonCents / 100).toFixed(2).replace('.', ',') : ''}"></div>
+          <p class="hint">${t('partner.model.hint')}</p></div>
         <button class="btn secondary">${t('common.save')}</button>
       </form>
       <form class="card" id="offer">
@@ -771,7 +785,7 @@ export function spaceView(space, tab = 'painel') {
   return {
     html: `<div class="dash-wide">
       <div class="spread"><div><h1 style="margin-bottom:2px">${esc(partner.name)}</h1>
-        <p class="hint" style="margin:0">${t(`ptype.${partner.type}`)}${partner.area ? ` · ${esc(partner.area)}` : ''} · ${t('pd.k.rate', { rate })}${partner.managerName ? ` · ${t('pm.hello', { name: partner.managerName })}` : ''}</p></div>
+        <p class="hint" style="margin:0">${t(`ptype.${partner.type}`)}${partner.area ? ` · ${esc(partner.area)}` : ''} · ${t('pd.k.rate', { rate: rateLbl })}${partner.managerName ? ` · ${t('pm.hello', { name: partner.managerName })}` : ''}</p></div>
         <div class="row" style="gap:6px">${helpButton()}${loggedIn ? `<button class="btn ghost small no-print" id="logout">${t('common.logout')}</button>` : ''}</div></div>
       ${tabsNav}${banner}${body}</div>`,
     mount(root, ctx) {
@@ -810,7 +824,7 @@ export function spaceView(space, tab = 'painel') {
       const refresh = () => {
         const list = sel(); const decl = list.filter((v) => v.status === 'visited'); const pay = list.filter((v) => v.status === 'declared');
         const missing = decl.filter((v) => billOf(v) == null).length;
-        const total = pay.reduce((s, v) => s + v.dueCents, 0) + decl.reduce((s, v) => s + (billOf(v) != null ? Math.round(billOf(v) * (v.rate ?? partner.commissionRate)) : 0), 0);
+        const total = pay.reduce((s, v) => s + v.dueCents, 0) + decl.reduce((s, v) => s + (billOf(v) != null ? store.commissionFor(partner, v, billOf(v), v.peopleServed) : 0), 0);
         const info = root.querySelector('#pd-sel');
         if (info) info.textContent = list.length ? tRaw('pd.sel.n', { n: list.length, amount: c(total) }) + (missing ? ` · ${tRaw('pd.sel.missing', { n: missing })}` : '') : tRaw('pd.sel.none');
         const bd = root.querySelector('#pd-declare'); if (bd) bd.disabled = !decl.length || missing > 0 || pay.length > 0;
@@ -821,7 +835,7 @@ export function spaceView(space, tab = 'painel') {
         inp.oninput = () => {
           const v = byId(inp.dataset.inv); const cts = billOf(v);
           const box = root.querySelector(`[data-sel="${v.id}"]`); if (box && cts != null) box.checked = true;
-          const com = root.querySelector(`[data-com="${v.id}"]`); if (com) com.textContent = cts == null ? '—' : c(Math.round(cts * (v.rate ?? partner.commissionRate)));
+          const com = root.querySelector(`[data-com="${v.id}"]`); if (com) com.textContent = cts == null ? '—' : c(store.commissionFor(partner, v, cts, v.peopleServed));
           refresh();
         };
       });
@@ -840,9 +854,22 @@ export function spaceView(space, tab = 'painel') {
         ctx.go(`p/${key}/pagar`);
       };
       const rateForm = root.querySelector('#rate');
+      if (rateForm) rateForm.querySelectorAll('[name=model]').forEach((r) => { r.onchange = () => {
+        const pp = rateForm.model.value === 'per_person';
+        rateForm.querySelector('#m-percent').hidden = pp; rateForm.querySelector('#m-pp').hidden = !pp;
+        if (pp) rateForm.querySelector('#m-amount').focus();
+      }; });
       if (rateForm) rateForm.onsubmit = async (e) => {
         e.preventDefault();
-        await store.setCommissionRate(key, Number(new FormData(e.target).get('rate')));
+        const fd = new FormData(e.target);
+        if (fd.get('model') === 'per_person') {
+          const pp = parseCents(String(fd.get('pp') || ''));
+          if (pp == null || pp < 100 || pp > 50000) { notify(tRaw('partner.model.err')); return; }
+          if (!(await store.setCommissionModel(key, 'per_person', pp))) { notify(tRaw('err.generic')); return; }
+        } else {
+          await store.setCommissionRate(key, Number(fd.get('rate')));
+          if (partner.commissionModel === 'per_person') await store.setCommissionModel(key, 'percent');
+        }
         ctx.refresh(tRaw('common.saved'));
       };
       const offerForm = root.querySelector('#offer');
@@ -874,7 +901,7 @@ function declareManyView({ partner, city, visits, key }) {
       <p><a href="${back}">← ${t('partner.space')}</a></p>
       <form class="card" id="declare">
         <h1>${t('partner.declare.title')}</h1>
-        <p class="hint">${t('partner.declare.free', { rate: Math.round(partner.commissionRate * 100) })}</p>
+        <p class="hint">${t('partner.declare.free', { rate: rateText(partner, null, (n) => cents(n, city.currency, lang)) })}</p>
         <p class="hint">${t('bill.rule')}</p>
         <ul class="list">${todo.map((v) => `<li>
           <div class="spread" style="align-items:center">

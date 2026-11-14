@@ -47,6 +47,8 @@ const toPartner = (r) => r && ({
   // v67 : photo de la note obligatoire pour l'équipe (réglage du gérant) ; frais du mode 2 (réglés par Kombrio).
   staffPhotoRequired: r.staff_photo_required !== false, mode2FeeRate: r.mode2_fee_rate == null ? 0.03 : Number(r.mode2_fee_rate),
   mode2FeeCapCents: r.mode2_fee_cap_cents == null ? 9900 : Number(r.mode2_fee_cap_cents),
+  // v68 : modèle de commission — « percent » (% de l'addition) ou « per_person » (forfait par client).
+  commissionModel: r.commission_model === 'per_person' ? 'per_person' : 'percent', perPersonCents: num(r.per_person_cents) || 0,
 });
 const toStay = (r) => r && ({
   id: r.id, guideId: r.guide_id, client: r.client, people: r.people, start: r.start_day, end: r.end_day,
@@ -68,6 +70,7 @@ const toVisit = (r) => r && ({
   // v66 : équipe du partenaire (qui a scanné, qui a saisi ; correction possible 15 min par la même personne).
   scanStaff: r.scan_staff || '', billStaff: r.bill_staff || '', byMe: !!r.by_me, canFix: !!r.can_fix,
   // v67 : mode 1 (clients seuls, 80/20) ou 2 (guide présent : 100 % guide + frais payés par le partenaire). À payer = commission + frais.
+  perPersonCents: num(r.per_person_cents), // v68 : forfait figé sur le passage (null = % de l'addition)
   mode: r.mode == null ? 1 : Number(r.mode), feeCents: num(r.fee_cents) || 0, feeRate: r.fee_rate == null ? null : Number(r.fee_rate),
   dueCents: r.declared_cents == null ? null : Number(r.declared_cents) + (Number(r.fee_cents) || 0),
 });
@@ -334,6 +337,18 @@ export async function setPartnerOffer(token, offer) {
 export async function setCommissionRate(managerToken, rate) {
   return check(await sb.rpc('set_commission_rate', { p_manager_token: managerToken, p_rate: rate }));
 }
+// v68 : le gérant choisit son modèle de commission (% de l'addition ou forfait par personne, en centavos).
+export async function setCommissionModel(managerToken, model, perPersonCents = null) {
+  return check(await sb.rpc('set_commission_model', { p_manager_token: managerToken, p_model: model, p_per_person_cents: perPersonCents }));
+}
+// v68 : commission d'un passage, comme le calcule la base (commission_for).
+export function commissionFor(partner, visit, invoiceCents, people) {
+  const pp = visit ? (visit.perPersonCents ?? null) : forfaitOf(partner);
+  if (invoiceCents == null) return null;
+  if (pp == null) return Math.round(invoiceCents * ((visit && visit.rate) ?? partner.commissionRate));
+  return invoiceCents === 0 ? 0 : Math.max(1, Number(people) || 1) * pp;
+}
+const forfaitOf = (partner) => (partner && partner.commissionModel === 'per_person' ? partner.perPersonCents : null);
 export async function setWeeklyPayout(on) {
   return check(await sb.rpc('set_weekly_payout', { p_on: on }));
 }
@@ -451,6 +466,11 @@ export async function partnerSetStaffPhoto(managerToken, on) {
 }
 export async function guideGroupToken(stayId) {
   return check(await sb.rpc('guide_group_token', { p_stay: stayId }));
+}
+// v68 · Admin : modèle de commission d'un partenaire (% de l'addition ou forfait par client), journalisé par le trigger d'audit.
+export async function setPartnerCommission(partnerId, { model, rate, perPersonCents }) {
+  const row = model === 'per_person' ? { commission_model: 'per_person', per_person_cents: perPersonCents } : { commission_model: 'percent', commission_rate: rate };
+  check(await sb.from('partners').update(row).eq('id', partnerId));
 }
 // Admin : frais du mode 2 d'un partenaire (taux et plafond mensuel), journalisés par le trigger d'audit.
 export async function setPartnerFees(partnerId, rate, capCents) {
