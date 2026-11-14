@@ -73,6 +73,22 @@ function build(kind: string, p: Record<string, unknown>): { subject: string; htm
         'https://app.kombrio.com.br/partner/', 'Lançar os valores'),
     };
   }
+  if (kind === 'j1_reminder') {
+    // v73 : rappel du matin (jours ouvrés) — virements J+1 du guide présent à faire.
+    const rows = Array.isArray(p.rows) ? (p.rows as Record<string, unknown>[]) : [];
+    const brl = (c: unknown) => `R$ ${(Number(c ?? 0) / 100).toFixed(2).replace('.', ',')}`;
+    const lines = rows.map((r) => `<tr><td style="padding:6px 10px 6px 0">${esc(r.guide)}</td><td style="padding:6px 10px 6px 0;text-align:right"><b>${brl(r.cents)}</b></td>
+      <td style="padding:6px 0;color:${r.late ? '#D64545' : '#5B6F78'}">${r.late ? 'aujourd’hui au plus tard' : `avant le ${esc(r.due)}`}</td></tr>`).join('');
+    const late = rows.filter((r) => r.late).length;
+    return {
+      subject: `Kombrio · ${rows.length} virement(s) J+1 à faire${late ? ` (dont ${late} aujourd’hui)` : ''}`,
+      html: box(`Virements J+1 du ${esc(p.date)}`,
+        `<p>Le partenaire a payé : ces guides étaient présents avec leurs clients et doivent être payés au plus tard le jour ouvré suivant.</p>
+         <table style="border-collapse:collapse;width:100%;font-size:14px">${lines}</table>
+         <p style="margin:16px 0 0;color:#5B6F78;font-size:13px">Admin › Virements › « Virements J+1 » : Préparer le virement J+1, puis Envoyer par Inter.</p>`,
+        'https://app.kombrio.com.br/admin/', 'Ouvrir l’admin'),
+    };
+  }
   if (kind === 'admin_report') {
     // v66 : bilan hebdomadaire pour l'administration (en français), envoyé par la routine du lundi.
     const items = Array.isArray(p.items) ? (p.items as Record<string, unknown>[]) : [];
