@@ -1013,6 +1013,8 @@ export default {
   'g.next.monthly': 'Repasse mensal',
   'g.next.weekly': 'Repasse semanal',
   'g.next.hint': '{pct} % para você, por Pix, na sua chave verificada.',
+  'g.next.present': 'Guia presente · D+1',
+  'g.next.present.hint': 'Quando você acompanha o cliente no parceiro (QR validado com guia presente): comissão integral para você, por Pix no dia útil seguinte ao recebimento.',
   'admin.out.inss.hint': 'Guia CPF: o INSS é retido no início do repasse, em nome de cada parceiro. O guia recebe o líquido.',
   'admin.out.breakdown': 'Bruto {gross} · INSS retido {inss}',
   'admin.out.sendnet': 'Pix a enviar: {amount}',

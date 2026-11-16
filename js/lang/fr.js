@@ -1013,6 +1013,8 @@ export default {
   'g.next.monthly': 'Virement mensuel',
   'g.next.weekly': 'Virement hebdomadaire',
   'g.next.hint': '{pct} % pour vous, par Pix, sur votre clé vérifiée.',
+  'g.next.present': 'Guide présent · J+1',
+  'g.next.present.hint': 'Quand vous accompagnez le client chez le partenaire (QR validé avec guide présent) : la commission entière pour vous, par Pix le jour ouvré suivant la réception.',
   'admin.out.inss.hint': "Guide CPF : l'INSS est retenu au lancement, au nom de chaque partenaire. Le guide reçoit le net.",
   'admin.out.breakdown': 'Brut {gross} · INSS retenu {inss}',
   'admin.out.sendnet': 'Pix à envoyer : {amount}',
