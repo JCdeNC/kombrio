@@ -7,7 +7,7 @@ import * as store from './store.js';
 import { VERSION, VERSION_DATE } from './version.js';
 import { homeView } from './views/home.js';
 import { guideView } from './views/guide.js';
-import { clientView, clientHome } from './views/client.js';
+import { clientView, clientHome, privacyView } from './views/client.js';
 import { scanView, leadView } from './views/scan.js';
 import { partnerView, partnerHome, reportView, activateView, termsView, staffEnrollView, groupQrView } from './views/partner.js';
 import { adminView } from './views/admin.js';
@@ -19,7 +19,7 @@ const ICON = new URL('../icon.svg', import.meta.url).href;
 // routes : premier mot de l'adresse (#/c/…, #/p/…) → écran. "all" : l'écran reçoit toute l'adresse.
 const APPS = {
   hub: { routes: { '': homeView }, lang: 'fr' },
-  client: { routes: { '': clientHome, c: clientView }, lang: 'client' },
+  client: { routes: { '': clientHome, c: clientView, privacidade: privacyView }, lang: 'client' },
   partner: { routes: { '': partnerHome, s: scanView, p: partnerView, r: reportView, ativar: activateView, termos: termsView, parceria: leadView, equipe: staffEnrollView, gg: groupQrView }, lang: 'pt' },
   guide: { routes: { '': guideView }, lang: 'pt', all: true },
   admin: { routes: { '': adminView }, lang: 'fr', langs: ['fr', 'pt'], all: true },

@@ -35,6 +35,7 @@ const toGuide = (r) => r && ({
   referralEnabled: !!r.referral_enabled,
   // Module Pix (v30) : undefined tant que le script 015 n'est pas lancé.
   pixKeyType: r.pix_key_type || '', pixKeyVersion: r.pix_key_version ?? null, pixStatus: r.pix_status, pixVerifiedAt: r.pix_verified_at || '',
+  termsVersion: r.terms_version || '', termsAcceptedAt: r.terms_accepted_at || '',
   isTest: !!r.is_test, badgeName: r.badge_name || '', cadasturValidUntil: r.cadastur_valid_until || '', cadasturNumber: r.cadastur_number || '', cadasturCategory: r.cadastur_category || '',
 });
 const toPartner = (r) => r && ({
@@ -737,4 +738,11 @@ export async function adminSetPartnerStatus(partnerId, status, reason = null) {
 /* ---------- Conditions acceptées (v41) : texte gardé en base avec son empreinte ---------- */
 export async function termsText(kind, version = null) {
   return check(await sb.rpc('terms_text', { p_kind: kind, p_version: version }));
+}
+// v74 : acceptation d'une version des conditions (guide connecté ; gérant du partenaire par son lien).
+export async function acceptGuideTerms(version) {
+  return check(await sb.rpc('accept_guide_terms', { p_version: version }));
+}
+export async function acceptPartnerTerms(managerToken, version) {
+  return check(await sb.rpc('accept_partner_terms', { p_manager_token: managerToken, p_version: version }));
 }

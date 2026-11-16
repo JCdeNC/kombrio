@@ -1,6 +1,6 @@
 // Morceaux d'écran communs à plusieurs pages.
 import { t, tRaw, getLang } from '../i18n.js';
-import { esc, initials, fmtDay, money, cents, notify, mapsLink, locale } from '../util.js';
+import { esc, initials, fmtDay, money, cents, notify, mapsLink, locale, appLink } from '../util.js';
 import * as store from '../store.js';
 
 
@@ -44,6 +44,43 @@ export function guideAmounts(visit, city, lang) {
     return t('visit.g.received', { declared: c(visit.declaredCents), share: c(visit.guideCents) });
   }
   return t('visit.g.expected', { declared: c(visit.declaredCents) });
+}
+
+// v74 : écran d'acceptation obligatoire d'une nouvelle version des conditions (guide ou gérant du partenaire).
+// accept() renvoie true quand la base a enregistré l'acceptation (version, date, empreinte du texte).
+export async function termsGateView({ kind, version, title, accept, signOut }) {
+  const tx = await store.termsText(kind, version).catch(() => null);
+  return {
+    html: `<article class="card terms">
+      <h1>${esc(title)}</h1>
+      <div class="notice">${t('terms.gate.intro')}</div>
+      <p class="hint">${t('terms.gate.version', { v: version })}</p>
+      ${tx && tx.body ? tx.body : `<div class="notice bad">${t('err.generic')}</div>`}
+      <p class="hint" style="margin-top:16px"><a href="${appLink('client', 'privacidade')}" target="_blank" rel="noopener">${t('privacy.link')}</a></p>
+      ${tx && tx.sha256 ? `<p class="hint" style="word-break:break-all">${t('terms.sha', { sha: tx.sha256 })}</p>` : ''}
+      ${tx && tx.body ? `<form id="tg" style="margin-top:16px">
+        <label style="display:flex;gap:8px;align-items:flex-start;margin-bottom:12px">
+          <input type="checkbox" name="ok" required style="width:auto;margin-top:4px"><span>${t('terms.gate.check')}</span></label>
+        <button class="btn block">${t('terms.gate.accept')}</button>
+        <p class="hint tg-err" style="display:none;color:var(--bad)">${t('err.generic')}</p>
+      </form>` : ''}
+      ${signOut ? `<button type="button" class="btn block secondary" id="tg-out" style="margin-top:12px">${t('terms.gate.out')}</button>` : ''}
+    </article>`,
+    mount(root, ctx) {
+      const f = root.querySelector('#tg');
+      if (f) f.onsubmit = async (e) => {
+        e.preventDefault();
+        const b = f.querySelector('button');
+        b.disabled = true;
+        const ok = await accept().catch(() => false);
+        if (ok) return ctx.refresh();
+        b.disabled = false;
+        f.querySelector('.tg-err').style.display = '';
+      };
+      const o = root.querySelector('#tg-out');
+      if (o && signOut) o.onclick = async () => { await signOut(); ctx.refresh(); };
+    },
+  };
 }
 
 export function notFound(key = 'err.notfound') {

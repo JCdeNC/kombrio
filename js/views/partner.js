@@ -4,12 +4,12 @@
 import { t, tRaw, getLang } from '../i18n.js';
 import { todayIn, esc, money, cents, parseCents, fmtMoment, fmtDay, qrSvg, appLink, readFileAsDataUrl, notify, pixPayload, pixKeyOf, photoToJpeg, confirmTwice, fmtTaxId, locale, phoneField, phoneValue } from '../util.js';
 import * as store from '../store.js';
-import { statusBadge, notFound, forgotLink, mountForgot, resetView, lastMonths, shortMonth, delta, barChart } from './shared.js';
+import { statusBadge, notFound, termsGateView, forgotLink, mountForgot, resetView, lastMonths, shortMonth, delta, barChart } from './shared.js';
 import { readPendingStay, clearPendingStay } from './scan.js';
 import { helpButton, problemLink, mountHelp, topicLabel, alertStatus } from './help.js';
 
 const MAX_RECEIPT = 1.5 * 1024 * 1024;
-export const TERMS_VERSION = 'v1 · 30/10/2026';
+export const TERMS_VERSION = 'P-2 · 16/11/2026';   // v74 (v1 · 30/10/2026 avant)
 const ME_KEY = 'kombrio-partner';
 // v68 : libellé de la commission — « 10 % » ou « R$ 10,00 / cliente » (forfait figé sur le passage, sinon celui du partenaire).
 const rateText = (partner, visit, c) => {
@@ -128,6 +128,12 @@ export async function partnerView([token, action, visitId], ctx) {
   space.alerts = space.role === 'manager' ? await store.partnerAlerts(token) : [];
   space.closings = space.role === 'manager' ? await store.partnerClosings(token) : [];
   if (space.role === 'manager' && action === 'equipe') space.team = await store.staffList(token).catch(() => []);
+
+  // v74 : une nouvelle version des conditions doit être acceptée par le gérant avant de continuer.
+  if (space.role === 'manager' && space.partner.status === 'active' && space.partner.termsVersion !== TERMS_VERSION) {
+    return termsGateView({ kind: 'partner', version: TERMS_VERSION, title: 'Termos de uso · Parceiro Kombrio',
+      accept: () => store.acceptPartnerTerms(token, TERMS_VERSION) });
+  }
 
   if (!action) {
     const pending = readPendingStay();
@@ -1603,9 +1609,9 @@ export async function termsView() {
   return {
     html: `<article class="card terms">
       <h1>Termos de uso · Parceiro Kombrio</h1>
-      <p class="hint">Versão ${esc(TERMS_VERSION)} · <b>rascunho, em revisão jurídica</b></p>
+      <p class="hint">Versão ${esc(TERMS_VERSION)}</p>
       ${tx && tx.body ? tx.body : `<div class="notice bad">${t('err.generic')}</div>`}
-      <p class="hint" style="margin-top:16px">Kombrio · Rio de Janeiro · contato pelo WhatsApp do seu interlocutor Kombrio.</p>
+      <p class="hint" style="margin-top:16px">Kombrio · Rio de Janeiro · contato@kombrio.com.br · <a href="${appLink('client', 'privacidade')}" target="_blank" rel="noopener">${t('privacy.link')}</a></p>
       ${tx && tx.sha256 ? `<p class="hint" style="word-break:break-all">${t('terms.sha', { sha: tx.sha256 })}</p>` : ''}
     </article>`,
   };

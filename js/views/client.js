@@ -15,6 +15,18 @@ export async function clientHome(params, ctx) {
   return { html: `<div class="card"><h1>Kombrio</h1><p>${t('client.home')}</p></div>` };
 }
 
+// v74 : politique de confidentialité (texte de la base, en portugais), ouverte depuis toutes les applications.
+export async function privacyView() {
+  const tx = await store.termsText('privacy').catch(() => null);
+  return {
+    html: `<article class="card terms">
+      <h1>Política de privacidade · Kombrio</h1>
+      ${getLang() !== 'pt' ? `<p class="hint">${t('privacy.ptonly')}</p>` : ''}
+      ${tx ? `<p class="hint">Versão ${esc(tx.version)}</p>${tx.body}` : `<div class="notice bad">${t('err.generic')}</div>`}
+    </article>`,
+  };
+}
+
 export async function clientView([token]) {
   const data = token && await store.stayPublic(token);
   if (!data) {
@@ -50,7 +62,8 @@ export async function clientView([token]) {
         <h2>${t('client.partners')}</h2>
         <p class="hint">${t('client.partners.hint')} ${t('client.onlylist')}</p>
         ${partnerShowcase(partners, city)}
-        <p class="hint" style="margin:12px 0 0;padding:10px 12px;background:var(--bg);border-radius:10px">${t('client.disclosure')}</p>
+        <p class="hint" style="margin:12px 0 0;padding:10px 12px;background:var(--bg);border-radius:10px">${t('client.disclosure')}
+          ${t('client.data')} <a href="#/privacidade">${t('privacy.link')}</a></p>
       </div>`,
     mount(root) {
       mountShowcase(root);

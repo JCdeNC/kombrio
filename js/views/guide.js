@@ -2,12 +2,14 @@
 import { t, tRaw, getLang } from '../i18n.js';
 import { esc, money, cents, locale, fmtDay, fmtMoment, todayIn, addDays, stayIsValid, qrSvg, appLink, notify, validCpf, validCnpj, onlyDigits, maskCadastur, validCadastur, validPixKey, phoneField, phoneValue } from '../util.js';
 import * as store from '../store.js';
-import { validity, statusBadge, guideAmounts, notFound, forgotLink, mountForgot, resetView, lastMonths, shortMonth, monthKeyOf, delta, barChart } from './shared.js';
+import { validity, statusBadge, guideAmounts, notFound, termsGateView, forgotLink, mountForgot, resetView, lastMonths, shortMonth, monthKeyOf, delta, barChart } from './shared.js';
 import { maskTaxId, fmtTaxId, qrCardBlob, shareOrDownload, photoToJpeg } from '../util.js';
 import { helpButton, problemLink, mountHelp, topicLabel, alertStatus } from './help.js';
 import { WEEKLY_OPTION } from '../config.js';
 // Durée maximale d'un séjour (K-15, décidé le 06/11/2026) : les clients restent au plus une semaine. Même règle dans la base (script 014).
 const MAX_STAY_DAYS = 7;
+// v74 : version des conditions du guide à accepter (texte dans la base, script 047).
+export const GUIDE_TERMS_VERSION = 'G-2 · 16/11/2026';
 
 export async function guideView(params, ctx) {
   // Lien « nouveau mot de passe » : il suffit d'être connecté par le lien, même sans fiche guide complète.
@@ -29,6 +31,10 @@ export async function guideView(params, ctx) {
       };
     }
     return loginView();
+  }
+  if (me.termsVersion !== GUIDE_TERMS_VERSION) {
+    return termsGateView({ kind: 'guide', version: GUIDE_TERMS_VERSION, title: 'Termos de uso · Guia Kombrio',
+      accept: () => store.acceptGuideTerms(GUIDE_TERMS_VERSION), signOut: () => store.signOut() });
   }
   if (me.status !== 'validated') return pendingView(me);
   const city = await store.getCity(me.cityId);

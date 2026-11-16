@@ -110,6 +110,9 @@ export default {
   'auth.hide': 'Hide password',
   // v39 : réponses REV3 (addition, information du touriste).
   'client.disclosure': 'Some partners may pay a commercial fee for recommendations attributed to your guide and to Kombrio. You remain entirely free to visit these places or not, and to buy or not.',
+  'client.data': 'We only keep the group name, the number of people and the dates, to record visits.',
+  'privacy.link': 'Privacy policy',
+  'privacy.ptonly': 'This text is only available in Portuguese.',
   // v59
   'client.onlylist': 'Only the places on this list are Kombrio partners. Anywhere else, your QR gives no offer.',
   'client.code': "Code: <b>{code}</b>",

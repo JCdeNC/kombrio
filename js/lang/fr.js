@@ -782,6 +782,11 @@ export default {
   'admin.tx.find': 'Chercher par code de passage',
   'admin.part.sha': 'Empreinte du texte accepté : {sha}…',
   'terms.sha': 'Empreinte (SHA-256) de ce texte : {sha}',
+  'terms.gate.intro': 'Les conditions d\'utilisation de Kombrio ont été mises à jour. Lisez et acceptez la nouvelle version pour continuer.',
+  'terms.gate.version': 'Version {v}',
+  'terms.gate.check': 'J\'ai lu et j\'accepte ces conditions d\'utilisation.',
+  'terms.gate.accept': 'Accepter et continuer',
+  'terms.gate.out': 'Se déconnecter',
   'help.code': 'Code du passage (si vous l\'avez)',
   'help.code.bad': 'Code introuvable. Il a 6 lettres, par exemple KTR-BMX. Laissez vide si vous ne l\'avez pas.',
   'admin.cad.expiring': 'Cadastur à revérifier (expiré, bientôt expiré ou jamais vérifié)',
@@ -1233,6 +1238,9 @@ export default {
   // v39 : réponses REV3 (addition, information du touriste).
   'bill.rule': "Montant de l'addition = le montant final que vous estimez juste (avec ou sans taxe de service et pourboire : c'est vous qui décidez). La commission est calculée dessus, et vous pouvez la baisser.",
   'client.disclosure': 'Certains partenaires peuvent rémunérer commercialement les recommandations attribuées à votre guide et à Kombrio. Vous restez entièrement libre de visiter ou non ces établissements et d\'y acheter ou non.',
+  'client.data': 'Nous gardons seulement le nom du groupe, le nombre de personnes et les dates, pour enregistrer les visites.',
+  'privacy.link': 'Politique de confidentialité',
+  'privacy.ptonly': 'Ce texte n\'existe qu\'en portugais.',
   // v59 : saisie au restaurant, présence du guide, « Devenir partenaire ».
   'rs.present': "guide présent",
   'rs.table': "Table n° (facultatif)",
