@@ -467,3 +467,7 @@ main { overflow-wrap: break-word; }
 .gg-box { text-align: center; margin-bottom: 10px; }
 .client-code { font-size: 1.1em; letter-spacing: .08em; }
 @media (max-width: 420px) { .bill-cases { grid-template-columns: 1fr; } }
+
+/* v83 : tableau de la politique de confidentialité, lisible sur téléphone (défile dans sa carte, sans :has()). */
+.terms .tbl { display: block; max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; font-size: 13px; border-collapse: collapse; }
+.terms .tbl th, .terms .tbl td { min-width: 110px; padding: 6px 8px; vertical-align: top; border-bottom: 1px solid var(--line); text-align: left; }
