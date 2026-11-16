@@ -304,8 +304,8 @@ async function dashboardView(me, city, tab = 'inicio') {
   const presentCents = visits.filter((v) => v.mode === 2 && v.status === 'received').reduce((a, v) => a + (v.guideCents || 0), 0);
   const nextCard = `<div class="card"><div class="spread"><h2 style="margin:0">${t('g.next.title')}</h2>
       <span class="badge ${blocked ? 'bad' : sum.available > 0 ? 'ok' : ''}">${t(blocked ? 'g.next.blocked' : sum.available > 0 ? 'g.next.planned' : 'g.next.nothing')}</span></div>
-      <div class="spread" style="margin-top:8px"><span>${t(me.weeklyPayout ? 'g.next.weekly' : 'g.next.monthly')}</span><b>${cur(Math.max(0, sum.available - presentCents))}</b></div>
-      <p class="hint" style="margin:4px 0 0">${t('g.next.hint', { pct })}</p>
+      <div class="spread" style="margin-top:8px"><span>${t('g.next.clients', { pct })}</span><b>${cur(Math.max(0, sum.available - presentCents))}</b></div>
+      <p class="hint" style="margin:4px 0 0">${t(me.weeklyPayout ? 'g.next.clients.hint.w' : 'g.next.clients.hint', { pct })}</p>
       <div class="spread" style="margin-top:12px;padding-top:10px;border-top:1px solid var(--line)"><span>${t('g.next.present')}</span><b>${cur(presentCents)}</b></div>
       <p class="hint" style="margin:4px 0 0">${t('g.next.present.hint')}</p></div>`;
 
