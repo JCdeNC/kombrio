@@ -6,6 +6,24 @@
   <title>Kombrio · Client</title>
   <meta name="theme-color" content="#102C38">
   <!-- Pas de manifeste sur iPhone/iPad : sinon l'icône de l'écran d'accueil ouvre « Kombrio Client » sans le séjour. -->
+  <!-- v82 : navigateur trop ancien (iOS < 13.4, Chrome < 80) : message clair au lieu d'une page blanche. -->
+  <script>
+    (function () {
+      var ok = true;
+      try { new Function('var a = {}; return a?.b ?? 1;')(); } catch (e) { ok = false; }
+      if (!('noModule' in document.createElement('script'))) ok = false;
+      if (ok) return;
+      document.addEventListener('DOMContentLoaded', function () {
+        var el = document.getElementById('app');
+        if (el) el.innerHTML = '<div style="max-width:460px;margin:40px auto;padding:20px;font:16px/1.5 -apple-system,Arial,sans-serif;color:#12303A;border:1px solid #D9E6E9;border-radius:14px">'
+          + '<b>Kombrio</b><br><br>PT · Este navegador é antigo demais. Atualize o sistema do celular ou abra o link no Chrome.'
+          + '<br><br>FR · Ce navigateur est trop ancien. Mettez à jour le téléphone ou ouvrez le lien dans Chrome.'
+          + '<br><br>EN · This browser is too old. Update your phone or open the link in Chrome.'
+          + '<br><br>ES · Este navegador es demasiado antiguo. Actualice el teléfono o abra el enlace en Chrome.'
+          + '<br><br>DE · Dieser Browser ist zu alt. Aktualisieren Sie das Telefon oder öffnen Sie den Link in Chrome.</div>';
+      });
+    })();
+  </script>
   <script>
     if (!(/iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1))) {
       document.write('<link rel="manifest" href="manifest.webmanifest">');
