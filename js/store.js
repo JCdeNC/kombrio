@@ -48,6 +48,7 @@ const toPartner = (r) => r && ({
   // v67 : photo de la note obligatoire pour l'équipe (réglage du gérant) ; frais du mode 2 (réglés par Kombrio).
   staffPhotoRequired: r.staff_photo_required !== false, mode2FeeRate: r.mode2_fee_rate == null ? 0.03 : Number(r.mode2_fee_rate),
   mode2FeeCapCents: r.mode2_fee_cap_cents == null ? 9900 : Number(r.mode2_fee_cap_cents),
+  j1Enabled: !!r.j1_enabled,   // v77 : le partenaire propose le virement J+1 du guide présent
   // v68 : modèle de commission — « percent » (% de l'addition) ou « per_person » (forfait par client).
   commissionModel: r.commission_model === 'per_person' ? 'per_person' : 'percent', perPersonCents: num(r.per_person_cents) || 0,
   // v69 : bonus « X tous les N clients » et repas offert au guide présent « 1 tous les N clients » (0 = aucun).
@@ -278,7 +279,7 @@ export async function listPartners() {
 // Version publique, sans code secret (page du client, noms pour le guide).
 export async function publicPartners(cityId) {
   return check(await sb.rpc('public_partners', { p_city: cityId })).map((r) => ({
-    ...r, offer: r.offer || '', offerPriceCents: num(r.offer_price_cents), offerPromoCents: num(r.offer_promo_cents), offerEnd: r.offer_end || '' }));
+    ...r, offer: r.offer || '', offerPriceCents: num(r.offer_price_cents), offerPromoCents: num(r.offer_promo_cents), offerEnd: r.offer_end || '', j1Enabled: !!r.j1_enabled }));
 }
 export async function addPartner(p) {
   check(await sb.from('partners').insert({
@@ -507,6 +508,13 @@ export async function setPartnerCommission(partnerId, { model, rate, perPersonCe
 // Admin : frais du mode 2 d'un partenaire (taux et plafond mensuel), journalisés par le trigger d'audit.
 export async function setPartnerFees(partnerId, rate, capCents) {
   check(await sb.from('partners').update({ mode2_fee_rate: rate, mode2_fee_cap_cents: capCents }).eq('id', partnerId));
+}
+// v77 : virement J+1 du guide présent, au choix du partenaire (gérant par son lien ; admin directement).
+export async function partnerSetJ1(managerToken, on) {
+  return check(await sb.rpc('partner_set_j1', { p_manager_token: managerToken, p_on: on }));
+}
+export async function setPartnerJ1(partnerId, on) {
+  check(await sb.from('partners').update({ j1_enabled: on }).eq('id', partnerId));
 }
 // v66 : photo de l'addition pour l'admin, seulement dans un litige (alerte sur le passage).
 export async function adminBillPhoto(visitId) {

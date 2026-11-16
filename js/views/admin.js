@@ -1000,6 +1000,7 @@ async function partners({ partnerList, cityList, city }) {
             <button class="btn small secondary">${t('common.save')}</button></form>
           <p class="hint" style="margin:6px 0 0">${t('admin.part.fees.hint')}</p>
         </details>
+        <label class="hint" style="display:flex;gap:8px;align-items:center;margin-top:8px"><input type="checkbox" class="pj1" data-id="${esc(p.id)}" style="width:auto"${p.j1Enabled ? ' checked' : ''}> ${t('admin.part.j1')}</label>
         <details style="margin-top:8px"><summary>${t('admin.part.qr')}</summary>
           <div class="qr">${qrSvg(appLink('partner', `p/${p.token}`))}</div>
           <div class="row">
@@ -1041,6 +1042,10 @@ async function partners({ partnerList, cityList, city }) {
         const cap = parseCents(form.cap.value);
         if (!(rate >= 0 && rate <= 0.5) || cap == null || cap < 0) { notify(tRaw('admin.part.fees.err')); return; }
         try { await store.setPartnerFees(form.dataset.id, rate, cap); ctx.refresh(tRaw('common.saved')); } catch { notify(tRaw('err.generic')); }
+      }; });
+      root.querySelectorAll('.pj1').forEach((cb) => { cb.onchange = async () => {
+        cb.disabled = true;
+        try { await store.setPartnerJ1(cb.dataset.id, cb.checked); ctx.refresh(tRaw('common.saved')); } catch { cb.disabled = false; cb.checked = !cb.checked; notify(tRaw('err.generic')); }
       }; });
       root.querySelectorAll('.pdetails').forEach((form) => {
         form.onsubmit = async (e) => {

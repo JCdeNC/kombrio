@@ -799,6 +799,12 @@ export function spaceView(space, tab = 'painel') {
           <p class="hint" style="margin:4px 0 0">${t('partner.extras.meal.hint')}</p></div>
         <button class="btn secondary">${t('common.save')}</button>
       </form>
+      <div class="card" id="j1card">
+        <div class="spread"><h2 style="margin:0">${t('j1.p.title')}</h2><span class="badge ${partner.j1Enabled ? 'ok' : ''}">${t(partner.j1Enabled ? 'j1.p.on.badge' : 'j1.p.off.badge')}</span></div>
+        <p style="margin-top:8px">${t(partner.j1Enabled ? 'j1.p.on' : 'j1.p.off')}</p>
+        <p class="hint">${t('j1.p.hint')}</p>
+        <button type="button" class="btn ${partner.j1Enabled ? 'ghost' : 'secondary'} small" id="j1-toggle" data-on="${partner.j1Enabled ? '1' : ''}">${t(partner.j1Enabled ? 'j1.p.cut' : 'j1.p.enable')}</button>
+      </div>
       <form class="card" id="offer">
         <h2>${t('partner.offer.title')}</h2>
         <p class="hint">${t('partner.offer.hint')}</p>
@@ -941,6 +947,13 @@ export function spaceView(space, tab = 'painel') {
         if (!okB || !Number.isInteger(me) || me < 0 || me > 50) { notify(tRaw('partner.extras.err')); return; }
         if (!(await store.setPartnerExtras(key, be && bc ? be : 0, be && bc ? bc : 0, me))) { notify(tRaw('err.generic')); return; }
         ctx.refresh(tRaw('common.saved'));
+      };
+      const j1b = root.querySelector('#j1-toggle');
+      if (j1b) j1b.onclick = async () => {
+        const on = !!j1b.dataset.on;
+        j1b.disabled = true;
+        try { if (!(await store.partnerSetJ1(key, !on))) throw new Error(); ctx.refresh(tRaw(on ? 'j1.p.cut.done' : 'j1.p.enable.done')); }
+        catch { j1b.disabled = false; notify(tRaw('err.generic')); }
       };
       const offerForm = root.querySelector('#offer');
       if (offerForm) offerForm.onsubmit = async (e) => {
