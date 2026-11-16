@@ -8,8 +8,9 @@ import de from './lang/de.js';
 
 const DICTS = { pt, fr, en, es, de };
 export const LANGS = [['pt', 'Português'], ['fr', 'Français'], ['en', 'English'], ['es', 'Español'], ['de', 'Deutsch']];
-// v78 : langues traduites seulement pour l'app Guide (ailleurs, elles ne sont pas proposées).
+// v79 : langues traduites seulement pour l'app Guide et la page du touriste (ailleurs, elles ne sont pas proposées).
 export const GUIDE_ONLY_LANGS = ['de'];
+export const RICH_APPS = ['guide', 'client'];
 let storeKey = 'kombrio-lang';
 
 // Chaque application garde sa propre langue sur l'appareil.
@@ -36,7 +37,7 @@ export const getLang = () => current;
 // Langue du téléphone si on la parle, sinon l'anglais (pour les clients).
 export function browserLang() {
   const code = (navigator.language || 'en').slice(0, 2);
-  return DICTS[code] && !GUIDE_ONLY_LANGS.includes(code) ? code : 'en';
+  return DICTS[code] ? code : 'en';
 }
 
 function lookup(key) {

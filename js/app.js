@@ -1,7 +1,7 @@
 // Point d'entrée commun aux 4 applications : Client, Partenaire, Guide, Administrateur.
 // Chaque application a son dossier (client/, partner/, guide/, admin/) et sa page index.html
 // qui indique laquelle elle est (window.KOMBRIO_APP). Elle n'ouvre que ses propres écrans.
-import { t, tRaw, LANGS, GUIDE_ONLY_LANGS, chosenLang, chooseLang, useLang, getLang, browserLang, setLangScope } from './i18n.js';
+import { t, tRaw, LANGS, GUIDE_ONLY_LANGS, RICH_APPS, chosenLang, chooseLang, useLang, getLang, browserLang, setLangScope } from './i18n.js';
 import { esc } from './util.js';
 import * as store from './store.js';
 import { VERSION, VERSION_DATE } from './version.js';
@@ -55,7 +55,7 @@ async function render() {
   const fallback = conf.lang === 'client' ? browserLang() : conf.lang;
   let lang = chosenLang() || fallback;
   if (conf.langs && !conf.langs.includes(lang)) lang = conf.langs[0];
-  if (APP !== 'guide' && GUIDE_ONLY_LANGS.includes(lang)) lang = fallback;
+  if (!RICH_APPS.includes(APP) && GUIDE_ONLY_LANGS.includes(lang)) lang = fallback;
   useLang(lang);
 
   const root = document.getElementById('app');
@@ -71,7 +71,7 @@ async function render() {
     + (flash ? `<div class="notice ok" role="status">${esc(flash)}</div>` : '');
   flash = null;
   const langs = conf.langs ? LANGS.filter(([code]) => conf.langs.includes(code))
-    : LANGS.filter(([code]) => APP === 'guide' || !GUIDE_ONLY_LANGS.includes(code));
+    : LANGS.filter(([code]) => RICH_APPS.includes(APP) || !GUIDE_ONLY_LANGS.includes(code));
   // v60 : sur téléphone, la langue en 2 lettres (« PT ») pour ne pas déborder de l'en-tête.
   const narrow = window.matchMedia('(max-width: 480px)').matches;
   document.title = APP === 'hub' ? 'Kombrio' : `Kombrio · ${t(`app.${APP}`)}`;
