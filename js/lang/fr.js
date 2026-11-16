@@ -342,6 +342,9 @@ export default {
   'admin.val.cpf': 'CPF',
   'admin.val.pix': 'Clé Pix :',
   'admin.missing': 'manquant',
+  'admin.terms.ok': 'Conditions {v} acceptées le {date}',
+  'admin.terms.old': 'Ancienne version acceptée : {v} ({date}) · à accepter : {want}',
+  'admin.terms.none': 'Conditions {v} pas encore acceptées',
   'ptype.restaurant': 'Restaurant',
   'ptype.shop': 'Boutique',
 

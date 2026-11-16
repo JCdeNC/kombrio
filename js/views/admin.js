@@ -6,6 +6,8 @@ import * as store from '../store.js';
 import { forgotLink, mountForgot, resetView, statusBadge, lastMonths, shortMonth, monthKeyOf, barChart } from './shared.js';
 import { maskTaxId, photoToJpeg, fmtCadastur, maskCadastur, cadasturLink, waLink } from '../util.js';
 import { topicLabel, alertStatus } from './help.js';
+import { GUIDE_TERMS_VERSION } from './guide.js';
+import { TERMS_VERSION } from './partner.js';
 
 const TABS = ['dashboard', 'alertas', 'validations', 'payments', 'payouts', 'pix', 'referral', 'transactions', 'partners', 'cities', 'journal'];
 const TAB_GROUPS = [['todo', ['alertas', 'payments', 'payouts', 'pix']], ['network', ['validations', 'partners', 'cities', 'referral']], ['records', ['transactions', 'journal']]];
@@ -912,12 +914,19 @@ function mountPlus(root, ctx) {
     catch { b.disabled = false; notify(tRaw('err.generic')); }
   }; });
 }
+// v80 : version des conditions acceptée par chaque guide ou partenaire (et date).
+function termsLine(kind, x) {
+  const want = kind === 'guide' ? GUIDE_TERMS_VERSION : TERMS_VERSION;
+  if (!x.termsVersion) return `<div class="hint"><span class="badge warn">${t('admin.terms.none', { v: want })}</span></div>`;
+  const ok = x.termsVersion === want;
+  return `<div class="hint"><span class="badge ${ok ? 'ok' : 'warn'}">${t(ok ? 'admin.terms.ok' : 'admin.terms.old', { v: x.termsVersion, date: x.termsAcceptedAt ? fmtDay(x.termsAcceptedAt.slice(0, 10), getLang()) : '?', want })}</span></div>`;
+}
 function activeCard(list, kind) {
   if (!list.length) return '';
   const sorted = [...list].sort((a, b) => Number(isOn(kind, a)) - Number(isOn(kind, b)) || a.name.localeCompare(b.name));
   return `<div class="card"><h2>${t(kind === 'guide' ? 'admin.act.guides' : 'admin.act.partners')}</h2><p class="hint">${t(`admin.act.hint.${kind}`)}</p>
     <ul class="list">${sorted.map((x) => `<li><div class="spread"><span><b>${esc(x.name)}</b>${x.code ? ` <span class="hint">${esc(x.code)}</span>` : ''}</span>
-      <span class="row" style="gap:6px;align-items:center">${kind === 'guide' ? refToggle(x) : ''}${activeToggle(kind, x)}</span></div></li>`).join('')}</ul></div>`;
+      <span class="row" style="gap:6px;align-items:center">${kind === 'guide' ? refToggle(x) : ''}${activeToggle(kind, x)}</span></div>${termsLine(kind, x)}</li>`).join('')}</ul></div>`;
 }
 function mountActive(root, ctx) {
   root.querySelectorAll('[data-act-kind]').forEach((b) => {
