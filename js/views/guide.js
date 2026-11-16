@@ -685,6 +685,10 @@ async function stayView(me, city, stayId) {
           <button class="btn secondary" id="copy">${t('guide.stay.copy')}</button>
           <a class="btn ghost" target="_blank" rel="noopener" href="${esc(clientLink)}">${t('guide.stay.preview')}</a>
         </div>
+        <button type="button" class="btn block secondary" id="showcl" style="margin-top:10px">${t('guide.stay.showcl')}</button>
+        <div id="clbox" class="gg-box" hidden><div class="qr">${qrSvg(clientLink)}</div>
+          <p class="hint" style="text-align:center">${t('guide.stay.showcl.hint')}</p>
+          <button type="button" class="btn ghost small" id="clclose">${t('gg.close')}</button></div>
       </div>
       <div class="card">
         <h2>${t('guide.stay.visits')}</h2>
@@ -712,6 +716,10 @@ async function stayView(me, city, stayId) {
         });
         await shareOrDownload(blob, 'kombrio-qr.png', share);
       };
+      // v81 : QR de la page du client, à scanner avec l'appareil photo de son téléphone (sans WhatsApp ni e-mail).
+      const clBox = root.querySelector('#clbox');
+      root.querySelector('#showcl').onclick = () => { clBox.hidden = false; clBox.scrollIntoView({ behavior: 'smooth', block: 'center' }); };
+      root.querySelector('#clclose').onclick = () => { clBox.hidden = true; };
       root.querySelector('#copy').onclick = async (e) => {
         try { await navigator.clipboard.writeText(clientLink); e.target.textContent = tRaw('common.copied'); } catch { prompt('', clientLink); }
       };

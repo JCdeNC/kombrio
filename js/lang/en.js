@@ -322,6 +322,8 @@ export default {
   'guide.stay.new': 'New client',
   'guide.stay.people': 'Number of people',
   'guide.stay.preview': 'See the client page',
+  'guide.stay.showcl': 'Show the client (QR for the camera)',
+  'guide.stay.showcl.hint': 'The client points their phone camera at this QR: their page opens, with their QR and the partners. No WhatsApp or email needed.',
   'guide.stay.qr.hint': 'The client shows this QR at the partner.',
   'guide.stay.sendqr': 'Send the QR (image)',
   'guide.stay.start': 'Start of stay',

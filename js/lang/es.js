@@ -322,6 +322,8 @@ export default {
   'guide.stay.new': 'Nuevo cliente',
   'guide.stay.people': 'Número de personas',
   'guide.stay.preview': 'Ver la página del cliente',
+  'guide.stay.showcl': 'Mostrar al cliente (QR para la cámara)',
+  'guide.stay.showcl.hint': 'El cliente apunta la cámara de su móvil a este QR: se abre su página, con su QR y los socios. Sin WhatsApp ni correo.',
   'guide.stay.qr.hint': 'El cliente muestra este QR en el socio.',
   'guide.stay.sendqr': 'Enviar el QR (imagen)',
   'guide.stay.start': 'Inicio de la estancia',

@@ -180,6 +180,8 @@ export default {
   'guide.stay.whatsapp': 'Enviar pelo WhatsApp',
   'guide.stay.copy': 'Copiar o link',
   'guide.stay.preview': 'Ver a página do cliente',
+  'guide.stay.showcl': 'Mostrar ao cliente (QR para a câmera)',
+  'guide.stay.showcl.hint': 'O cliente aponta a câmera do celular para este QR: a página dele abre, com o QR dele e os parceiros. Sem WhatsApp nem e-mail.',
   'guide.stay.visits': 'Visitas',
   'guide.stay.visits.none': 'Ainda nenhuma visita a um parceiro.',
   'guide.share.text': 'Olá {client}! Aqui está o seu QR Kombrio, da parte de {guide}. Mostre-o nos nossos parceiros, restaurantes e lojas: alguns têm uma oferta para você. {link}',

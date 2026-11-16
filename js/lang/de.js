@@ -242,6 +242,8 @@ export default {
   'guide.stay.new': 'Neuer Kunde',
   'guide.stay.people': 'Anzahl Personen',
   'guide.stay.preview': 'Kundenseite ansehen',
+  'guide.stay.showcl': 'Dem Kunden zeigen (QR für die Kamera)',
+  'guide.stay.showcl.hint': 'Der Kunde richtet die Handykamera auf diesen QR-Code: Seine Seite öffnet sich, mit seinem QR-Code und den Partnern. Ohne WhatsApp oder E-Mail.',
   'guide.stay.qr.hint': 'Der Kunde zeigt diesen QR-Code beim Partner.',
   'guide.stay.sendqr': 'QR-Code senden (Bild)',
   'guide.stay.start': 'Beginn des Aufenthalts',
