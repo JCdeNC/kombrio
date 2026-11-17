@@ -4,6 +4,7 @@
 import { t, tRaw, getLang } from '../i18n.js';
 import { todayIn, esc, money, cents, parseCents, fmtMoment, fmtDay, qrSvg, appLink, readFileAsDataUrl, notify, pixPayload, pixKeyOf, photoToJpeg, confirmTwice, fmtTaxId, locale, phoneField, phoneValue } from '../util.js';
 import * as store from '../store.js';
+import { inssBadge, inssTimeline, inssLinesTable, inssCsv, downloadText, openDataUrl } from './admin-inss.js';
 import { statusBadge, notFound, termsGateView, forgotLink, mountForgot, resetView, lastMonths, shortMonth, delta, barChart } from './shared.js';
 import { readPendingStay, clearPendingStay } from './scan.js';
 import { helpButton, problemLink, mountHelp, topicLabel, alertStatus } from './help.js';
@@ -159,6 +160,7 @@ export async function partnerView([token, action, visitId], ctx) {
   if (action === 'relatorio') return reportPage(space, visitId);
   if (action === 'mes') return monthPage(space, visitId, space.closings);
   if (action === 'demonstrativo') return docPage(space, visitId, space.closings, `#/p/${encodeURIComponent(token)}/pagamentos`);
+  if (action === 'inss') return inssPage(space.partner, space.city, token, true, `#/p/${encodeURIComponent(token)}/pagamentos`);
   const visit = space.visits.find((v) => v.id === visitId);
   if (!visit) return notFound();
   return scannedView(space, visit, action);
@@ -764,6 +766,9 @@ export function spaceView(space, tab = 'painel') {
           <span class="row" style="gap:6px">${k ? `<a class="btn secondary small" href="${base}/demonstrativo/${m}">${t('doc.open')}</a>` : ''}<button class="btn ghost small" data-close-month="${m}">${t(k ? 'dash.doc.update' : 'dash.doc.make')}</button></span></div></li>`; }).join('')}</ul>
       <div class="spread" style="margin-top:10px"><span><b>${t('doc.b')}</b><br><span class="hint">${t('doc.b.soon')}</span></span><span class="badge">${t('doc.b.badge')}</span></div>
       <p class="hint" style="margin-top:10px">${t('mes.s3.accountant')} <a href="${base}/relatorio">${t('report.share.title')}</a></p></div>`;
+  // v84 : INSS retenu au nom du partenaire sur les reversements aux guides CPF — déclarations et preuves, en toute transparence.
+  const inssCard = `<div class="card"><h2>${t('pinss.card')}</h2><p class="hint">${t('pinss.card.hint')}</p>
+      <a class="btn secondary small" href="${base}/inss">${t('pinss.open')}</a></div>`;
 
   const payHistory = `<div class="card"><h2>${t('partner.payments')}</h2>${payments.length ? `<ul class="list">${payments.map((y) => `<li>
       <div class="spread"><b>${t('partner.payment.line', { num: y.num, amount: c(y.cents) })}</b>${payBadge(y)}</div>
@@ -838,7 +843,7 @@ export function spaceView(space, tab = 'painel') {
   const body = {
     painel: `${saleButton(key)}${pendingCard({ city, visits, key })}${steps}${kpis}<div class="pd-cols">${visitsCard(t('pd.totreat'), open, false)}<div class="pd-side">${chartCard}${todoCard}${adjustmentsCard(adjustments, city, lang)}${lastCard}${shortcuts}</div></div>`,
     visitas: visitsCard(t('pd.all'), visits, true),
-    pagamentos: `<div class="pd-cols"><div class="pd-side">${visitsCard(t('pd.topay'), toPay, false)}${payHistory}</div><div class="pd-side">${docsCard}${adjustmentsCard(adjustments, city, lang)}</div></div>`,
+    pagamentos: `<div class="pd-cols"><div class="pd-side">${visitsCard(t('pd.topay'), toPay, false)}${payHistory}</div><div class="pd-side">${docsCard}${inssCard}${adjustmentsCard(adjustments, city, lang)}</div></div>`,
     equipe: teamHtml(space),
     config: settings,
   }[tab];
@@ -1237,8 +1242,9 @@ export async function reportView([reportToken, month, sub]) {
   if (!data) return notFound('err.report');
   // Document A vu par le comptable : #/r/<lien>/demonstrativo/<AAAA-MM>[.v<n>]
   if (month === 'demonstrativo') return docPage(data, sub, await store.partnerClosings(reportToken), `#/r/${encodeURIComponent(reportToken)}`);
+  if (month === 'inss') return inssPage(data.partner, data.city, reportToken, false, `#/r/${encodeURIComponent(reportToken)}`);
   const block = reportBlock(data, month, `r/${reportToken}`);
-  return { html: `<p class="hint no-print">${t('report.readonly')}</p>${block.html}`, mount: block.mount };
+  return { html: `<p class="hint no-print">${t('report.readonly')}</p>${block.html}<div class="card no-print"><h2>${t('pinss.card')}</h2><p class="hint">${t('pinss.card.hint')}</p><a class="btn secondary small" href="#/r/${encodeURIComponent(reportToken)}/inss">${t('pinss.open')}</a></div>`, mount: block.mount };
 }
 
 /* ---------- Étape 2 du plan : « Mon mois » en 3 gestes + Document A (v54) ---------- */
@@ -1627,5 +1633,62 @@ export async function termsView() {
       <p class="hint" style="margin-top:16px">Kombrio · Rio de Janeiro · contato@kombrio.com.br · <a href="${appLink('client', 'privacidade')}" target="_blank" rel="noopener">${t('privacy.link')}</a></p>
       ${tx && tx.sha256 ? `<p class="hint" style="word-break:break-all">${t('terms.sha', { sha: tx.sha256 })}</p>` : ''}
     </article>`,
+  };
+}
+
+/* ---------- INSS des guides (v84, script 049) : ce que Kombrio retient et déclare au nom du partenaire ---------- */
+// Le gérant (isManager) choisit qui déclare ; le comptable (lien du relevé) voit la même chose, en lecture seule.
+async function inssPage(partner, city, token, isManager, back) {
+  const lang = getLang();
+  const d = await store.partnerInss(token);
+  if (!d) return { html: `<p><a href="${back}">← ${t('common.back')}</a></p><div class="notice warn">${t('pinss.none')}</div>` };
+  const decls = d.declarations || [];
+  const rule = (d.rules || []).find((r) => !r.valid_to) || (d.rules || [])[0];
+  const brl = (n) => cents(Number(n) || 0, city.currency, lang);
+  const who = `<div class="card"><h2>${t('pinss.who')}</h2>
+      <p>${t(`pinss.who.${d.filing}`)}</p>
+      ${d.filing === 'kombrio' ? `<p class="hint">${d.procuracao_at ? t('pinss.proc.on', { date: fmtDay(d.procuracao_at, lang) }) : t('pinss.proc.howto')}</p>` : `<p class="hint">${t('pinss.accountant.howto')}</p>`}
+      ${!d.tax_id ? `<div class="notice warn">${t('pinss.taxid')}</div>` : ''}
+      ${isManager ? `<form id="pinss-mode" class="row" style="gap:8px;align-items:flex-end;flex-wrap:wrap">
+        <div class="field" style="margin:0"><label>${t('pinss.who.choose')}</label><select name="mode">
+          <option value="kombrio"${d.filing === 'kombrio' ? ' selected' : ''}>${t('pinss.mode.kombrio')}</option>
+          <option value="accountant"${d.filing === 'accountant' ? ' selected' : ''}>${t('pinss.mode.accountant')}</option></select></div>
+        <button class="btn small secondary">${t('common.save')}</button></form>` : ''}</div>`;
+  const rates = `<div class="card"><h2>${t('pinss.rates')}</h2>
+      ${rule ? `<p>${t('pinss.rate.now', { rate: Math.round(Number(rule.rate) * 10000) / 100, ceiling: rule.ceiling_cents ? brl(rule.ceiling_cents) : '—', from: fmtDay(rule.valid_from, lang) })}</p>` : ''}
+      <div class="table-wrap"><table><tr><th>${t('pinss.rate')}</th><th>${t('pinss.ceiling')}</th><th>${t('pinss.period')}</th><th>${t('pinss.source')}</th></tr>
+      ${(d.rules || []).map((r) => `<tr><td>${Math.round(Number(r.rate) * 10000) / 100} %</td><td>${r.ceiling_cents ? brl(r.ceiling_cents) : '—'}</td>
+        <td>${fmtDay(r.valid_from, lang)} → ${r.valid_to ? fmtDay(r.valid_to, lang) : '…'}</td><td>${esc(r.source || '—')}</td></tr>`).join('')}</table></div>
+      <p class="hint">${t('pinss.rates.hint')}</p></div>`;
+  const pending = (d.pending || []).length ? `<div class="card"><h2>${t('pinss.pending')}</h2><ul class="list">${d.pending.map((x) => `<li>
+      <div class="spread"><b>${esc(x.month)}</b><span>${inssBadge('none')} <b>${brl(x.inss_cents)}</b></span></div>
+      <div class="hint">${t('pinss.pending.line', { n: x.guides, gross: brl(x.gross_cents), dctf: fmtDay(x.dctf_due, lang), darf: fmtDay(x.darf_due, lang) })}</div></li>`).join('')}</ul></div>` : '';
+  const list = `<div class="card"><div class="spread"><h2 style="margin:0">${t('pinss.decls')}</h2>
+      ${decls.length ? `<button class="btn small ghost" id="pinss-csv">${t('inss.csv')}</button>` : ''}</div>
+      ${decls.length ? `<ul class="list">${decls.map((x) => `<li>
+        <div class="spread"><b>${esc(String(x.month).slice(0, 7))} · ${esc(x.doc_code)}</b><span>${inssBadge(x.status, x.gap)} <b>${brl(x.inss_cents)}</b></span></div>
+        <div class="hint">${t('inss.dues', { dctf: fmtDay(x.dctf_due, lang), darf: fmtDay(x.darf_due, lang) })} · ${t(`inss.filing.${x.filing}`)}</div>
+        ${inssTimeline(x, lang, city.timezone)}
+        <div class="row" style="gap:6px">${x.has_pdf ? `<button class="btn ghost small" data-file="${esc(x.id)}" data-kind="darf">${t('inss.file.darf')}</button>` : ''}
+          ${x.has_proof ? `<button class="btn ghost small" data-file="${esc(x.id)}" data-kind="proof">${t('inss.file.proof')}</button>` : ''}</div>
+        <details style="margin-top:6px"><summary>${t('inss.lines.title')}</summary>${inssLinesTable(x, lang)}</details></li>`).join('')}</ul>`
+        : `<p class="hint">${t('pinss.decls.none')}</p>`}</div>`;
+  return {
+    html: `<p class="no-print"><a href="${back}">← ${t('common.back')}</a></p><h1>${t('pinss.title')}</h1>
+      <p class="hint">${t('pinss.intro', { name: esc(partner.name) })}</p>${who}${pending}${list}${rates}`,
+    mount(root, ctx) {
+      const f = root.querySelector('#pinss-mode');
+      if (f) f.onsubmit = async (e) => {
+        e.preventDefault();
+        try { const r = await store.partnerSetInssFiling(token, f.mode.value); if (!r || !r.ok) throw new Error('x'); ctx.refresh(tRaw('common.saved')); }
+        catch { notify(tRaw('err.generic')); }
+      };
+      const csv = root.querySelector('#pinss-csv');
+      if (csv) csv.onclick = () => downloadText(inssCsv(decls), `kombrio-inss-${partner.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}.csv`);
+      root.querySelectorAll('[data-file]').forEach((b) => { b.onclick = async () => {
+        const src = await store.inssFile(token, b.dataset.file, b.dataset.kind).catch(() => null);
+        if (src) openDataUrl(src); else notify(tRaw('err.generic'));
+      }; });
+    },
   };
 }

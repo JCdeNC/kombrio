@@ -1,5 +1,6 @@
 -- Kombrio · tests de la v53 (028_retenues_inss.sql) : statut fiscal daté, retenue INSS des guides CPF, plancher 1 R$ signalé.
--- À lancer APRÈS 028_retenues_inss.sql. Transaction annulée à la fin : la base n'est pas modifiée.
+-- À lancer APRÈS 028_retenues_inss.sql. Depuis la v84 (049), les tests 9, 10 et 13a ne s'appliquent plus tels quels :
+-- une règle exige une source légale et ne peut plus commencer un jour déjà utilisé par un virement (voir declarations_inss_tests.sql, test 14). Transaction annulée à la fin : la base n'est pas modifiée.
 -- Le résultat s'affiche comme une erreur « RÉSULTATS : … » (c'est voulu : c'est ce qui annule tout).
 do $$
 declare

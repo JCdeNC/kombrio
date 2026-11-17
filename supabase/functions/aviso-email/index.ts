@@ -98,6 +98,16 @@ function build(kind: string, p: Record<string, unknown>): { subject: string; htm
     const lines = [...items].sort((a, b) => (order[String(a.level)] ?? 9) - (order[String(b.level)] ?? 9))
       .map((i) => `<tr><td style="padding:6px 10px 6px 0;vertical-align:top"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${dot[String(i.level)] ?? '#8AA0A8'}"></span></td><td style="padding:6px 0">${esc(i.text)}</td></tr>`).join('');
     const verdict = grave > 0 ? `${grave} problème(s) grave(s) à régler` : att > 0 ? `${att} point(s) à regarder` : 'tout va bien';
+    // v84 : le rappel INSS (script 049) réutilise ce gabarit avec son propre objet, titre et pied.
+    if (p.subject) {
+      return {
+        subject: String(p.subject),
+        html: box(esc(String(p.title ?? p.subject)),
+          `<table style="border-collapse:collapse;width:100%;font-size:14px">${lines}</table>
+           <p style="margin:16px 0 0;color:#5B6F78;font-size:13px">${esc(String(p.footer ?? ''))}</p>`,
+          'https://app.kombrio.com.br/admin/#/inss', 'Ouvrir l’admin › INSS'),
+      };
+    }
     return {
       subject: `Kombrio · bilan de la semaine : ${verdict}`,
       html: box(`Bilan du ${esc(p.date)} : ${verdict}`,

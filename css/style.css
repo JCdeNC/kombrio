@@ -471,3 +471,12 @@ main { overflow-wrap: break-word; }
 /* v83 : tableau de la politique de confidentialité, lisible sur téléphone (défile dans sa carte, sans :has()). */
 .terms .tbl { display: block; max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; font-size: 13px; border-collapse: collapse; }
 .terms .tbl th, .terms .tbl td { min-width: 110px; padding: 6px 8px; vertical-align: top; border-bottom: 1px solid var(--line); text-align: left; }
+
+/* v84 : frise des déclarations INSS (admin et espace partenaire) */
+.inss-tl { list-style: none; margin: 10px 0; padding: 0; display: grid; gap: 4px; }
+.inss-tl li, .list .inss-tl li { position: relative; padding: 2px 0 2px 22px; border-top: 0; display: flex; flex-wrap: wrap; gap: 2px 8px; align-items: baseline; color: var(--muted); }
+.inss-tl li::before { content: ''; position: absolute; left: 4px; top: 0.55em; width: 10px; height: 10px; border-radius: 50%; border: 2px solid currentColor; box-sizing: border-box; }
+.inss-tl li.done { color: inherit; }
+.inss-tl li.done::before { background: var(--brand); border-color: var(--brand); }
+.inss-tl li .hint { overflow-wrap: anywhere; }
+.inss-decl form.inss-step { border-top: 1px dashed var(--line); padding-top: 10px; }

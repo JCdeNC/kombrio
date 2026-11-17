@@ -46,6 +46,8 @@ const toPartner = (r) => r && ({
   // v66 : ancien QR caisse actif ou coupé ; photo de l'addition obligatoire (personnel) à partir de ce montant.
   counterEnabled: r.counter_enabled !== false, photoRequiredCents: r.photo_required_cents == null ? 30000 : Number(r.photo_required_cents),
   // v67 : photo de la note obligatoire pour l'équipe (réglage du gérant) ; frais du mode 2 (réglés par Kombrio).
+  // v84 : qui déclare l'INSS des guides (Kombrio par procuration, ou le comptable du partenaire).
+  inssFiling: r.inss_filing || 'kombrio', inssProcuracaoAt: r.inss_procuracao_at || '', inssProcuracaoNote: r.inss_procuracao_note || '',
   staffPhotoRequired: r.staff_photo_required !== false, mode2FeeRate: r.mode2_fee_rate == null ? 0.03 : Number(r.mode2_fee_rate),
   mode2FeeCapCents: r.mode2_fee_cap_cents == null ? 9900 : Number(r.mode2_fee_cap_cents),
   j1Enabled: !!r.j1_enabled,   // v77 : le partenaire propose le virement J+1 du guide présent
@@ -638,6 +640,41 @@ export async function startPayout(guideId) {
 // Récapitulatif INSS d'un mois (admin) : par partenaire et par guide, virements payés ce mois-là. month = 'AAAA-MM'.
 export async function adminInssReport(month) {
   return check(await sb.rpc('admin_inss_report', { p_month: `${month}-01` }));
+}
+/* ---------- Déclarations INSS (v84, script 049) ---------- */
+// Taux datés (admin). [] si la table manque.
+export async function listTaxRules() {
+  const { data, error } = await sb.from('tax_rules').select('*').order('city_id').order('kind').order('valid_from', { ascending: false });
+  return error ? [] : data || [];
+}
+export async function setTaxRule({ city, kind = 'inss_ci', rate, ceilingCents, from, note, source }) {
+  return check(await sb.rpc('set_tax_rule', { p_city: city, p_kind: kind, p_rate: rate, p_ceiling_cents: ceilingCents ?? null,
+    p_from: from, p_note: note || null, p_source: source || null }));
+}
+export async function adminSetInssFiling(partnerId, mode, procuracao, note) {
+  return check(await sb.rpc('admin_set_inss_filing', { p_partner: partnerId, p_mode: mode, p_procuracao: procuracao || null, p_note: note || null }));
+}
+export async function adminInssPrepare(month) { return check(await sb.rpc('admin_inss_prepare', { p_month: `${month}-01` })); }
+export async function adminInssOverview(month) { return check(await sb.rpc('admin_inss_overview', { p_month: `${month}-01` })); }
+// À faire tous mois passés confondus ; null si le script 049 manque.
+export async function adminInssTodo() {
+  const { data, error } = await sb.rpc('admin_inss_todo');
+  return error ? null : data || [];
+}
+export async function adminInssStep(declId, step, data) {
+  return check(await sb.rpc('admin_inss_step', { p_decl: declId, p_step: step, p_data: data || {} }));
+}
+// Côté partenaire (code du gérant ou lien du comptable). null si le script 049 manque ou si le lien est inconnu.
+export async function partnerInss(token) {
+  const { data, error } = await sb.rpc('partner_inss_list', { p_token: token });
+  return error ? null : data;
+}
+export async function partnerSetInssFiling(managerToken, mode) {
+  return check(await sb.rpc('partner_set_inss_filing', { p_manager_token: managerToken, p_mode: mode }));
+}
+// Pièce jointe : 'darf' (PDF du DARF) ou 'proof' (preuve de paiement). token = null pour l'admin.
+export async function inssFile(token, declId, kind) {
+  return check(await sb.rpc('inss_declaration_file', { p_token: token, p_decl: declId, p_kind: kind }));
 }
 // v65 : virement envoyé par Pix Banco Inter (fonction Edge « inter ») et suivi de son statut.
 export async function sendPayoutInter(payoutId) {

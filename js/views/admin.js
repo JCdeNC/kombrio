@@ -8,9 +8,10 @@ import { maskTaxId, photoToJpeg, fmtCadastur, maskCadastur, cadasturLink, waLink
 import { topicLabel, alertStatus } from './help.js';
 import { GUIDE_TERMS_VERSION } from './guide.js';
 import { TERMS_VERSION } from './partner.js';
+import { inssAdmin } from './admin-inss.js';
 
-const TABS = ['dashboard', 'alertas', 'validations', 'payments', 'payouts', 'pix', 'referral', 'transactions', 'partners', 'cities', 'journal'];
-const TAB_GROUPS = [['todo', ['alertas', 'payments', 'payouts', 'pix']], ['network', ['validations', 'partners', 'cities', 'referral']], ['records', ['transactions', 'journal']]];
+const TABS = ['dashboard', 'alertas', 'validations', 'payments', 'payouts', 'inss', 'pix', 'referral', 'transactions', 'partners', 'cities', 'journal'];
+const TAB_GROUPS = [['todo', ['alertas', 'payments', 'payouts', 'inss', 'pix']], ['network', ['validations', 'partners', 'cities', 'referral']], ['records', ['transactions', 'journal']]];
 
 export async function adminView([tab = 'dashboard']) {
   if (store.inRecovery() && await store.hasSession()) return resetView();
@@ -30,7 +31,7 @@ export async function adminView([tab = 'dashboard']) {
   const link = (k) => `<a href="#/${k}" class="${k === tab ? 'on' : ''}">${t(`admin.tab.${k}`)}${todo[k] ? `<span class="todo" title="${esc(tRaw('admin.todo.hint'))}">${todo[k]}</span>` : ''}</a>`;
   const nav = `<nav class="tabs tabs-grouped">${link('dashboard')}${TAB_GROUPS.map(([g, ks]) => `<span class="tgrp"><span class="tg">${t(`admin.group.${g}`)}</span>${ks.map(link).join('')}</span>`).join('')}</nav>`;
   data.todo = todo;
-  const view = await ({ dashboard, alertas, validations, payments, payouts, pix: pixAdmin, referral, transactions, partners, cities, journal })[tab](data);
+  const view = await ({ dashboard, alertas, validations, payments, payouts, inss: inssAdmin, pix: pixAdmin, referral, transactions, partners, cities, journal })[tab](data);
   return {
     html: `<div class="spread"><h1>${t('admin.title')}</h1>
         <span class="hint">${esc(me.email)} <button class="btn ghost small" id="logout">${t('common.logout')}</button></span></div>
@@ -86,26 +87,29 @@ function loginView() {
 const plural = (key, n) => tRaw(`${key}.${n === 1 ? 'one' : 'other'}`, { n });
 
 async function loadAll() {
-  const [cityList, guides, partnerList, visits, payoutList, paymentList, adjustments, pixChecks, expenses, cadChecks, alerts] = await Promise.all([
+  const [cityList, guides, partnerList, visits, payoutList, paymentList, adjustments, pixChecks, expenses, cadChecks, alerts, inssTodo] = await Promise.all([
     store.listCities(), store.listGuides(), store.listPartners(), store.listVisits(), store.listPayouts(), store.listPayments(),
     store.listAdjustments(), store.listPixVerifications(), store.listExpenses(), store.listCadasturChecks(), store.adminListAlerts(),
+    store.adminInssTodo(),
   ]);
   const city = (id) => cityList.find((c) => c.id === id);
   const guide = (id) => guides.find((g) => g.id === id);
   const partner = (id) => partnerList.find((p) => p.id === id);
   const cur = (n, cityId) => cents(n, city(cityId)?.currency || 'BRL', getLang());
-  return { cityList, guides, partnerList, visits, payoutList, paymentList, adjustments, pixChecks, expenses, cadChecks, alerts, city, guide, partner, cur };
+  return { cityList, guides, partnerList, visits, payoutList, paymentList, adjustments, pixChecks, expenses, cadChecks, alerts, inssTodo: inssTodo || [], city, guide, partner, cur };
 }
 // Corrections pas encore reversées et déjà dues au guide : une baisse tout de suite, une hausse une fois le complément reçu.
 const openAdjustments = (adjustments, guideId) => adjustments.filter((a) => (!guideId || a.guideId === guideId) && !a.payoutId
   && (a.guideDelta < 0 || a.partnerStatus === 'settled'));
 
 // Pastilles des onglets : nombre de tâches qui attendent une action de l'admin.
-function todoCounts({ guides, payoutList, paymentList, visits, adjustments, pixChecks, partnerList, alerts }) {
+function todoCounts({ guides, payoutList, paymentList, visits, adjustments, pixChecks, partnerList, alerts, inssTodo = [] }) {
   const openPix = (g) => pixChecks.some((c) => c.guideId === g.id && ['pending', 'sent'].includes(c.status) && !c.verifiedAt);
   const late = new Set(visits.filter((v) => v.status === 'declared' && v.declaredAt && Date.now() - new Date(v.declaredAt) > 30 * 864e5).map((v) => v.partnerId));
   return {
     alertas: alerts.filter((a) => a.status === 'new').length,
+    // v84 : déclarations INSS des mois passés pas encore payées (ou en écart).
+    inss: inssTodo.length,
     validations: guides.filter((g) => g.status === 'pending').length,
     payments: paymentList.filter((p) => p.status === 'submitted').length,
     payouts: payoutList.filter((p) => p.status === 'in_progress').length
@@ -562,15 +566,7 @@ async function payouts({ guides, visits, payoutList, adjustments, cur, guide }) 
         <button class="btn small" id="close-go">${t('admin.close.go')}</button>
       </div>
     </div>
-    <div class="card">
-      <h2>${t('admin.inss.title')}</h2>
-      <p class="hint">${t('admin.inss.hint')}</p>
-      <div class="row" style="align-items:flex-end;gap:8px">
-        <div class="field" style="margin:0"><label>${t('admin.inss.month')}</label><input type="month" id="inss-month" value="${new Date().toISOString().slice(0, 7)}"></div>
-        <button class="btn small" id="inss-show">${t('admin.inss.show')}</button>
-      </div>
-      <div id="inss-out" style="margin-top:10px"></div>
-    </div>`,
+    <div class="card"><h2>${t('admin.inss.title')}</h2><p class="hint">${t('inss.moved')}</p><a class="btn small secondary" href="#/inss">${t('admin.tab.inss')}</a></div>`,
     mount(root, ctx) {
       const booksBtn = root.querySelector('#books-go');
       if (booksBtn) booksBtn.onclick = async () => {
@@ -597,21 +593,6 @@ async function payouts({ guides, visits, payoutList, adjustments, cur, guide }) 
         const r = await store.adminCloseMonth(root.querySelector('#close-month').value);
         notify(tRaw('admin.close.done', { n: r.partners, k: r.new_versions }));
       }, tRaw('err.generic'));
-      const inssBtn = root.querySelector('#inss-show');
-      if (inssBtn) inssBtn.onclick = async () => {
-        const out = root.querySelector('#inss-out');
-        const m = root.querySelector('#inss-month').value;
-        if (!m) return;
-        out.innerHTML = `<p class="hint">…</p>`;
-        const r = await store.adminInssReport(m).catch(() => null);
-        if (!r) { out.innerHTML = `<div class="notice warn">${t('admin.inss.notinstalled')}</div>`; return; }
-        const lines = r.lines || [];
-        out.innerHTML = lines.length ? `<div class="table-wrap"><table>
-          <tr><th>${t('common.partner')}</th><th>CNPJ / CPF</th><th>${t('common.guide')}</th><th>CPF</th><th>${t('admin.out.gross')}</th><th>INSS</th><th>${t('admin.out.net')}</th></tr>
-          ${lines.map((l) => `<tr><td>${esc(l.partner_name)}</td><td>${esc(l.partner_tax_id ? fmtTaxId(l.partner_tax_id) : tRaw('admin.missing'))}</td><td>${esc(l.guide_name)}</td><td>${esc(l.guide_cpf ? fmtTaxId(l.guide_cpf) : tRaw('admin.missing'))}</td><td>${cur(l.gross_cents)}</td><td>${cur(l.inss_cents)}</td><td>${cur(l.net_cents)}</td></tr>`).join('')}
-          <tr><th colspan="5">${t('admin.inss.total')}</th><th>${cur(r.inss_total_cents)}</th><th></th></tr>
-        </table></div>` : `<p class="hint">${t('admin.inss.none')}</p>`;
-      };
       // v72 : virements J+1 (guide présent) — date limite = jour ouvré suivant le paiement du partenaire.
       const j1 = root.querySelector('#j1');
       if (j1) store.expressPayoutsDue().then((rows) => {
