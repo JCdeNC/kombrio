@@ -408,6 +408,25 @@ function receiptCell(pay) {
 // Paiements reçus des partenaires : l'admin saisit le montant réellement reçu (doit être égal au total déclaré).
 async function payments({ paymentList, visits, partner, cur, city }) {
   const lang = getLang();
+  // v97 : Document B — la NFS-e de Kombrio de chaque partenaire pour un mois (par défaut : le mois précédent).
+  const prevMonth = (() => { const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - 1); return d.toISOString().slice(0, 7); })();
+  let docMonth = prevMonth;
+  try { docMonth = sessionStorage.getItem('kb-docb-month') || prevMonth; } catch { /* rien */ }
+  const docRows = await store.adminDocumentB(docMonth).catch(() => null);
+  const mLabel = new Intl.DateTimeFormat(lang === 'pt' ? 'pt-BR' : 'fr-FR', { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${docMonth}-15T12:00:00Z`));
+  const svc = (r) => `Intermediação de negócios: remuneração da Kombrio sobre as comissões de indicação de ${r.name}, competência ${docMonth.slice(5, 7)}/${docMonth.slice(0, 4)}.`;
+  const docBCard = `<div class="card" id="docb"><h2>${t('docb.title')}</h2><p class="hint">${t('docb.hint')}</p>
+    <div class="row" style="align-items:flex-end;gap:8px;margin-bottom:8px"><div class="field" style="margin:0"><label>${t('docb.month')}</label><input type="month" id="docb-month" value="${esc(docMonth)}"></div></div>
+    ${docRows === null ? `<div class="notice warn">${t('docb.notinstalled')}</div>` : docRows.length ? `<ul class="list">${docRows.map((r) => `<li>
+      <div class="spread"><b>${esc(r.name)}</b><b>${cur(Number(r.kombrio_cents))}</b></div>
+      <div class="hint">${t('docb.tomador')} : ${r.tax_id ? esc(fmtTaxId(r.tax_id)) : `<b>${t('admin.missing')}</b>`}${r.address ? ` · ${esc(r.address)}` : ''}${r.manager_email ? ` · ${esc(r.manager_email)}` : ''}</div>
+      <div class="hint">${t('docb.service')} : ${esc(svc(r))} <a href="#" data-copy="${esc(svc(r))}">${t('docb.copy')}</a> · <a href="#" data-copy="${(Number(r.kombrio_cents) / 100).toFixed(2).replace('.', ',')}">${t('docb.copyvalue')}</a></div>
+      ${r.nfse_number ? `<div class="notice ok" style="margin:6px 0">${t('docb.done', { number: esc(r.nfse_number), amount: cur(Number(r.nfse_amount)) })}${r.has_file ? ` <a href="#" data-docb-file="${esc(r.partner_id)}">${t('docb.view')}</a>` : ''}</div>` : ''}
+      <form class="docb-form row" data-id="${esc(r.partner_id)}" data-cents="${Number(r.kombrio_cents)}" style="align-items:flex-end;gap:6px;margin-top:6px">
+        <div class="field" style="margin:0;flex:1"><label>${t('docb.number')}</label><input name="number" maxlength="40" value="${esc(r.nfse_number || '')}" required></div>
+        <div class="field" style="margin:0"><label>${t('docb.pdf')}</label><input name="file" type="file" accept="application/pdf,image/*"></div>
+        <button class="btn small ${r.nfse_number ? 'ghost' : ''}">${t(r.nfse_number ? 'docb.update' : 'docb.save')}</button></form></li>`).join('')}</ul>`
+      : `<p class="hint">${t('docb.none', { month: esc(mLabel) })}</p>`}</div>`;
   const open = paymentList.filter((y) => y.status === 'submitted');
   const done = paymentList.filter((y) => y.status !== 'submitted').slice(0, 30);
   const covered = (y) => visits.filter((v) => v.paymentId === y.id);
@@ -442,8 +461,33 @@ async function payments({ paymentList, visits, partner, cur, city }) {
     ${done.length ? `<div class="card"><h2>${t('admin.pay.history')}</h2><div class="table-wrap"><table>
       <tr><th>N°</th><th>${t('admin.part.title')}</th><th>${t('common.amount')}</th><th>${t('admin.col.status')}</th><th>Pix</th></tr>
       ${done.map((y) => `<tr><td>${y.num}</td><td>${esc(partner(y.partnerId)?.name)}</td><td>${cur(y.receivedCents ?? y.cents, partner(y.partnerId)?.cityId)}</td><td>${t(`payment.${y.status}`)}${y.note ? ` · ${esc(y.note)}` : ''}</td><td>${esc(y.pixRef || '')}</td></tr>`).join('')}
-    </table></div></div>` : ''}`,
+    </table></div></div>` : ''}
+    ${docBCard}`,
     mount(root, ctx) {
+      const dm = root.querySelector('#docb-month');
+      if (dm) dm.onchange = () => { try { sessionStorage.setItem('kb-docb-month', dm.value); } catch { /* rien */ } ctx.refresh(); };
+      root.querySelectorAll('[data-copy]').forEach((a) => { a.onclick = async (e) => {
+        e.preventDefault();
+        try { await navigator.clipboard.writeText(a.dataset.copy); notify(tRaw('docb.copied')); } catch { prompt('', a.dataset.copy); }
+      }; });
+      root.querySelectorAll('[data-docb-file]').forEach((a) => { a.onclick = async (e) => {
+        e.preventDefault();
+        const f = await store.partnerNfseFile(null, docMonth, a.dataset.docbFile).catch(() => null);
+        const ff = f && f.data ? f : null;
+        if (!ff) { notify(tRaw('err.generic')); return; }
+        const w = window.open(); if (w) w.document.write(ff.type === 'application/pdf' ? `<iframe src="${ff.data}" style="border:0;width:100%;height:100vh"></iframe>` : `<img src="${ff.data}" style="max-width:100%">`);
+      }; });
+      root.querySelectorAll('form.docb-form').forEach((f) => { f.onsubmit = async (e) => {
+        e.preventDefault();
+        const file = f.file.files[0]; let data = null;
+        if (file) {
+          if (file.size > 2000000 && !file.type.startsWith('image/')) { notify(tRaw('nf.err.big')); return; }
+          data = file.type.startsWith('image/') ? { name: file.name, type: 'image/jpeg', data: await photoToJpeg(file, 1600, 0.8) }
+            : { name: file.name, type: file.type, data: await new Promise((ok, ko) => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = ko; r.readAsDataURL(file); }) };
+        }
+        const r = await store.adminSetPartnerNfse(f.dataset.id, docMonth, f.number.value.trim(), Number(f.dataset.cents), data).catch(() => null);
+        if (r && r.ok) ctx.refresh(tRaw('common.saved')); else notify(tRaw('err.generic'));
+      }; });
       root.querySelectorAll('form.verify').forEach((f) => {
         f.onsubmit = async (e) => {
           e.preventDefault();

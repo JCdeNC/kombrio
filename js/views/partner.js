@@ -208,6 +208,7 @@ export async function partnerView([token, action, visitId], ctx) {
   space.loggedIn = space.role === 'manager' && await store.hasSession();
   space.alerts = space.role === 'manager' ? await store.partnerAlerts(token) : [];
   space.closings = space.role === 'manager' ? await store.partnerClosings(token) : [];
+  space.nfse = space.role === 'manager' ? await store.partnerNfseList(token) : [];   // v97 : Document B
   if (space.role === 'manager' && action === 'equipe') space.team = await store.staffList(token).catch(() => []);
   // v95 : loja d'un groupe (ex. Pierim) : tableau du groupe, changement de loja, Pix unique.
   space.group = space.role === 'manager' && space.partner.groupId ? await store.groupSpace(token).catch(() => null) : null;
@@ -854,7 +855,10 @@ export function spaceView(space, tab = 'painel') {
       <ul class="list">${docMonths.map((m) => { const k = closings.find((x) => String(x.month).slice(0, 7) === m && x.latest);
         return `<li><div class="spread"><span><b>${esc(monthLabel(m, lang))}</b><br><span class="hint">${k ? t('mes.s3.doc', { code: k.doc_code, version: k.version, date: fmtMoment(k.created_at, lang, city.timezone) }) : t('mes.s3.nodoc')}</span></span>
           <span class="row" style="gap:6px">${k ? `<a class="btn secondary small" href="${base}/demonstrativo/${m}">${t('doc.open')}</a>` : ''}<button class="btn ghost small" data-close-month="${m}">${t(k ? 'dash.doc.update' : 'dash.doc.make')}</button></span></div></li>`; }).join('')}</ul>
-      <div class="spread" style="margin-top:10px"><span><b>${t('doc.b')}</b><br><span class="hint">${t('doc.b.soon')}</span></span><span class="badge">${t('doc.b.badge')}</span></div>
+      ${(space.nfse || []).length ? `<h3 style="margin-top:12px">${t('doc.b')}</h3><ul class="list">${space.nfse.slice(0, 6).map((n) => `<li><div class="spread">
+          <span><b>${esc(monthLabel(String(n.month).slice(0, 7), lang))}</b><br><span class="hint">${t('docb.p.line', { number: esc(n.number), amount: c(Number(n.amount_cents)) })}</span></span>
+          ${n.has_file ? `<button type="button" class="btn secondary small" data-nfse="${esc(String(n.month).slice(0, 7))}">${t('docb.view')}</button>` : ''}</div></li>`).join('')}</ul>`
+        : `<div class="spread" style="margin-top:10px"><span><b>${t('doc.b')}</b><br><span class="hint">${t('doc.b.soon')}</span></span><span class="badge">${t('doc.b.badge')}</span></div>`}
       <p class="hint" style="margin-top:10px">${t('mes.s3.accountant')} <a href="${base}/relatorio">${t('report.share.title')}</a></p></div>`;
   // v84 : INSS retenu au nom du partenaire sur les reversements aux guides CPF — déclarations et preuves, en toute transparence.
   const inssCard = `<div class="card"><h2>${t('pinss.card')}</h2><p class="hint">${t('pinss.card.hint')}</p>
@@ -956,6 +960,11 @@ export function spaceView(space, tab = 'painel') {
       ${tabsNav}${banner}${body}</div>`,
     mount(root, ctx) {
       mountGroupBar(root);
+      root.querySelectorAll('[data-nfse]').forEach((b) => { b.onclick = async () => {
+        const f = await store.partnerNfseFile(key, b.dataset.nfse).catch(() => null);
+        if (!f || !f.data) { notify(tRaw('err.generic')); return; }
+        const w = window.open(); if (w) w.document.write(f.type === 'application/pdf' ? `<iframe src="${f.data}" style="border:0;width:100%;height:100vh"></iframe>` : `<img src="${f.data}" style="max-width:100%">`);
+      }; });
       if (tab === 'painel') mountPending(root, ctx, key);
       if (tab === 'equipe') mountTeam(root, ctx, key);
       mountHelp(root, { kind: 'partner', send: (topic, msg, vId) => store.partnerCreateAlert(key, topic, msg, vId),

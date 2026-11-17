@@ -617,6 +617,13 @@ export async function listExpenses() {
 }
 // v64 : CPF (à compléter s'il manque) et CNPJ facultatif du guide.
 // v96 : statut fiscal du guide payé en CNPJ (mei, company, rep) et NFS-e par partenaire sur chaque virement.
+// v97 : Document B = NFS-e de Kombrio par partenaire et par mois (montant = part Kombrio du mois).
+export async function adminDocumentB(month) { return check(await sb.rpc('admin_document_b', { p_month: `${month}-01` })) || []; }
+export async function adminSetPartnerNfse(partnerId, month, number, amountCents, file) {
+  return check(await sb.rpc('admin_set_partner_nfse', { p_partner: partnerId, p_month: `${month}-01`, p_number: number, p_amount_cents: amountCents, p_file: file || null }));
+}
+export async function partnerNfseList(token) { try { return check(await sb.rpc('partner_nfse_list', { p_token: token })) || []; } catch { return []; } }
+export async function partnerNfseFile(token, month, partnerId = null) { return check(await sb.rpc('partner_nfse_file', { p_token: token, p_month: `${String(month).slice(0, 7)}-01`, p_partner: partnerId })); }
 export async function setMyFiscalStatus(status) { return check(await sb.rpc('set_my_fiscal_status', { p_status: status })); }
 export async function attachPayoutNf(payoutId, partnerId, number, file) {
   return check(await sb.rpc('guide_attach_nf', { p_payout: payoutId, p_partner: partnerId, p_number: number, p_file: file }));
