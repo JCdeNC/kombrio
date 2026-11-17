@@ -564,7 +564,7 @@ const blockReason = (g, payoutList) => {
   if (payoutList.some((p) => p.guideId === g.id && p.status === 'paid' && ['waiting', 'not_received'].includes(p.receivedStatus))) return 'receipt';
   return null;
 };
-async function payouts({ guides, visits, payoutList, adjustments, cur, guide }) {
+async function payouts({ guides, visits, payoutList, adjustments, cur, guide, partner }) {
   const lang = getLang();
   // v65 : envoi par Pix Banco Inter. « Payé » seulement quand la banque confirme (E2E) ; la saisie manuelle reste possible.
   const interBlock = (p) => {
@@ -585,6 +585,16 @@ async function payouts({ guides, visits, payoutList, adjustments, cur, guide }) 
   const running = payoutList.filter((p) => p.status === 'in_progress');
   const paid = payoutList.filter((p) => p.status === 'paid');
   const receiptIds = new Set((await store.receiptIndex()).map((r) => `${r.kind}:${r.ref_id}`));
+  // v96 : NFS-e des guides payés en CNPJ (une par partenaire) : le virement attend qu'elles soient toutes là.
+  const nfAll = await store.payoutNfLines(running.map((p) => p.id));
+  const nfOf = (id) => nfAll.filter((l) => l.payout_id === id && l.tax_kind === 'cnpj' && Number(l.gross_cents) > 0);
+  const nfMissing = (id) => nfOf(id).filter((l) => !l.nf_at).length;
+  const nfBlock = (p) => {
+    const ls = nfOf(p.id); if (!ls.length) return '';
+    const miss = nfMissing(p.id);
+    return `<div class="notice ${miss ? 'warn' : 'ok'}" style="margin:8px 0 0"><b>${t(miss ? 'admin.nf.missing' : 'admin.nf.ok', { n: miss, total: ls.length })}</b>
+      ${ls.map((l) => `<div class="hint">${esc(partner(l.partner_id)?.name || '?')} · ${l.nf_at ? `NFS-e nº ${esc(l.nf_number || '')} <a href="#" data-nf-po="${esc(p.id)}" data-nf-pa="${esc(l.partner_id)}">${t('admin.nf.view')}</a>` : `<b>${t('admin.nf.none')}</b>`}</div>`).join('')}</div>`;
+  };
   return {
     html: `<div class="card" id="j1"><h2>${t('admin.j1.title')}</h2><p class="hint">…</p></div>
     <div class="card">
@@ -603,13 +613,14 @@ async function payouts({ guides, visits, payoutList, adjustments, cur, guide }) 
         <div class="spread"><b>${t('admin.out.num', { num: p.num })} · ${esc(guide(p.guideId)?.name)}</b><b>${cur(p.cents, guide(p.guideId)?.cityId)}</b></div>
         ${p.inssCents ? `<div class="hint">${t('admin.out.breakdown', { gross: cur(p.grossCents, guide(p.guideId)?.cityId), inss: cur(p.inssCents, guide(p.guideId)?.cityId) })}</div>` : ''}
         <div class="hint">${t('admin.out.sendnet', { amount: cur(p.cents, guide(p.guideId)?.cityId) })} · Pix : ${esc(guide(p.guideId)?.pixKey || tRaw('admin.missing'))}</div>
-        ${interBlock(p)}
-        <form class="confirm" data-id="${esc(p.id)}" data-cents="${p.cents}" style="margin-top:6px">
+        ${nfBlock(p)}
+        ${nfMissing(p.id) ? '' : interBlock(p)}
+        ${nfMissing(p.id) ? '' : `<form class="confirm" data-id="${esc(p.id)}" data-cents="${p.cents}" style="margin-top:6px">
           ${receiptZone()}
           <div class="row" style="align-items:flex-end;margin-top:6px">
           <div class="field" style="margin:0;flex:1"><label>${t('admin.out.ref')}</label><input name="ref" placeholder="E2E… / n° de virement"></div>
           <button class="btn small">${t('admin.out.confirm2')}</button></div>
-        </form></li>`).join('')}</ul></div>` : ''}
+        </form>`}</li>`).join('')}</ul></div>` : ''}
     <div class="card">
       <h2>${t('admin.out.history')}</h2>
       ${paid.length ? `<div class="table-wrap"><table>
@@ -706,6 +717,12 @@ async function payouts({ guides, visits, payoutList, adjustments, cur, guide }) 
         };
       });
       mountReceipts(root, { input: (f) => f.ref || f.e2e, expect: (f) => (f.dataset.cents ? Number(f.dataset.cents) : null) });
+      root.querySelectorAll('[data-nf-po]').forEach((a) => { a.onclick = async (e) => {
+        e.preventDefault();
+        const f = await store.payoutNfFile(a.dataset.nfPo, a.dataset.nfPa).catch(() => null);
+        if (!f || !f.data) { notify(tRaw('err.generic')); return; }
+        const w = window.open(); if (w) w.document.write(f.type === 'application/pdf' ? `<iframe src="${f.data}" style="border:0;width:100%;height:100vh"></iframe>` : `<img src="${f.data}" style="max-width:100%">`);
+      }; });
       root.querySelectorAll('[data-rcpt-show]').forEach((a) => { a.onclick = async (e) => {
         e.preventDefault();
         const r = await store.getReceipt(a.dataset.rcptKind, a.dataset.rcptShow).catch(() => null);

@@ -299,6 +299,8 @@ async function dashboardView(me, city, tab = 'inicio') {
   const todo = [];
   if (!pixOk) todo.push([`pix-${me.pixKeyVersion}`, t(openCheck ? 'g.todo.pixconfirm' : 'g.todo.pix')]);
   toConfirm.forEach((p) => todo.push([`po-${p.id}`, t('g.todo.payout', { amount: cur(p.cents) })]));
+  // v96 : guide payé en CNPJ : envoyer les NFS-e du virement en préparation.
+  if (me.taxKind === 'cnpj') payouts.filter((p) => p.status === 'in_progress').forEach((p) => todo.push([`nf-${p.id}`, `<a href="#/repasse/${esc(p.id)}">${t('g.todo.nf', { num: p.num })}</a>`]));
   if (!stays.some((s) => !s.direct)) todo.push(['firstqr', t('g.todo.firstqr')]);
   soonStays.forEach((s) => todo.push([`send-${s.id}`, t('g.todo.send', { client: s.client, date: fmtDay(s.start, lang) })]));
   if (cad && cad < soon60) todo.push([`cad-${cad}`, t('g.todo.cad')]);
@@ -382,6 +384,9 @@ async function dashboardView(me, city, tab = 'inicio') {
            <div class="field"><label for="id-cpf">CPF</label><input id="id-cpf" name="cpf" inputmode="numeric" placeholder="000.000.000-00" required></div>`}
       <div class="field"><label for="id-cnpj">${t('su.cnpj.opt')}</label><input id="id-cnpj" name="cnpj" inputmode="numeric" placeholder="00.000.000/0000-00" value="${esc(me.cnpj ? fmtTaxId(me.cnpj) : '')}"></div>
       <p class="hint" style="margin:-4px 0 10px">${t(me.cnpj ? 'id.paid.cnpj' : 'id.paid.cpf')}</p>
+      ${me.cnpj ? `<div class="field"><label for="id-fs">${t('fs.label')}</label><select id="id-fs" name="fs">
+        ${['mei', 'company', 'rep'].map((k) => `<option value="${k}"${me.fiscalStatus === k ? ' selected' : ''}>${t(`fs.${k}`)}</option>`).join('')}</select>
+        <p class="hint" style="margin:4px 0 0">${t('fs.hint')}</p></div>` : ''}
       <button class="btn secondary">${t('common.save')}</button></form>`;
   const contaBody = `${pixCard(me, pixChecks, payouts, cur, lang)}${idCard}
       ${WEEKLY_OPTION || me.weeklyPayout ? `<label class="card" style="display:block"><input type="checkbox" id="weekly"${me.weeklyPayout ? ' checked' : ''}> <b>${t('guide.weekly.title')}</b>
@@ -434,6 +439,8 @@ async function dashboardView(me, city, tab = 'inicio') {
           if (cnpj !== (me.cnpj || '') && !confirm(tRaw(cnpj ? 'id.confirm.cnpj' : 'id.confirm.cpf'))) return;
           try {
             const r = await store.setMyTaxIds(cpf, cnpj || null);
+            // v96 : statut fiscal (MEI, empresa, representante) quand le guide est payé en CNPJ.
+            if (r && r.ok && cnpj && tf.fs && tf.fs.value !== me.fiscalStatus) await store.setMyFiscalStatus(tf.fs.value);
             if (r && r.ok) ctx.refresh(tRaw('common.saved'));
             else notify(tRaw(r && r.reason === 'cpf_locked' ? 'id.err.locked' : 'err.generic'));
           } catch { notify(tRaw('err.generic')); }
@@ -543,11 +550,29 @@ async function payoutView(me, city, payoutId) {
   const fmtId = (id) => (id ? fmtTaxId(id) : '—');
   const canAnswer = P.status === 'paid' && P.received_status !== 'confirmed';
   const rpa = (s.lines || []).filter((l) => l.tax_kind === 'cpf' && l.gross_cents > 0);
+  // v96 : guide payé en CNPJ : une NFS-e par partenaire (tomador), à joindre pour que le virement parte.
+  const nfLines = (s.lines || []).filter((l) => l.tax_kind === 'cnpj' && l.gross_cents > 0);
+  const nfMissing = nfLines.filter((l) => !l.has_nf).length;
+  const nfCards = nfLines.map((l) => `<div class="card no-print"><div class="spread"><h2 style="margin:0">${t('nf.title', { partner: esc(l.partner) })}</h2>
+      <span class="badge ${l.has_nf ? 'ok' : 'warn'}">${t(l.has_nf ? 'nf.ok' : 'nf.todo')}</span></div>
+      <div class="table-wrap"><table>
+        <tr><td>${t('nf.tomador')}</td><td>${esc(l.partner)} · CNPJ/CPF ${esc(l.partner_tax_id ? fmtTaxId(l.partner_tax_id) : '—')}${l.partner_address ? `<div class="hint">${esc(l.partner_address)}</div>` : ''}</td></tr>
+        <tr><td>${t('nf.prestador')}</td><td>${esc(s.guide.name)} · CNPJ ${esc(fmtId(s.guide.cnpj || s.guide.tax_id))}</td></tr>
+        <tr><td>${t('nf.service')}</td><td>Comissão de indicação · guia de turismo · competência ${esc(month)}</td></tr>
+        <tr><td><b>${t('nf.value')}</b></td><td style="text-align:right"><b>${c(l.gross_cents)}</b></td></tr>
+      </table></div>
+      ${l.has_nf ? `<p class="hint">${t('nf.sent', { number: esc(l.nf_number || ''), date: l.nf_at ? esc(fmtMoment(l.nf_at, lang, tz)) : '' })}
+          <a href="#" data-nf-view="${esc(l.partner_id)}">${t('nf.view')}</a></p>` : ''}
+      <form class="nf-form" data-partner="${esc(l.partner_id)}" style="margin-top:8px">
+        <div class="grid2"><div class="field"><label>${t('nf.number')}</label><input name="number" maxlength="40" value="${esc(l.nf_number || '')}" required></div>
+          <div class="field"><label>${t('nf.file')}</label><input name="file" type="file" accept="image/*,application/pdf" ${l.has_nf ? '' : 'required'}></div></div>
+        <button class="btn ${l.has_nf ? 'ghost' : ''} small">${t(l.has_nf ? 'nf.replace' : 'nf.send')}</button></form></div>`).join('');
   const html = `
     <p class="no-print"><a href="#/ganhos">← ${t('guide.back')}</a></p>
     <div class="card">
       <div class="hint">KOMBRIO</div>
       <h1 style="margin:2px 0">${t('po.title', { num: P.num })}</h1>
+      ${nfMissing ? `<div class="notice warn no-print">${t('nf.missing', { n: nfMissing })}</div>` : ''}
       <p class="hint">${esc(s.guide.name)} · ${taxLabel} ${esc(fmtId(s.guide.tax_id))} · Pix ${esc(s.guide.pix_key || '—')}${s.guide.pix_holder ? ` (${esc(s.guide.pix_holder)})` : ''}</p>
       <div class="table-wrap"><table>
         <tr><td>${t('po.status')}</td><td style="text-align:right">${t(P.status === 'paid' ? 'g.payout.paid' : 'status.payout_pending')}${P.paid_at ? ` · ${esc(fmtMoment(P.paid_at, lang, tz))}` : ''}</td></tr>
@@ -569,6 +594,7 @@ async function payoutView(me, city, payoutId) {
       <p class="hint" style="margin-top:12px">${t('po.mandate')}</p>
       <div class="row no-print" style="margin-top:10px"><button class="btn secondary" id="po-print">${t('report.print')}</button></div>
     </div>
+    ${nfCards}
     ${rpa.map((l) => `<div class="card rpa" style="page-break-before:always">
       <h2 style="margin:0">Recibo de Pagamento a Autônomo (RPA)</h2>
       <p class="hint">${t('po.rpa.ref', { num: P.num, month: esc(month) })}</p>
@@ -588,6 +614,31 @@ async function payoutView(me, city, payoutId) {
     mount(root, ctx) {
       root.querySelector('#po-print').onclick = () => window.print();
       mountAnswers(root, ctx);
+      root.querySelectorAll('.nf-form').forEach((f) => { f.onsubmit = async (e) => {
+        e.preventDefault();
+        const number = f.number.value.trim(); const file = f.file.files[0];
+        if (!number) { notify(tRaw('nf.err.number')); return; }
+        const had = nfLines.find((l) => l.partner_id === f.dataset.partner);
+        if (!file && !(had && had.has_nf)) { notify(tRaw('nf.err.file')); return; }
+        const b = f.querySelector('button'); b.disabled = true;
+        try {
+          let data;
+          if (file) {
+            if (file.size > 2000000 && !file.type.startsWith('image/')) { notify(tRaw('nf.err.big')); b.disabled = false; return; }
+            data = file.type.startsWith('image/') ? { name: file.name, type: 'image/jpeg', data: await photoToJpeg(file, 1600, 0.8) }
+              : { name: file.name, type: file.type, data: await new Promise((ok, ko) => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = ko; r.readAsDataURL(file); }) };
+          } else data = await store.payoutNfFile(P.id, f.dataset.partner);
+          const r = await store.attachPayoutNf(P.id, f.dataset.partner, number, data);
+          if (r && r.ok) ctx.refresh(tRaw(r.missing ? 'nf.saved.more' : 'nf.saved.all', { n: r.missing }));
+          else { b.disabled = false; notify(tRaw('err.generic')); }
+        } catch { b.disabled = false; notify(tRaw('err.generic')); }
+      }; });
+      root.querySelectorAll('[data-nf-view]').forEach((a) => { a.onclick = async (e) => {
+        e.preventDefault();
+        const f = await store.payoutNfFile(P.id, a.dataset.nfView).catch(() => null);
+        if (!f || !f.data) { notify(tRaw('err.generic')); return; }
+        const w = window.open(); if (w) w.document.write(f.type === 'application/pdf' ? `<iframe src="${f.data}" style="border:0;width:100%;height:100vh"></iframe>` : `<img src="${f.data}" style="max-width:100%">`);
+      }; });
     },
   };
 }

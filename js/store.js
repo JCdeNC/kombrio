@@ -31,7 +31,7 @@ const toCity = (r) => r && ({
 });
 const toGuide = (r) => r && ({
   id: r.id, cityId: r.city_id, name: r.name, phone: r.phone, license: r.license, photo: r.photo,
-  status: r.status, email: r.email, cpf: r.cpf, cnpj: r.cnpj || '', taxKind: r.tax_kind === 'cnpj' ? 'cnpj' : 'cpf', pixKey: r.pix_key, pixHolder: r.pix_holder || '', createdAt: r.created_at, weeklyPayout: !!r.weekly_payout, code: r.code || '',
+  status: r.status, email: r.email, cpf: r.cpf, cnpj: r.cnpj || '', taxKind: r.tax_kind === 'cnpj' ? 'cnpj' : 'cpf', fiscalStatus: r.fiscal_status || (r.tax_kind === 'cnpj' ? 'mei' : 'cpf'), pixKey: r.pix_key, pixHolder: r.pix_holder || '', createdAt: r.created_at, weeklyPayout: !!r.weekly_payout, code: r.code || '',
   referralEnabled: !!r.referral_enabled,
   // Module Pix (v30) : undefined tant que le script 015 n'est pas lancé.
   pixKeyType: r.pix_key_type || '', pixKeyVersion: r.pix_key_version ?? null, pixStatus: r.pix_status, pixVerifiedAt: r.pix_verified_at || '',
@@ -616,6 +616,16 @@ export async function listExpenses() {
   return error ? [] : (data || []).map(toExpense);
 }
 // v64 : CPF (à compléter s'il manque) et CNPJ facultatif du guide.
+// v96 : statut fiscal du guide payé en CNPJ (mei, company, rep) et NFS-e par partenaire sur chaque virement.
+export async function setMyFiscalStatus(status) { return check(await sb.rpc('set_my_fiscal_status', { p_status: status })); }
+export async function attachPayoutNf(payoutId, partnerId, number, file) {
+  return check(await sb.rpc('guide_attach_nf', { p_payout: payoutId, p_partner: partnerId, p_number: number, p_file: file }));
+}
+export async function payoutNfFile(payoutId, partnerId) { return check(await sb.rpc('payout_nf_file', { p_payout: payoutId, p_partner: partnerId })); }
+export async function payoutNfLines(payoutIds) {
+  if (!payoutIds.length) return [];
+  try { return check(await sb.from('payout_lines').select('payout_id,partner_id,tax_kind,gross_cents,nf_number,nf_at').in('payout_id', payoutIds)); } catch { return []; }
+}
 export async function setMyTaxIds(cpf, cnpj) { return check(await sb.rpc('set_my_tax_ids', { p_cpf: cpf || null, p_cnpj: cnpj || null })); }
 export async function setMyPixKey(key, type, holder) { return check(await sb.rpc('set_my_pix_key', { p_key: key, p_type: type, p_holder: holder })); }
 export async function startPixVerification(guideId) { return check(await sb.rpc('start_pix_verification', { p_guide: guideId })); }
