@@ -64,6 +64,7 @@ export default {
   'client.filter.all': 'Alle',
   'client.offer': 'Kombrio-Angebot:',
   'client.offer.until': 'Bis {day}',
+  'client.offer.days': 'Gültig: {days}',
   'client.price': 'Kombrio-Preis:',
   'client.valid.until': 'Gültig bis {end}',
   'common.back': 'Zurück',

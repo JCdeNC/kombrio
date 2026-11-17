@@ -6,8 +6,11 @@ export function esc(value) {
   }[c]));
 }
 
-const LOCALES = { pt: 'pt-BR', fr: 'fr-FR', en: 'en-US', es: 'es-ES' };
+const LOCALES = { pt: 'pt-BR', fr: 'fr-FR', en: 'en-US', es: 'es-ES', de: 'de-DE' };
 export const locale = (lang) => LOCALES[lang] || 'pt-BR';
+// v92 : nom court d'un jour ISO (1 = lundi … 7 = dimanche) dans la langue, sans texte à traduire (5 janvier 2026 = un lundi).
+export const weekdayShort = (iso, lang) => new Intl.DateTimeFormat(locale(lang), { weekday: 'short', timeZone: 'UTC' }).format(new Date(Date.UTC(2026, 0, 4 + iso)));
+export const weekdayList = (days, lang) => [...days].sort((a, b) => a - b).map((d) => weekdayShort(d, lang)).join(', ');
 
 export function money(amount, currency, lang) {
   return new Intl.NumberFormat(locale(lang), { style: 'currency', currency }).format(amount || 0);

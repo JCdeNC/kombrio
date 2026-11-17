@@ -2,7 +2,7 @@
 // Sans passage en attente, le même QR ouvre son espace (historique, offre, QR à imprimer).
 // Pas de compte : tout passe par le code secret du QR Partenaire, vérifié par la base.
 import { t, tRaw, getLang } from '../i18n.js';
-import { todayIn, esc, money, cents, parseCents, fmtMoment, fmtDay, qrSvg, appLink, readFileAsDataUrl, notify, pixPayload, pixKeyOf, photoToJpeg, confirmTwice, fmtTaxId, locale, phoneField, phoneValue, validTaxId, onlyDigits } from '../util.js';
+import { todayIn, esc, money, cents, parseCents, fmtMoment, fmtDay, qrSvg, appLink, readFileAsDataUrl, notify, pixPayload, pixKeyOf, photoToJpeg, confirmTwice, fmtTaxId, locale, phoneField, phoneValue, validTaxId, onlyDigits, weekdayShort } from '../util.js';
 import * as store from '../store.js';
 import { readReceiptImage } from '../receipt.js';
 import { inssBadge, inssTimeline, inssLinesTable, inssCsv, downloadText, openDataUrl } from './admin-inss.js';
@@ -906,6 +906,10 @@ export function spaceView(space, tab = 'painel') {
           <div class="field"><label for="o-en">${t('offer.end')}</label><input id="o-en" name="end" type="date" value="${esc(partner.offerEnd)}"></div>
         </div>
         <p class="hint" style="margin:0 0 8px">${t('offer.dates.hint')}</p>
+        <fieldset class="wdays"><legend>${t('offer.days')}</legend>
+          ${[1, 2, 3, 4, 5, 6, 7].map((d) => `<label class="wday"><input type="checkbox" name="wd" value="${d}"${!partner.offerDays.length || partner.offerDays.includes(d) ? ' checked' : ''}><span>${esc(weekdayShort(d, getLang()))}</span></label>`).join('')}
+        </fieldset>
+        <p class="hint" style="margin:0 0 8px">${t('offer.days.hint')}</p>
         <button class="btn secondary">${t('common.save')}</button>
       </form>
       <div class="card" style="text-align:center">
@@ -1053,7 +1057,9 @@ export function spaceView(space, tab = 'painel') {
         const promo = f.promo.value.trim() ? parseCents(f.promo.value) : null;
         if ((price == null) !== (promo == null) || (promo != null && (promo <= 0 || promo >= price))) { notify(tRaw('offer.price.err')); return; }
         if (f.start.value && f.end.value && f.end.value < f.start.value) { notify(tRaw('offer.dates.err')); return; }
-        const ok = await store.setPartnerOfferFull(key, { offer: f.offer.value, priceCents: price, promoCents: promo, start: f.start.value, end: f.end.value }).catch(() => false);
+        const days = [...f.querySelectorAll('input[name=wd]:checked')].map((x) => Number(x.value));
+        if (!days.length) { notify(tRaw('offer.days.err')); return; }
+        const ok = await store.setPartnerOfferFull(key, { offer: f.offer.value, priceCents: price, promoCents: promo, start: f.start.value, end: f.end.value, days }).catch(() => false);
         if (!ok) { notify(tRaw('err.generic')); return; }
         ctx.refresh(tRaw('common.saved'));
       };

@@ -95,6 +95,7 @@ export default {
   'ptype.shop.many': 'Tiendas',
   'client.price': 'Precio Kombrio:',
   'client.offer.until': 'Hasta el {day}',
+  'client.offer.days': 'Válida: {days}',
   'client.offer': 'Oferta Kombrio:',
   'client.directions': 'Cómo llegar',
   'client.saveqr': 'Guardar el QR en mis fotos',

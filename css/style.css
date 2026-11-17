@@ -562,3 +562,14 @@ main { overflow-wrap: break-word; }
 .rcpt-msg { flex: 1 1 220px; margin: 0; word-break: break-all; }
 .rcpt-thumb { max-height: 72px; max-width: 72px; border-radius: 6px; display: block; }
 .btn.rcpt-go { box-shadow: 0 0 0 3px rgba(0, 128, 96, .35); }
+
+/* v92 : jours de la semaine de l'offre (ronds à cocher) */
+.wdays { border: 0; padding: 0; margin: 4px 0 6px; display: flex; flex-wrap: wrap; gap: 4px; }
+.wdays legend { font-weight: 700; margin-bottom: 6px; padding: 0; }
+.wday { display: inline-flex; flex-direction: column; align-items: center; gap: 2px; font-weight: 400; font-size: .8rem; cursor: pointer; min-width: 36px; }
+.wday input { -webkit-appearance: none; appearance: none; width: 30px; height: 30px; margin: 0; border-radius: 50%;
+  border: 2px solid var(--line); background: var(--surface); display: grid; place-content: center; cursor: pointer; }
+.wday input::before { content: ""; width: 12px; height: 12px; border-radius: 50%; background: #fff; transform: scale(0); }
+.wday input:checked { background: var(--brand); border-color: var(--brand); }
+.wday input:checked::before { transform: scale(1); }
+.wday input:focus-visible { outline: 3px solid rgba(0, 127, 101, .35); outline-offset: 2px; }

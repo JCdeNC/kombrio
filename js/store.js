@@ -58,7 +58,7 @@ const toPartner = (r) => r && ({
   bonusEvery: num(r.bonus_every) || 0, bonusCents: num(r.bonus_cents) || 0, mealEvery: num(r.meal_every) || 0,
   // v70 : prix Kombrio pour le client (prix normal → prix Kombrio) et dates de l'offre (vides = toujours).
   childCents: num(r.child_cents) || 0, askChildren: !!r.ask_children, // v71 : forfait enfant (0 = comme un adulte)
-  offerPriceCents: num(r.offer_price_cents), offerPromoCents: num(r.offer_promo_cents), offerStart: r.offer_start || '', offerEnd: r.offer_end || '',
+  offerPriceCents: num(r.offer_price_cents), offerPromoCents: num(r.offer_promo_cents), offerStart: r.offer_start || '', offerEnd: r.offer_end || '', offerDays: (r.offer_days || []).map(Number),
 });
 const toStay = (r) => r && ({
   id: r.id, guideId: r.guide_id, client: r.client, people: r.people, start: r.start_day, end: r.end_day,
@@ -297,7 +297,7 @@ export async function listPartners() {
 // Version publique, sans code secret (page du client, noms pour le guide).
 export async function publicPartners(cityId) {
   return check(await sb.rpc('public_partners', { p_city: cityId })).map((r) => ({
-    ...r, offer: r.offer || '', offerPriceCents: num(r.offer_price_cents), offerPromoCents: num(r.offer_promo_cents), offerEnd: r.offer_end || '', j1Enabled: !!r.j1_enabled }));
+    ...r, offer: r.offer || '', offerPriceCents: num(r.offer_price_cents), offerPromoCents: num(r.offer_promo_cents), offerEnd: r.offer_end || '', offerDays: (r.offer_days || []).map(Number), j1Enabled: !!r.j1_enabled }));
 }
 export async function addPartner(p) {
   check(await sb.from('partners').insert({
@@ -363,11 +363,15 @@ export async function setPartnerOffer(token, offer) {
 }
 
 // v70 : offre complète du partenaire (cadeau, prix Kombrio, dates) ; offre valable tel jour ?
-export async function setPartnerOfferFull(managerToken, { offer, priceCents, promoCents, start, end }) {
+export async function setPartnerOfferFull(managerToken, { offer, priceCents, promoCents, start, end, days }) {
   return check(await sb.rpc('set_partner_offer_full', {
-    p_manager_token: managerToken, p_offer: offer, p_price_cents: priceCents, p_promo_cents: promoCents, p_start: start || null, p_end: end || null }));
+    p_manager_token: managerToken, p_offer: offer, p_price_cents: priceCents, p_promo_cents: promoCents, p_start: start || null, p_end: end || null,
+    p_days: days && days.length && days.length < 7 ? days : null }));
 }
-export const offerActive = (p, day) => (!p.offerStart || day >= p.offerStart) && (!p.offerEnd || day <= p.offerEnd);
+// v92 : jour ISO (1 = lundi … 7 = dimanche) d'une date « AAAA-MM-JJ ».
+export const isoWeekday = (day) => new Date(`${day}T12:00:00Z`).getUTCDay() || 7;
+export const offerActive = (p, day) => (!p.offerStart || day >= p.offerStart) && (!p.offerEnd || day <= p.offerEnd)
+  && (!p.offerDays || !p.offerDays.length || p.offerDays.includes(isoWeekday(day)));
 export async function setCommissionRate(managerToken, rate) {
   return check(await sb.rpc('set_commission_rate', { p_manager_token: managerToken, p_rate: rate }));
 }
