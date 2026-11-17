@@ -584,8 +584,19 @@ export async function listExpenses() {
 export async function setMyTaxIds(cpf, cnpj) { return check(await sb.rpc('set_my_tax_ids', { p_cpf: cpf || null, p_cnpj: cnpj || null })); }
 export async function setMyPixKey(key, type, holder) { return check(await sb.rpc('set_my_pix_key', { p_key: key, p_type: type, p_holder: holder })); }
 export async function startPixVerification(guideId) { return check(await sb.rpc('start_pix_verification', { p_guide: guideId })); }
-export async function recordPixSent(verifId, e2e, feeCents) {
-  return check(await sb.rpc('record_pix_sent', { p_verification: verifId, p_e2e: e2e, p_receipt: null, p_fee_cents: feeCents || 0 }));
+export async function recordPixSent(verifId, e2e, feeCents, receipt = null) {
+  return check(await sb.rpc('record_pix_sent', { p_verification: verifId, p_e2e: e2e, p_receipt: receipt, p_fee_cents: feeCents || 0 }));
+}
+// v90 : comprovante d'un paiement fait par Kombrio (virement guide, prime de parrainage). Jamais bloquant.
+export async function attachReceipt(kind, refId, receipt, e2e) {
+  if (!receipt) return false;
+  try { return check(await sb.rpc('admin_attach_receipt', { p_kind: kind, p_ref: refId, p_receipt: receipt, p_e2e: e2e || null })); } catch { return false; }
+}
+export async function receiptIndex() {
+  try { return check(await sb.from('payment_receipts').select('kind,ref_id')); } catch { return []; }
+}
+export async function getReceipt(kind, refId) {
+  return check(await sb.from('payment_receipts').select('receipt').eq('kind', kind).eq('ref_id', refId).maybeSingle())?.receipt || null;
 }
 export async function failPixVerification(verifId, reason) { return check(await sb.rpc('fail_pix_verification', { p_verification: verifId, p_reason: reason })); }
 export async function recordPixReturn(verifId, ref) { return check(await sb.rpc('record_pix_return', { p_verification: verifId, p_ref: ref })); }

@@ -4,6 +4,7 @@
 import { t, tRaw, getLang } from '../i18n.js';
 import { todayIn, esc, money, cents, parseCents, fmtMoment, fmtDay, qrSvg, appLink, readFileAsDataUrl, notify, pixPayload, pixKeyOf, photoToJpeg, confirmTwice, fmtTaxId, locale, phoneField, phoneValue, validTaxId, onlyDigits } from '../util.js';
 import * as store from '../store.js';
+import { readReceiptImage } from '../receipt.js';
 import { inssBadge, inssTimeline, inssLinesTable, inssCsv, downloadText, openDataUrl } from './admin-inss.js';
 import { statusBadge, notFound, termsGateView, forgotLink, mountForgot, resetView, lastMonths, shortMonth, delta, barChart, appTabs } from './shared.js';
 import { readPendingStay, clearPendingStay } from './scan.js';
@@ -1155,7 +1156,8 @@ function payView({ partner, city, visits, key }) {
         <div class="field"><label for="p-ref">${t('partner.pay.ref')}</label>
           <input id="p-ref" name="pixref" maxlength="64" placeholder="E2E…" autocapitalize="characters"></div>
         <div class="field"><label for="p-receipt">${t('partner.declare.receipt')}</label>
-          <input id="p-receipt" name="receipt" type="file" accept="image/*,application/pdf" required></div>
+          <input id="p-receipt" name="receipt" type="file" accept="image/*,application/pdf" required>
+          <div class="hint" id="p-rcpt-msg">${t('rc.partner.hint')}</div></div>
         <button class="btn block">${t('partner.pay.submit')}</button>
       </form>`,
     mount(root, ctx) {
@@ -1172,6 +1174,23 @@ function payView({ partner, city, visits, key }) {
       };
       form.oninput = update;
       update();
+      // v90 : le reçu joint est lu tout de suite : l'ID E2E remplit le champ, le montant est contrôlé.
+      const rmsg = root.querySelector('#p-rcpt-msg');
+      form.receipt.addEventListener('change', async () => {
+        const file = form.receipt.files[0];
+        if (!file || !file.type.startsWith('image/')) return;
+        rmsg.className = 'hint'; rmsg.textContent = tRaw('rc.reading');
+        try {
+          const r = await readReceiptImage(file);
+          if (!r.e2e) { rmsg.className = 'notice warn'; rmsg.textContent = tRaw('rc.partner.noe2e'); return; }
+          form.pixref.value = r.e2e.e2e;
+          const total = chosen().reduce((sum, v) => sum + v.dueCents, 0);
+          const got = r.amounts[0];
+          const ok = got == null || got === total;
+          rmsg.className = `notice ${ok ? 'ok' : 'warn'}`;
+          rmsg.textContent = ok ? tRaw('rc.partner.ok') : tRaw('rc.amount.ko', { got: c(got), want: c(total) });
+        } catch { rmsg.className = 'hint'; rmsg.textContent = tRaw('rc.partner.hint'); }
+      });
       const copy = root.querySelector('#copypix');
       if (copy) {
         copy.onclick = async () => {

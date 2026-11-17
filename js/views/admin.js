@@ -3,6 +3,7 @@
 import { t, tRaw, getLang } from '../i18n.js';
 import { esc, money, cents, parseCents, fmtMoment, fmtDay, qrSvg, appLink, notify, confirmTwice, validTaxId, fmtTaxId, onlyDigits } from '../util.js';
 import * as store from '../store.js';
+import { receiptZone, mountReceipts } from '../receipt.js';
 import { forgotLink, mountForgot, resetView, statusBadge, lastMonths, shortMonth, monthKeyOf, barChart } from './shared.js';
 import { maskTaxId, photoToJpeg, fmtCadastur, maskCadastur, cadasturLink, waLink } from '../util.js';
 import { topicLabel, alertStatus } from './help.js';
@@ -469,9 +470,11 @@ async function referral({ cur, guide }) {
       <div class="hint">${t(`admin.ref.st.${w.status}`)} · ${t('admin.ref.base', { k: money_(w.k_cents, w.gid), n: w.tx })}</div>
       ${w.status === 'estimated' ? `<div class="row" style="margin-top:6px"><button class="btn small" data-rw-ok="${esc(w.id)}">${t('admin.ref.validate')}</button>
         <button class="btn ghost small" data-rw-cancel="${esc(w.id)}">${t('admin.ref.cancel')}</button></div>` : ''}
-      ${w.status === 'validated' ? `<form class="row rw-pay" data-id="${esc(w.id)}" style="align-items:flex-end;margin-top:6px">
+      ${w.status === 'validated' ? `<form class="rw-pay" data-id="${esc(w.id)}" data-cents="${Number(w.reward_cents) || ''}" style="margin-top:6px">
+        ${receiptZone()}
+        <div class="row" style="align-items:flex-end;margin-top:6px">
         <div class="field" style="margin:0;flex:1"><label>${t('admin.out.ref')}</label><input name="ref" required placeholder="E2E…"></div>
-        <button class="btn small">${t('admin.ref.paid')}</button></form>` : ''}
+        <button class="btn small">${t('admin.ref.paid')}</button></div></form>` : ''}
     </li>`;
   return {
     html: `<div class="card">
@@ -514,9 +517,11 @@ async function referral({ cur, guide }) {
         f.onsubmit = async (e) => {
           e.preventDefault();
           const ok = await store.setReferralReward(f.dataset.id, 'pay', e.target.ref.value);
+          if (ok) await store.attachReceipt('reward', f.dataset.id, f._receipt, e.target.ref.value.trim());
           ctx.refresh(tRaw(ok ? 'admin.ref.paid.done' : 'err.generic'));
         };
       });
+      mountReceipts(root, { input: (f) => f.ref, expect: (f) => (f.dataset.cents ? Number(f.dataset.cents) : null) });
     },
   };
 }
@@ -549,6 +554,7 @@ async function payouts({ guides, visits, payoutList, adjustments, cur, guide }) 
   }).filter((x) => x.total > 0);
   const running = payoutList.filter((p) => p.status === 'in_progress');
   const paid = payoutList.filter((p) => p.status === 'paid');
+  const receiptIds = new Set((await store.receiptIndex()).map((r) => `${r.kind}:${r.ref_id}`));
   return {
     html: `<div class="card" id="j1"><h2>${t('admin.j1.title')}</h2><p class="hint">…</p></div>
     <div class="card">
@@ -568,15 +574,17 @@ async function payouts({ guides, visits, payoutList, adjustments, cur, guide }) 
         ${p.inssCents ? `<div class="hint">${t('admin.out.breakdown', { gross: cur(p.grossCents, guide(p.guideId)?.cityId), inss: cur(p.inssCents, guide(p.guideId)?.cityId) })}</div>` : ''}
         <div class="hint">${t('admin.out.sendnet', { amount: cur(p.cents, guide(p.guideId)?.cityId) })} · Pix : ${esc(guide(p.guideId)?.pixKey || tRaw('admin.missing'))}</div>
         ${interBlock(p)}
-        <form class="confirm row" data-id="${esc(p.id)}" style="align-items:flex-end;margin-top:6px">
+        <form class="confirm" data-id="${esc(p.id)}" data-cents="${p.cents}" style="margin-top:6px">
+          ${receiptZone()}
+          <div class="row" style="align-items:flex-end;margin-top:6px">
           <div class="field" style="margin:0;flex:1"><label>${t('admin.out.ref')}</label><input name="ref" placeholder="E2E… / n° de virement"></div>
-          <button class="btn small">${t('admin.out.confirm2')}</button>
+          <button class="btn small">${t('admin.out.confirm2')}</button></div>
         </form></li>`).join('')}</ul></div>` : ''}
     <div class="card">
       <h2>${t('admin.out.history')}</h2>
       ${paid.length ? `<div class="table-wrap"><table>
         <tr><th>N°</th><th>${t('common.date')}</th><th>${t('common.guide')}</th><th>${t('admin.out.gross')}</th><th>INSS</th><th>${t('admin.out.net')}</th><th>${t('admin.out.ref')}</th></tr>
-        ${paid.map((p) => `<tr><td>${p.num}</td><td>${fmtMoment(p.paidAt || p.at, lang)}</td><td>${esc(guide(p.guideId)?.name)}</td><td>${cur(p.grossCents, guide(p.guideId)?.cityId)}</td><td>${p.inssCents ? cur(p.inssCents, guide(p.guideId)?.cityId) : '—'}</td><td>${cur(p.cents, guide(p.guideId)?.cityId)}</td><td>${esc(p.reference || '')}${p.receivedStatus ? `<div class="hint">${t(`admin.out.rcv.${p.receivedStatus}`)}</div>` : ''}</td></tr>`).join('')}
+        ${paid.map((p) => `<tr><td>${p.num}</td><td>${fmtMoment(p.paidAt || p.at, lang)}</td><td>${esc(guide(p.guideId)?.name)}</td><td>${cur(p.grossCents, guide(p.guideId)?.cityId)}</td><td>${p.inssCents ? cur(p.inssCents, guide(p.guideId)?.cityId) : '—'}</td><td>${cur(p.cents, guide(p.guideId)?.cityId)}</td><td>${esc(p.reference || '')}${receiptIds.has(`payout:${p.id}`) ? ` <a href="#" data-rcpt-show="${esc(p.id)}" data-rcpt-kind="payout" title="${esc(tRaw('rc.view'))}">📎</a>` : ''}${p.receivedStatus ? `<div class="hint">${t(`admin.out.rcv.${p.receivedStatus}`)}</div>` : ''}</td></tr>`).join('')}
       </table></div>` : `<p class="hint">${t('admin.out.history.none')}</p>`}
     </div>
     <div class="card">
@@ -663,9 +671,17 @@ async function payouts({ guides, visits, payoutList, adjustments, cur, guide }) 
           e.preventDefault();
           if (!f.ref.value.trim()) { notify(tRaw('admin.err.ref')); return; }
           const ok = await store.confirmPayout(f.dataset.id, f.ref.value.trim()).catch(() => false);
+          if (ok) await store.attachReceipt('payout', f.dataset.id, f._receipt, f.ref.value.trim());
           if (ok) ctx.refresh(tRaw('admin.out.done')); else notify(tRaw('err.generic'));
         };
       });
+      mountReceipts(root, { input: (f) => f.ref || f.e2e, expect: (f) => (f.dataset.cents ? Number(f.dataset.cents) : null) });
+      root.querySelectorAll('[data-rcpt-show]').forEach((a) => { a.onclick = async (e) => {
+        e.preventDefault();
+        const r = await store.getReceipt(a.dataset.rcptKind, a.dataset.rcptShow).catch(() => null);
+        if (!r) { notify(tRaw('err.generic')); return; }
+        const w = window.open(); if (w) w.document.write(`<img src="${r.data}" style="max-width:100%">`);
+      }; });
     },
   };
 }
@@ -688,10 +704,12 @@ async function pixAdmin({ guides, pixChecks, expenses, cur, guide }) {
     const o = open(g);
     let actions = '';
     if (g.pixStatus !== 'verified' && !o && g.pixKey) actions = `<button class="btn small" data-pix-start="${esc(g.id)}">${t('admin.pix.start')}</button>`;
-    if (o && o.status === 'pending') actions = `<form class="pixsent row" data-id="${esc(o.id)}" style="align-items:flex-end;gap:6px">
+    if (o && o.status === 'pending') actions = `<form class="pixsent" data-id="${esc(o.id)}" data-cents="100">
+        ${receiptZone()}
+        <div class="row" style="align-items:flex-end;gap:6px;margin-top:6px">
         <div class="field" style="margin:0;flex:2"><label>${t('admin.pix.e2e')}</label><input name="e2e" placeholder="E2E…" required></div>
         <div class="field" style="margin:0;flex:1"><label>${t('admin.pix.fee')}</label><input name="fee" inputmode="decimal" placeholder="0,00"></div>
-        <button class="btn small">${t('admin.pix.sent')}</button></form>`;
+        <button class="btn small">${t('admin.pix.sent')}</button></div></form>`;
     if (o) actions += `<form class="pixfail row" data-id="${esc(o.id)}" style="align-items:flex-end;gap:6px;margin-top:6px">
         <div class="field" style="margin:0;flex:1"><input name="reason" placeholder="${t('admin.pix.reason')}" required></div>
         <button class="btn small ghost">${t('admin.pix.fail')}</button></form>`;
@@ -736,10 +754,11 @@ async function pixAdmin({ guides, pixChecks, expenses, cur, guide }) {
         e.preventDefault();
         const fee = f.fee.value.trim() ? parseCents(f.fee.value) : 0;
         if (fee == null) { notify(tRaw('admin.err.amount')); return; }
-        const r = await store.recordPixSent(f.dataset.id, f.e2e.value.trim(), fee).catch(() => null);
+        const r = await store.recordPixSent(f.dataset.id, f.e2e.value.trim(), fee, f._receipt || null).catch(() => null);
         if (r && r.reason === 'duplicate') { notify(tRaw('admin.pay.err.duplicate')); return; }
         done(r && r.ok, 'admin.pix.recorded');
       }; });
+      mountReceipts(root, { input: (f) => f.e2e, expect: (f) => (f.dataset.cents ? Number(f.dataset.cents) : null) });
       root.querySelectorAll('form.pixfail').forEach((f) => { f.onsubmit = async (e) => {
         e.preventDefault(); done(await store.failPixVerification(f.dataset.id, f.reason.value.trim()).catch(() => false));
       }; });
