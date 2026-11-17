@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Kombrio · Demonstração</title>
+  <meta name="description" content="Protótipo demonstrativo da Kombrio: comissões entre estabelecimentos e guias, sem transações reais.">
+  <meta name="robots" content="noindex">
+  <meta name="theme-color" content="#102C38">
+  <link rel="icon" href="../icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="../icon-180.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700&family=Plus+Jakarta+Sans:wght@700;800&display=swap">
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="demo.css">
+</head>
+<body>
+  <!-- KOMBRIO DEMO V0 (17/11/2026) : protótipo de apresentação. Nenhuma ligação com a base de dados, nenhum Pix, nenhum dado guardado. -->
+  <header class="top">
+    <span class="brand"><img src="../icon.svg" alt=""><span class="brand-word">kombrio<i></i></span><span class="brand-app">Demonstração</span></span>
+  </header>
+  <div class="dm-proto">Protótipo demonstrativo · sem transações reais · todos os nomes e valores são exemplos</div>
+  <main id="dm" aria-live="polite"></main>
+  <nav class="dm-nav" aria-label="Navegação da demonstração">
+    <button type="button" class="btn ghost" id="dm-prev">‹ Voltar</button>
+    <span id="dm-step" class="dm-step"></span>
+    <button type="button" class="btn" id="dm-next">Próximo ›</button>
+  </nav>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+  <script src="demo.js"></script>
+</body>
+</html>
