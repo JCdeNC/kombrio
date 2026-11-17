@@ -179,3 +179,24 @@ export function barChart(rows) {
       <span class="kb-bar-t"><span class="kb-bar-f" style="width:${Math.round(((r.value || 0) / max) * 100)}%"></span></span>
       <span class="kb-bar-v">${r.text}</span></div>`).join('')}</div>`;
 }
+
+/* ---------- v87 : barre d'onglets des apps Guide et Partenaire ---------- */
+// Ordinateur : les pastilles habituelles. Téléphone : barre fixée en bas (icône + mot court), à portée du pouce,
+// toujours visible pendant le défilement. Les icônes sont dessinées au trait, en currentColor (thème clair ou sombre).
+const ICON_PATHS = {
+  home: '<path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v9.5h13V10"/><path d="M10 19.5v-5h4v5"/>',
+  users: '<circle cx="9" cy="8.5" r="3.2"/><path d="M3.5 19c.6-3.2 2.8-5 5.5-5s4.9 1.8 5.5 5"/><circle cx="17" cy="9.5" r="2.4"/><path d="M15.8 14.2c2.4.1 4.1 1.7 4.7 4.3"/>',
+  wallet: '<rect x="3" y="6" width="18" height="13" rx="2.5"/><path d="M3 10h18"/><circle cx="16.5" cy="14.5" r="1.2"/>',
+  gift: '<rect x="3.5" y="9" width="17" height="11" rx="1.5"/><path d="M3.5 13h17M12 9v11"/><path d="M12 9c-1.5-3.5-5.5-3.5-5.5-1 0 1.5 2.5 1 5.5 1zM12 9c1.5-3.5 5.5-3.5 5.5-1 0 1.5-2.5 1-5.5 1z"/>',
+  user: '<circle cx="12" cy="8.5" r="3.8"/><path d="M4.5 20c.9-4 3.8-6.2 7.5-6.2s6.6 2.2 7.5 6.2"/>',
+  grid: '<rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/>',
+  list: '<path d="M9 6.5h11M9 12h11M9 17.5h11"/><path d="m3.5 6.5 1.3 1.3L7 5.5M3.5 12l1.3 1.3L7 11M3.5 17.5l1.3 1.3L7 16.5"/>',
+  card: '<rect x="2.5" y="5.5" width="19" height="13" rx="2.5"/><path d="M2.5 10h19M6 15h4"/>',
+  team: '<circle cx="12" cy="7.5" r="3"/><path d="M6.5 19c.5-3.3 2.7-5.3 5.5-5.3s5 2 5.5 5.3"/><circle cx="5" cy="10" r="2"/><circle cx="19" cy="10" r="2"/>',
+  gear: '<circle cx="12" cy="12" r="3"/><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7"/>',
+};
+// items : [{ href, label, short, icon, on, count }]
+export function appTabs(items) {
+  return `<nav class="tabs apptabs no-print">${items.map((x) => `<a href="${x.href}" class="${x.on ? 'on' : ''}"${x.on ? ' aria-current="page"' : ''}>
+    <svg class="ati" viewBox="0 0 24 24" aria-hidden="true">${ICON_PATHS[x.icon] || ''}</svg><span class="atl">${x.label}</span><span class="ats">${x.short || x.label}</span>${x.count ? `<span class="todo">${x.count}</span>` : ''}</a>`).join('')}</nav>`;
+}

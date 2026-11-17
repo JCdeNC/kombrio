@@ -100,6 +100,8 @@ async function render() {
     };
   }
   root.querySelectorAll('input[type=password]').forEach(addEye);
+  // v87 : barre d'onglets fixée en bas sur téléphone → place réservée en bas de page.
+  document.body.classList.toggle('has-apptabs', !!root.querySelector('.apptabs'));
   window.scrollTo(0, 0);
   // v62 : barre d'onglets qui défile (téléphone) — l'onglet ouvert toujours entièrement visible, et une ombre
   // à droite ou à gauche tant qu'il reste des onglets cachés.

@@ -530,3 +530,28 @@ main { overflow-wrap: break-word; }
   .tabs-select select { flex: 1; font-weight: 600; }
   .tabs-select .todo-n { min-width: 24px; height: 24px; padding: 0 7px; border-radius: 999px; background: #d93025; color: #fff; font-size: .8rem; font-weight: 700; line-height: 24px; text-align: center; }
 }
+
+/* v87 : barre d'onglets des apps Guide et Partenaire — pastilles sur ordinateur, barre fixée en bas sur téléphone */
+.apptabs .ati, .apptabs .ats { display: none; }
+@media (max-width: 560px) {
+  .tabs.apptabs {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 900; margin: 0; padding: 6px 4px calc(6px + env(safe-area-inset-bottom, 0px));
+    display: flex; flex-wrap: nowrap; gap: 0; overflow: visible; background: var(--surface, #fff);
+    border-top: 1px solid var(--line); box-shadow: 0 -6px 18px rgba(16, 44, 56, .08);
+  }
+  .tabs.apptabs a {
+    flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 3px;
+    padding: 6px 2px 4px; border: 0; border-radius: 12px; background: none; color: var(--muted); font-size: .72rem; font-weight: 600;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .tabs.apptabs a .ati { display: block; width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .tabs.apptabs a .atl { display: none; }
+  .tabs.apptabs a .ats { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tabs.apptabs a.on { color: var(--brand); background: none; }
+  .tabs.apptabs a.on .ati { stroke-width: 2.2; }
+  .tabs.apptabs a.on::before { content: ''; position: absolute; top: -6px; left: 28%; right: 28%; height: 3px; border-radius: 0 0 3px 3px; background: var(--brand); }
+  .tabs.apptabs a:active { background: var(--bg); }
+  .tabs.apptabs .todo { top: 0; right: calc(50% - 22px); box-shadow: 0 0 0 2px var(--surface, #fff); }
+  body.has-apptabs { padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px)); }
+}
+@media print { .tabs.apptabs { display: none; } body.has-apptabs { padding-bottom: 0; } }

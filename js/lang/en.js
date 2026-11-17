@@ -500,4 +500,10 @@ export default {
   'visit.g.expected': 'Announced by the partner: {declared} (not received yet)',
   'visit.g.received': 'Received: {declared} · your share {share}',
   'visit.g.zero': 'No commission for this visit.',
+  // v87 : mots courts de la barre d'onglets en bas (téléphone)
+  'g.tab.inicio.short': "Home",
+  'g.tab.clientes.short': "Clients",
+  'g.tab.ganhos.short': "Earnings",
+  'g.tab.indicacao.short': "Referrals",
+  'g.tab.conta.short': "Account",
 };

@@ -490,4 +490,10 @@ export default {
   'client.data': 'Wir speichern nur den Gruppennamen, die Personenzahl und die Daten, um die Besuche zu erfassen.',
   'client.onlylist': 'Nur die Orte auf dieser Liste sind Kombrio-Partner. Anderswo gibt Ihr QR-Code kein Angebot.',
   'client.code': 'Code: <b>{code}</b>',
+  // v87 : mots courts de la barre d'onglets en bas (téléphone)
+  'g.tab.inicio.short': "Start",
+  'g.tab.clientes.short': "Kunden",
+  'g.tab.ganhos.short': "Einnahmen",
+  'g.tab.indicacao.short': "Empfehlung",
+  'g.tab.conta.short': "Konto",
 };

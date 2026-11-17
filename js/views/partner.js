@@ -5,7 +5,7 @@ import { t, tRaw, getLang } from '../i18n.js';
 import { todayIn, esc, money, cents, parseCents, fmtMoment, fmtDay, qrSvg, appLink, readFileAsDataUrl, notify, pixPayload, pixKeyOf, photoToJpeg, confirmTwice, fmtTaxId, locale, phoneField, phoneValue } from '../util.js';
 import * as store from '../store.js';
 import { inssBadge, inssTimeline, inssLinesTable, inssCsv, downloadText, openDataUrl } from './admin-inss.js';
-import { statusBadge, notFound, termsGateView, forgotLink, mountForgot, resetView, lastMonths, shortMonth, delta, barChart } from './shared.js';
+import { statusBadge, notFound, termsGateView, forgotLink, mountForgot, resetView, lastMonths, shortMonth, delta, barChart, appTabs } from './shared.js';
 import { readPendingStay, clearPendingStay } from './scan.js';
 import { helpButton, problemLink, mountHelp, topicLabel, alertStatus } from './help.js';
 
@@ -848,7 +848,10 @@ export function spaceView(space, tab = 'painel') {
     config: settings,
   }[tab];
   const counts = { painel: 0, visitas: toDeclare.length, pagamentos: toPay.length + extraDue.length, equipe: 0, config: 0 };
-  const tabsNav = `<nav class="tabs no-print">${PD_TABS.map((k) => `<a href="${base}${k === 'painel' ? '' : `/${k}`}" class="${k === tab ? 'on' : ''}">${t(`pd.tab.${k}`)}${counts[k] ? `<span class="todo">${counts[k]}</span>` : ''}</a>`).join('')}</nav>`;
+  // v87 : pastilles sur ordinateur, barre fixée en bas sur téléphone (icône + mot court).
+  const PD_ICONS = { painel: 'grid', visitas: 'list', pagamentos: 'card', equipe: 'team', config: 'gear' };
+  const tabsNav = appTabs(PD_TABS.map((k) => ({ href: `${base}${k === 'painel' ? '' : `/${k}`}`, label: t(`pd.tab.${k}`), short: t(`pd.tab.${k}.short`),
+    icon: PD_ICONS[k], on: k === tab, count: counts[k] })));
 
   return {
     html: `<div class="dash-wide">

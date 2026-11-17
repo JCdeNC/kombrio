@@ -2,7 +2,7 @@
 import { t, tRaw, getLang } from '../i18n.js';
 import { esc, money, cents, locale, fmtDay, fmtMoment, todayIn, addDays, stayIsValid, qrSvg, appLink, notify, validCpf, validCnpj, onlyDigits, maskCadastur, validCadastur, validPixKey, phoneField, phoneValue } from '../util.js';
 import * as store from '../store.js';
-import { validity, statusBadge, guideAmounts, notFound, termsGateView, forgotLink, mountForgot, resetView, lastMonths, shortMonth, monthKeyOf, delta, barChart } from './shared.js';
+import { validity, statusBadge, guideAmounts, notFound, termsGateView, forgotLink, mountForgot, resetView, lastMonths, shortMonth, monthKeyOf, delta, barChart, appTabs } from './shared.js';
 import { maskTaxId, fmtTaxId, qrCardBlob, shareOrDownload, photoToJpeg } from '../util.js';
 import { helpButton, problemLink, mountHelp, topicLabel, alertStatus } from './help.js';
 import { WEEKLY_OPTION } from '../config.js';
@@ -158,6 +158,13 @@ async function pendingView(me) {
 // Espace du guide (v33) : onglets Início, Clientes, Ganhos, Conta (+ Indicação). Mêmes données qu'avant, autre présentation.
 // Indépendance du guide (Portaria MTur 37/2021, art. 9 VI) : aucun classement des parceiros, aucun objectif de vente.
 const G_TABS = ['inicio', 'clientes', 'ganhos', 'conta'];
+// v87 : barre d'onglets (pastilles sur ordinateur, barre fixée en bas sur téléphone).
+const G_ICONS = { inicio: 'home', clientes: 'users', ganhos: 'wallet', indicacao: 'gift', conta: 'user' };
+function guideTabs(me, tab, counts = {}) {
+  const tabs = me.referralEnabled ? ['inicio', 'clientes', 'ganhos', 'indicacao', 'conta'] : G_TABS;
+  return appTabs(tabs.map((k) => ({ href: `#/${k === 'inicio' ? '' : k}`, label: t(`g.tab.${k}`), short: t(`g.tab.${k}.short`),
+    icon: G_ICONS[k], on: k === tab, count: counts[k] })));
+}
 const LATE_DAYS = 7;
 const ageDays = (iso) => (iso ? Math.floor((Date.now() - new Date(iso)) / 864e5) : 0);
 const gDoneKey = (id) => `kb-gtodo-${id}`;
@@ -393,7 +400,7 @@ async function dashboardView(me, city, tab = 'inicio') {
 
   const counts = { inicio: todo.filter(([k]) => !done.has(k)).length, clientes: soonStays.length, ganhos: toConfirm.length, conta: !pixOk ? 1 : 0 };
   const tabs = me.referralEnabled ? ['inicio', 'clientes', 'ganhos', 'indicacao', 'conta'] : G_TABS;
-  const nav = `<nav class="tabs no-print">${tabs.map((k) => `<a href="#/${k === 'inicio' ? '' : k}" class="${k === tab ? 'on' : ''}">${t(`g.tab.${k}`)}${counts[k] ? `<span class="todo">${counts[k]}</span>` : ''}</a>`).join('')}</nav>`;
+  const nav = guideTabs(me, tab, counts);
 
   return {
     html: `<div class="dash-wide">
@@ -584,7 +591,7 @@ function refFromUrl() {
 async function referralView(me, city) {
   const r = await store.myReferral();
   const lang = getLang();
-  const back = `<p><a href="#/">← ${t('common.back')}</a></p>`;
+  const back = `${guideTabs(me, 'indicacao')}`;
   if (!r) return { html: `${back}<div class="notice warn">${t('ref.off')}</div>` };
   const cur = (n) => cents(n, city.currency, lang);
   const day = (d) => (d ? fmtDay(String(d).slice(0, 10), lang) : '');

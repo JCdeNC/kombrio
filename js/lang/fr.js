@@ -1804,4 +1804,15 @@ export default {
   'ag.f.active': "Active",
   'ag.f.needs_cnpj': "Seulement après l'ouverture du CNPJ",
   'ag.err.values': "Valeurs incorrectes (vérifier le jour, les mois ou la date).",
+  // v87 : mots courts de la barre d'onglets en bas (téléphone)
+  'g.tab.inicio.short': "Accueil",
+  'g.tab.clientes.short': "Clients",
+  'g.tab.ganhos.short': "Gains",
+  'g.tab.indicacao.short': "Parrainage",
+  'g.tab.conta.short': "Compte",
+  'pd.tab.painel.short': "Accueil",
+  'pd.tab.visitas.short': "Visites",
+  'pd.tab.pagamentos.short': "Paiements",
+  'pd.tab.equipe.short': "Équipe",
+  'pd.tab.config.short': "Réglages",
 };
