@@ -1078,6 +1078,7 @@ function mountActive(root, ctx) {
 async function partners({ partnerList, cityList, city }) {
   // v95 : groupes d'établissements (Pix unique ou par loja).
   const groups = await store.listGroups();
+  const actorShare = await store.getActorShare();   // v101
   const groupName = (id) => (groups.find((g) => g.id === id) || {}).name || '';
   const groupsCard = `<div class="card" id="groups"><h2>${t('admin.grp.title')}</h2><p class="hint">${t('admin.grp.hint')}</p>
     ${groups.length ? `<ul class="list">${groups.map((g) => `<li><div class="spread"><b>${esc(g.name)}</b>
@@ -1089,8 +1090,12 @@ async function partners({ partnerList, cityList, city }) {
       <button class="btn small">${t('admin.grp.add')}</button></form></div>`;
   const groupPick = (p) => `<div class="row" style="gap:6px;align-items:center;margin-top:6px"><span class="hint">${t('admin.grp.of')}</span>
       <select data-pgroup="${esc(p.id)}" style="width:auto"><option value="">${t('admin.grp.none')}</option>${groups.map((g) => `<option value="${esc(g.id)}"${p.groupId === g.id ? ' selected' : ''}>${esc(g.name)}</option>`).join('')}</select></div>`;
+  const shareCard = actorShare == null ? '' : `<form class="card row" id="actor-share" style="align-items:flex-end;gap:8px">
+      <div style="flex:1 1 220px"><h2 style="margin:0 0 4px">${t('admin.ashare.title')}</h2><p class="hint" style="margin:0">${t('admin.ashare.hint')}</p></div>
+      <div class="field" style="margin:0"><label>%</label><input name="share" inputmode="decimal" style="width:90px" value="${String(Math.round(actorShare * 10000) / 100).replace('.', ',')}"></div>
+      <button class="btn small">${t('common.save')}</button></form>`;
   return {
-    html: `${groupsCard}<div class="card">
+    html: `${groupsCard}${shareCard}<div class="card">
       <h2>${t('admin.part.title')}</h2>
       <button type="button" class="btn ghost small" id="suspend-late">${t('admin.part.late')}</button>
       <ul class="list">${[...partnerList].sort((a, b) => Number(b.status === 'pending') - Number(a.status === 'pending')).map((p) => `<li>
@@ -1173,6 +1178,12 @@ async function partners({ partnerList, cityList, city }) {
     mount(root, ctx) {
       mountActive(root, ctx);
       mountPlus(root, ctx);
+      const as = root.querySelector('#actor-share');
+      if (as) as.onsubmit = async (e) => { e.preventDefault();
+        const v = Number(String(as.share.value).trim().replace(',', '.'));
+        if (!(v >= 0 && v < 100)) { notify(tRaw('admin.err.amount')); return; }
+        const ok = await store.setActorShare(Math.round(v * 100) / 10000).catch(() => false);
+        if (ok) ctx.refresh(tRaw('common.saved')); else notify(tRaw('err.generic')); };
       const ga = root.querySelector('#grp-add');
       if (ga) ga.onsubmit = async (e) => { e.preventDefault();
         try { await store.addGroup(ga.name.value, ga.mode.value); ctx.refresh(tRaw('common.saved')); } catch { notify(tRaw('err.generic')); } };

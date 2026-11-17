@@ -1079,6 +1079,9 @@ export default {
   "admin.nf.ok": "NFS-e do guia: {total}/{total} recebidas.",
   "admin.nf.view": "ver",
   "admin.nf.none": "NFS-e faltando",
+  // v101 : commissions par rôle.
+  "admin.ashare.title": "Parte Kombrio · agências e Tour Companies",
+  "admin.ashare.hint": "Porcentagem que a Kombrio guarda de cada comissão de agência ou TC (20 % por padrão). Comissões já validadas não mudam.",
   // v99 : agences et Tour Companies (inscription, taux du partenaire).
   "su.role.title": "Você é",
   "role.guide": "Guia de turismo",

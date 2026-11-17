@@ -782,7 +782,7 @@ export function spaceView(space, tab = 'painel') {
     return `<label class="pd-row" data-v="${v.status}">
       <span class="pd-c">${can ? `<input type="checkbox" data-sel="${esc(v.id)}" data-st="${v.status}" aria-label="${esc(v.client || '')}">` : ''}</span>
       <span class="pd-d">${fmtDay(v.at.slice(0, 10), lang)}</span>
-      <span class="pd-who"><b>${esc(v.client || '?')}</b><small>${esc(v.guideName || '?')} · ${t('scan.people', { n: v.peopleServed })} · ${esc(store.visitRef(v))}${v.tableLabel ? ` · ${t('rs.table.short', { n: v.tableLabel })}` : ''}${v.statusNote && ['disputed', 'cancelled'].includes(v.status) ? ` · ${esc(v.statusNote)}` : ''}</small>${rowTags(v)}${alertOf(v.id) ? `<span class="badge">${t('alert.short', { num: alertOf(v.id).num, status: alertStatus(alertOf(v.id).status) })}</span>` : problemLink(v.id)}</span>
+      <span class="pd-who"><b>${esc(v.client || '?')}</b><small>${roleTag(v)}${esc(v.guideName || '?')} · ${t('scan.people', { n: v.peopleServed })} · ${esc(store.visitRef(v))}${v.tableLabel ? ` · ${t('rs.table.short', { n: v.tableLabel })}` : ''}${v.statusNote && ['disputed', 'cancelled'].includes(v.status) ? ` · ${esc(v.statusNote)}` : ''}</small>${rowTags(v)}${alertOf(v.id) ? `<span class="badge">${t('alert.short', { num: alertOf(v.id).num, status: alertStatus(alertOf(v.id).status) })}</span>` : problemLink(v.id)}</span>
       <span class="pd-st">${statusBadge(v, 'partner')}</span>
       <span class="pd-i">${inv}</span>
       <span class="pd-num pd-com" data-com="${esc(v.id)}">${v.declaredCents == null ? '—' : c(v.declaredCents)}</span>
@@ -1166,6 +1166,11 @@ function declareManyView({ partner, city, visits, key }) {
 }
 
 // Étape 2 : payer les commissions déclarées (un Pix peut en couvrir plusieurs), avec le comprovante.
+// v101 : rôle de la ligne de commission (agence, Tour Company, guide d'un groupe d'agence ou de TC).
+function roleTag(v) {
+  if (!v.actorRole || (v.actorRole === 'guide' && !v.parentVisitId)) return '';
+  return `<span class="badge">${t(`role.${v.actorRole}`)}</span> `;
+}
 // v95 : bandeau du groupe (ex. « Grupo Pierim ») : passer d'une loja à l'autre, ouvrir le tableau du groupe.
 function groupBar({ group, key }) {
   if (!group) return '';
@@ -1230,7 +1235,7 @@ function payView({ partner, city, visits, key, group }) {
         <ul class="list">${todo.map((v) => `<li>
           <label class="spread" style="font-weight:400;align-items:center">
             <span><input type="checkbox" name="sel" value="${esc(v.id)}"${!pre || pre.includes(v.id) ? ' checked' : ''} style="width:auto;margin-right:8px"><b>${esc(v.client || '?')}</b>
-              <span class="hint">${v.partnerName ? ` · <b>${esc(v.partnerName)}</b>` : ''} · ${esc(store.visitRef(v))} · ${fmtDay(v.at.slice(0, 10), lang)}</span></span>
+              <span class="hint">${v.partnerName ? ` · <b>${esc(v.partnerName)}</b>` : ''}${v.guideName ? ` · ${roleTag(v)}${esc(v.guideName)}` : ''} · ${esc(store.visitRef(v))} · ${fmtDay(v.at.slice(0, 10), lang)}</span></span>
             <b>${c(v.dueCents)}${v.feeCents ? `<br><small class="hint">${t('mode2.pay.line', { com: c(v.declaredCents), fee: c(v.feeCents) })}</small>` : ''}</b>
           </label></li>`).join('')}</ul>
         <div class="stat" style="margin:12px 0"><span>${t('partner.pay.total')}</span><b id="total">${c(0)}</b></div>

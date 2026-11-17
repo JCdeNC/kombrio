@@ -85,6 +85,7 @@ const toVisit = (r) => r && ({
   perPersonCents: num(r.per_person_cents), // v68 : forfait figé sur le passage (null = % de l'addition)
   mode: r.mode == null ? 1 : Number(r.mode), feeCents: num(r.fee_cents) || 0, feeRate: r.fee_rate == null ? null : Number(r.fee_rate),
   dueCents: r.declared_cents == null ? null : Number(r.declared_cents) + (Number(r.fee_cents) || 0),
+  parentVisitId: r.parent_visit_id || null, actorRole: r.actor_role || null, // v101 : ligne de commission par rôle
 });
 const toPayout = (r) => r && ({
   id: r.id, num: num(r.num), guideId: r.guide_id, cents: num(r.amount_cents), status: r.status, reference: r.reference,
@@ -894,6 +895,11 @@ export async function saveObligation(o) { return check(await sb.rpc('admin_oblig
 export async function markObligation(id, due, done, ref, note) {
   return check(await sb.rpc('admin_obligation_mark', { p_obligation: id, p_due: due, p_done: done, p_ref: ref || null, p_note: note || null }));
 }
+// v101 : part de Kombrio sur les commissions d'agence et de TC.
+export async function getActorShare() {
+  try { const r = check(await sb.from('admin_settings').select('actor_platform_share').eq('id', 1).maybeSingle()); return r ? Number(r.actor_platform_share) : null; } catch { return null; }
+}
+export async function setActorShare(share) { return check(await sb.rpc('admin_set_actor_share', { p_share: share })); }
 export async function saveAdminSettings({ name, cnpj, opened, regime }) {
   return check(await sb.rpc('admin_settings_save', { p_name: name || null, p_cnpj: cnpj || null, p_opened: opened || null, p_regime: regime }));
 }
