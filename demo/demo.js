@@ -8,7 +8,7 @@
 
   // Numéro WhatsApp de Kombrio pour l'écran final (format international sans « + », ex. 5521999999999).
   // Vide : le bouton propose l'e-mail contato@kombrio.com.br.
-  var WHATSAPP = '';
+  var WHATSAPP = '5521971115575';
   var EMAIL = 'contato@kombrio.com.br';
 
   var GUIDE_SHARE = 0.8;
