@@ -516,3 +516,17 @@ main { overflow-wrap: break-word; }
   .ag-dots i { width: 6px; height: 6px; }
   .ag-c { display: none; }
 }
+
+/* v86 : onglets de l'admin — groupes séparés par un trait, premier libellé collé au bord */
+.tabs-grouped .tgrp:first-child .tg { margin-left: 0; }
+.tabs-grouped .tgrp + .tgrp { padding-left: 10px; border-left: 1px solid var(--line); }
+.tabs-grouped .tgrp + .tgrp .tg { margin-left: 0; }
+@media (min-width: 561px) { .tabs-grouped { row-gap: 10px; column-gap: 10px; } }
+
+.tabs-select { display: none; }
+@media (max-width: 560px) {
+  .tabs-grouped { display: none; }
+  .tabs-select { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+  .tabs-select select { flex: 1; font-weight: 600; }
+  .tabs-select .todo-n { min-width: 24px; height: 24px; padding: 0 7px; border-radius: 999px; background: #d93025; color: #fff; font-size: .8rem; font-weight: 700; line-height: 24px; text-align: center; }
+}

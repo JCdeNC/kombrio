@@ -1341,6 +1341,8 @@ export default {
   'scan.pass': "Passe Kombrio de um cliente",
   'scan.partner.title': "Sou parceiro Kombrio",
   'g.session': "Sessão",
+  'admin.menu': "Menu da administração",
+  'admin.group.overview': "Painel",
   'admin.group.todo': "A tratar",
   'admin.group.network': "Rede",
   'admin.group.records': "Registros",

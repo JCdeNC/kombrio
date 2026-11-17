@@ -11,8 +11,15 @@ import { TERMS_VERSION } from './partner.js';
 import { inssAdmin } from './admin-inss.js';
 import { agendaAdmin, agendaTodo, agendaLabel } from './admin-agenda.js';
 
-const TABS = ['dashboard', 'agenda', 'alertas', 'validations', 'payments', 'payouts', 'inss', 'pix', 'referral', 'transactions', 'partners', 'cities', 'journal'];
-const TAB_GROUPS = [['todo', ['agenda', 'alertas', 'payments', 'payouts', 'inss', 'pix']], ['network', ['validations', 'partners', 'cities', 'referral']], ['records', ['transactions', 'journal']]];
+// v86 : ordre logique, le même sur ordinateur et sur mobile — piloter (tableau de bord, agenda), puis traiter l'argent dans
+// l'ordre où il circule (alertes, Pix reçus des partenaires, virements aux guides, INSS retenu, clés Pix), puis le réseau, puis les registres.
+export const TAB_GROUPS = [
+  ['overview', ['dashboard', 'agenda']],
+  ['todo', ['alertas', 'payments', 'payouts', 'inss', 'pix']],
+  ['network', ['validations', 'partners', 'referral', 'cities']],
+  ['records', ['transactions', 'journal']],
+];
+const TABS = TAB_GROUPS.flatMap(([, ks]) => ks);
 
 export async function adminView([tab = 'dashboard']) {
   if (store.inRecovery() && await store.hasSession()) return resetView();
@@ -30,14 +37,21 @@ export async function adminView([tab = 'dashboard']) {
   const todo = todoCounts(data);
   // v60 : onglets rangés en 3 groupes (à traiter, réseau, registres).
   const link = (k) => `<a href="#/${k}" class="${k === tab ? 'on' : ''}">${t(`admin.tab.${k}`)}${todo[k] ? `<span class="todo" title="${esc(tRaw('admin.todo.hint'))}">${todo[k]}</span>` : ''}</a>`;
-  const nav = `<nav class="tabs tabs-grouped">${link('dashboard')}${TAB_GROUPS.map(([g, ks]) => `<span class="tgrp"><span class="tg">${t(`admin.group.${g}`)}</span>${ks.map(link).join('')}</span>`).join('')}</nav>`;
+  const nav = `<nav class="tabs tabs-grouped">${TAB_GROUPS.map(([g, ks]) => `<span class="tgrp"><span class="tg">${t(`admin.group.${g}`)}</span>${ks.map(link).join('')}</span>`).join('')}</nav>`
+    // v86 : sur mobile, un menu déroulant classé dans le même ordre (avec le nombre de tâches), au lieu d'une ligne de 13 boutons.
+    + `<div class="tabs-select"><select id="tab-menu" aria-label="${esc(tRaw('admin.menu'))}">${TAB_GROUPS.map(([g, ks]) => `<optgroup label="${esc(tRaw(`admin.group.${g}`))}">${ks.map((k) => `<option value="${k}"${k === tab ? ' selected' : ''}>${esc(tRaw(`admin.tab.${k}`))}${todo[k] ? ` (${todo[k]})` : ''}</option>`).join('')}</optgroup>`).join('')}</select>${Object.values(todo).some(Boolean) ? `<span class="todo-n" title="${esc(tRaw('admin.todo.hint'))}">${Object.values(todo).reduce((a, b) => a + (b || 0), 0)}</span>` : ''}</div>`;
   data.todo = todo;
   const view = await ({ dashboard, agenda: agendaAdmin, alertas, validations, payments, payouts, inss: inssAdmin, pix: pixAdmin, referral, transactions, partners, cities, journal })[tab](data);
   return {
     html: `<div class="spread"><h1>${t('admin.title')}</h1>
         <span class="hint">${esc(me.email)} <button class="btn ghost small" id="logout">${t('common.logout')}</button></span></div>
       ${nav}${view.html}`,
-    mount(root, ctx) { mountLogout(root, ctx); if (view.mount) view.mount(root, ctx); },
+    mount(root, ctx) {
+      mountLogout(root, ctx);
+      const menu = root.querySelector('#tab-menu');
+      if (menu) menu.onchange = () => ctx.go(menu.value === 'dashboard' ? '' : menu.value);
+      if (view.mount) view.mount(root, ctx);
+    },
   };
 }
 
