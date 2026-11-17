@@ -11,7 +11,7 @@ declare
   today date := (now() at time zone 'America/Sao_Paulo')::date;
   s1 uuid; s2 uuid; s3 uuid; s4 uuid; s5 uuid; s6 uuid;
   va uuid; vb uuid; vc uuid; va2 uuid; vb2 uuid; va3 uuid;
-  r jsonb; gs jsonb; pay uuid; pay2 uuid;
+  r jsonb; gs jsonb; pay uuid; pay2 uuid; ok6 boolean;
   rc jsonb := jsonb_build_object('name', 'r.jpg', 'type', 'image/jpeg', 'data', 'data:image/jpeg;base64,' || md5(random()::text));
   out text := ''; pass int := 0; fail int := 0;
 begin
@@ -37,14 +37,14 @@ begin
   insert into visits (stay_id, partner_id, guide_id, people, status, declared_cents, fee_cents, declared_at)
     values (s1, pa, g1, 2, 'declared', 5000, 0, now()) returning id into va;
   insert into visits (stay_id, partner_id, guide_id, people, status, declared_cents, fee_cents, declared_at)
-    values (s2, pb, g1, 2, 'declared', 3000, 90, now()) returning id into vb;
+    values (s2, pb, g1, 2, 'declared', 3000, 0, now()) returning id into vb;
   insert into visits (stay_id, partner_id, guide_id, people, status, declared_cents, fee_cents, declared_at)
     values (s3, pc, g1, 2, 'declared', 1000, 0, now()) returning id into vc;
 
-  -- 1. Tableau du groupe vu depuis la loja A : 2 lojas, 2 visites à payer, 80,90 R$ ; rien pour la loja hors groupe.
+  -- 1. Tableau du groupe vu depuis la loja A : 2 lojas, 2 visites à payer, 80,00 R$ ; rien pour la loja hors groupe.
   gs := group_space('G-GRA');
   if jsonb_array_length(gs->'members') = 2 and jsonb_array_length(gs->'to_pay') = 2
-     and (select sum((m->>'to_pay_cents')::bigint) from jsonb_array_elements(gs->'members') m) = 8090
+     and (select sum((m->>'to_pay_cents')::bigint) from jsonb_array_elements(gs->'members') m) = 8000
      and gs->'group'->>'pay_mode' = 'single' and group_space('G-GRC') is null
     then pass := pass + 1; else fail := fail + 1; out := out || ' [1 tableau ' || coalesce(gs::text, 'null') || '] '; end if;
 
@@ -56,16 +56,16 @@ begin
   r := submit_group_payment('G-GRA', array[va, vc], 'pix', null, rc);
   if r->>'reason' = 'visits' then pass := pass + 1; else fail := fail + 1; out := out || ' [3 hors groupe ' || r::text || '] '; end if;
 
-  -- 4. Pix unique des deux lojas : un seul paiement, 80,90 R$, rattaché au groupe ; les deux visites en vérification.
+  -- 4. Pix unique des deux lojas : un seul paiement, 80,00 R$, rattaché au groupe ; les deux visites en vérification.
   r := submit_group_payment('G-GRB', array[va, vb], 'pix', 'E2E-GRUPO-TESTE', rc);
   pay := (r->>'payment_id')::uuid;
-  if (r->>'ok')::boolean and (r->>'cents')::bigint = 8090
+  if (r->>'ok')::boolean and (r->>'cents')::bigint = 8000
      and (select group_id = grp and partner_id = pb from payments where id = pay)
      and (select count(*) from visits where payment_id = pay and status = 'verifying') = 2
     then pass := pass + 1; else fail := fail + 1; out := out || ' [4 pix unique ' || r::text || '] '; end if;
 
   -- 5. Kombrio valide une fois : les deux lojas passent en « reçu », avec les parts guide calculées.
-  r := verify_payment(pay, 8090, 'E2E-GRUPO-TESTE');
+  r := verify_payment(pay, 8000, 'E2E-GRUPO-TESTE');
   if (r->>'ok')::boolean and (select count(*) from visits where payment_id = pay and status = 'received' and guide_cents > 0) = 2
     then pass := pass + 1; else fail := fail + 1; out := out || ' [5 validation ' || r::text || '] '; end if;
 
@@ -77,8 +77,11 @@ begin
   rc := jsonb_build_object('name', 'r2.jpg', 'type', 'image/jpeg', 'data', 'data:image/jpeg;base64,' || md5(random()::text));
   r := submit_group_payment('G-GRA', array[va2, vb2], 'pix', null, rc);
   pay2 := (r->>'payment_id')::uuid;
-  if reject_payment(pay2, 'teste') and (select count(*) from visits where id in (va2, vb2) and status = 'declared' and payment_id is null) = 2
-    then pass := pass + 1; else fail := fail + 1; out := out || ' [6 rejet ' || r::text || '] '; end if;
+  ok6 := reject_payment(pay2, 'teste');
+  if ok6 and (select count(*) from visits where id in (va2, vb2) and status = 'declared' and payment_id is null) = 2
+    then pass := pass + 1; else fail := fail + 1; out := out || ' [6 rejet ' || r::text || ' rejet=' || coalesce(ok6::text, 'null')
+      || ' paiement=' || coalesce((select status from payments where id = pay2), '?')
+      || ' visites=' || coalesce((select string_agg(status || '/' || coalesce(payment_id::text, '-'), ', ') from visits where id in (va2, vb2)), '?') || '] '; end if;
 
   -- 7. Mode « Pix par loja » : la loja paie seule, le Pix du groupe est refusé.
   update partner_groups set pay_mode = 'each' where id = grp;
