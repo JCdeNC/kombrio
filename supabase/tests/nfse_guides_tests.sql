@@ -7,7 +7,7 @@ declare
   g2 uuid := '00000000-0000-4000-8000-0000000003c2';
   pa uuid := '00000000-0000-4000-8000-0000000003c3';
   pb uuid := '00000000-0000-4000-8000-0000000003c4';
-  po uuid; r jsonb; st jsonb;
+  po uuid; r jsonb; st jsonb; ok6 boolean;
   f jsonb := jsonb_build_object('name', 'nf.pdf', 'type', 'application/pdf', 'data', 'data:application/pdf;base64,JVBERi0x');
   out text := ''; pass int := 0; fail int := 0;
   as_admin text := json_build_object('sub', admin_id, 'role', 'authenticated')::text;
@@ -62,8 +62,9 @@ begin
 
   -- 6. Toutes les notes sont là : l'admin confirme le virement.
   perform set_config('request.jwt.claims', as_admin, true);
-  if confirm_payout(po, 'E2E-TESTE') and (select status from payouts where id = po) = 'paid'
-    then pass := pass + 1; else fail := fail + 1; out := out || ' [6 confirmation] '; end if;
+  ok6 := confirm_payout(po, 'E2E-TESTE');   -- appel séparé : la lecture du statut doit voir la mise à jour
+  if ok6 and (select status from payouts where id = po) = 'paid'
+    then pass := pass + 1; else fail := fail + 1; out := out || ' [6 confirmation ' || coalesce(ok6::text, 'null') || ' statut=' || coalesce((select status from payouts where id = po), '?') || ' manquantes=' || payout_nf_missing(po) || '] '; end if;
 
   -- 7. Un guide qui retire son CNPJ repasse en « cpf » tout seul.
   update guides set cnpj = null, tax_kind = 'cpf' where id = g1;
