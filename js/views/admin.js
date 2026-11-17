@@ -656,6 +656,7 @@ async function payouts({ guides, visits, payoutList, adjustments, cur, guide, pa
     ${running.length ? `<div class="card"><h2>${t('admin.out.running')}</h2><ul class="list">${running.map((p) => `<li>
         <div class="spread"><b>${t('admin.out.num', { num: p.num })} · ${esc(guide(p.guideId)?.name)}</b><b>${cur(p.cents, guide(p.guideId)?.cityId)}</b></div>
         ${p.inssCents ? `<div class="hint">${t('admin.out.breakdown', { gross: cur(p.grossCents, guide(p.guideId)?.cityId), inss: cur(p.inssCents, guide(p.guideId)?.cityId) })}</div>` : ''}
+        ${p.irrfCents ? `<div class="hint">${t('admin.out.irrf', { amount: cur(p.irrfCents, guide(p.guideId)?.cityId) })}</div>` : ''}
         <div class="hint">${t('admin.out.sendnet', { amount: cur(p.cents, guide(p.guideId)?.cityId) })} · Pix : ${esc(guide(p.guideId)?.pixKey || tRaw('admin.missing'))}</div>
         ${nfBlock(p)}
         ${nfMissing(p.id) ? '' : interBlock(p)}
@@ -669,7 +670,7 @@ async function payouts({ guides, visits, payoutList, adjustments, cur, guide, pa
       <h2>${t('admin.out.history')}</h2>
       ${paid.length ? `<div class="table-wrap"><table>
         <tr><th>N°</th><th>${t('common.date')}</th><th>${t('common.guide')}</th><th>${t('admin.out.gross')}</th><th>INSS</th><th>${t('admin.out.net')}</th><th>${t('admin.out.ref')}</th></tr>
-        ${paid.map((p) => `<tr><td>${p.num}</td><td>${fmtMoment(p.paidAt || p.at, lang)}</td><td>${esc(guide(p.guideId)?.name)}</td><td>${cur(p.grossCents, guide(p.guideId)?.cityId)}</td><td>${p.inssCents ? cur(p.inssCents, guide(p.guideId)?.cityId) : '—'}</td><td>${cur(p.cents, guide(p.guideId)?.cityId)}</td><td>${esc(p.reference || '')}${receiptIds.has(`payout:${p.id}`) ? ` <a href="#" data-rcpt-show="${esc(p.id)}" data-rcpt-kind="payout" title="${esc(tRaw('rc.view'))}">📎</a>` : ''}${p.receivedStatus ? `<div class="hint">${t(`admin.out.rcv.${p.receivedStatus}`)}</div>` : ''}</td></tr>`).join('')}
+        ${paid.map((p) => `<tr><td>${p.num}</td><td>${fmtMoment(p.paidAt || p.at, lang)}</td><td>${esc(guide(p.guideId)?.name)}</td><td>${cur(p.grossCents, guide(p.guideId)?.cityId)}</td><td>${p.inssCents ? cur(p.inssCents, guide(p.guideId)?.cityId) : '—'}${p.irrfCents ? `<div class="hint">IRRF ${cur(p.irrfCents, guide(p.guideId)?.cityId)}</div>` : ''}</td><td>${cur(p.cents, guide(p.guideId)?.cityId)}</td><td>${esc(p.reference || '')}${receiptIds.has(`payout:${p.id}`) ? ` <a href="#" data-rcpt-show="${esc(p.id)}" data-rcpt-kind="payout" title="${esc(tRaw('rc.view'))}">📎</a>` : ''}${p.receivedStatus ? `<div class="hint">${t(`admin.out.rcv.${p.receivedStatus}`)}</div>` : ''}</td></tr>`).join('')}
       </table></div>` : `<p class="hint">${t('admin.out.history.none')}</p>`}
     </div>
     <div class="card">

@@ -89,7 +89,7 @@ const toVisit = (r) => r && ({
 const toPayout = (r) => r && ({
   id: r.id, num: num(r.num), guideId: r.guide_id, cents: num(r.amount_cents), status: r.status, reference: r.reference,
   // v53 : cents = montant NET envoyé ; grossCents = avant retenue ; inssCents = INSS retenu (guide CPF).
-  grossCents: num(r.gross_cents ?? r.amount_cents), inssCents: num(r.inss_cents || 0), receivedNote: r.received_note || '',
+  grossCents: num(r.gross_cents ?? r.amount_cents), inssCents: num(r.inss_cents || 0), irrfCents: (num(r.irrf_pf_cents) || 0) + (num(r.irrf_pj_cents) || 0), receivedNote: r.received_note || '',
   at: r.at, paidAt: r.paid_at, receivedStatus: r.received_status || null, receivedAt: r.received_at || '',
   // v65 : envoi par Pix Inter.
   interStatus: r.inter_status || '', interCodigo: r.inter_codigo || '', interE2e: r.inter_e2e || '', interRecebedor: r.inter_recebedor_nome || '',
@@ -723,6 +723,11 @@ export async function listTaxRules() {
 export async function setTaxRule({ city, kind = 'inss_ci', rate, ceilingCents, from, note, source }) {
   return check(await sb.rpc('set_tax_rule', { p_city: city, p_kind: kind, p_rate: rate, p_ceiling_cents: ceilingCents ?? null,
     p_from: from, p_note: note || null, p_source: source || null }));
+}
+// v98 : règles IRRF (Kombrio source payeuse) : table CPF progressive ('irrf_pf') ou taux CNPJ ('irrf_pj').
+export async function setIrrfRule({ city, kind, rate, brackets, params, from, note, source }) {
+  return check(await sb.rpc('set_irrf_rule', { p_city: city, p_kind: kind, p_rate: rate ?? null, p_brackets: brackets ?? null,
+    p_params: params || {}, p_from: from, p_note: note || null, p_source: source || null }));
 }
 export async function adminSetInssFiling(partnerId, mode, procuracao, note) {
   return check(await sb.rpc('admin_set_inss_filing', { p_partner: partnerId, p_mode: mode, p_procuracao: procuracao || null, p_note: note || null }));

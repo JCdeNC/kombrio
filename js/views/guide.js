@@ -579,6 +579,7 @@ async function payoutView(me, city, payoutId) {
         <tr><td>${t('po.ref')}</td><td style="text-align:right">${esc(P.reference || '—')}</td></tr>
         <tr><td>${t('po.gross')}</td><td style="text-align:right">${c(P.gross_cents)}</td></tr>
         <tr><td>${t('po.inss')}</td><td style="text-align:right">${P.inss_cents ? `− ${c(P.inss_cents)}` : '—'}</td></tr>
+        ${(P.irrf_pf_cents || 0) + (P.irrf_pj_cents || 0) ? `<tr><td>${t('po.irrf')}</td><td style="text-align:right">− ${c((P.irrf_pf_cents || 0) + (P.irrf_pj_cents || 0))}</td></tr>` : ''}
         <tr><td><b>${t('po.net')}</b></td><td style="text-align:right"><b>${c(P.net_cents)}</b></td></tr>
         <tr><td>${t('po.answer')}</td><td style="text-align:right">${P.received_status ? `${t(`po.st.${P.received_status}`)}${P.received_at ? ` · ${esc(fmtMoment(P.received_at, lang, tz))}` : ''}${P.received_note ? `<div class="hint">${esc(P.received_note)}</div>` : ''}` : '—'}</td></tr>
       </table></div>

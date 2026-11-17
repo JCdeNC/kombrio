@@ -229,6 +229,7 @@ export default {
   'g.payouts': 'My payouts',
   'g.payouts.none': 'No payout yet.',
   'g.pix.seebanner': 'A 1 R$ Pix is waiting for your confirmation at the top of the page.',
+  'po.irrf': "Income tax withheld (IRRF)",
   // v96 : statut fiscal et NFS-e du guide payé en CNPJ.
   "fs.label": "Tax status",
   "fs.mei": "MEI",

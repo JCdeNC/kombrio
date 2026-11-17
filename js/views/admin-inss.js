@@ -184,11 +184,53 @@ export async function inssAdmin({ cityList, partnerList }) {
       <button class="btn small">${t('inss.rules.save')}</button>
     </form></div>`;
 
+  // v98 : IRRF retenu par Kombrio (source payeuse). Rien n'est pré-rempli : les valeurs officielles sont saisies avec leur source.
+  const irrfRules = rules.filter((r) => r.kind === 'irrf_pf' || r.kind === 'irrf_pj');
+  const pct = (x) => `${Math.round(Number(x) * 100000) / 1000} %`;
+  const irrfDesc = (r) => (r.kind === 'irrf_pf'
+    ? (r.brackets || []).map((b) => `${b.up_to_cents == null ? t('irrf.above') : `≤ ${brl(b.up_to_cents)}`} : ${pct(b.rate)}${b.deduction_cents ? ` − ${brl(b.deduction_cents)}` : ''}`).join(' · ')
+      + (r.params?.simplified_cents ? ` · ${t('irrf.simplified')} ${brl(r.params.simplified_cents)}` : '')
+      + (r.params?.reducer ? ` · ${t('irrf.reducer.short')}` : '') + (r.params?.min_cents ? ` · ${t('irrf.min')} ${brl(r.params.min_cents)}` : '')
+    : `${pct(r.rate)} · ${(r.params?.statuses || ['company', 'rep']).map((k) => t(`fs.${k}`)).join(', ')}${r.params?.min_cents ? ` · ${t('irrf.min')} ${brl(r.params.min_cents)}` : ''}`);
+  const bracketRow = (i, last) => `<div class="grid2 rs-keep2" style="grid-template-columns:repeat(3,1fr)">
+      <div class="field"><label>${last ? t('irrf.above') : `${t('irrf.upto')} (R$)`}</label><input name="up${i}" inputmode="decimal" ${last ? 'disabled placeholder="—"' : ''}></div>
+      <div class="field"><label>${t('irrf.rate')} (%)</label><input name="rate${i}" inputmode="decimal"></div>
+      <div class="field"><label>${t('irrf.deduction')} (R$)</label><input name="ded${i}" inputmode="decimal"></div></div>`;
+  const irrfCard = `<div class="card" id="irrf"><h2>${t('irrf.title')}</h2><p class="hint">${t('irrf.hint')}</p>
+    ${irrfRules.length ? `<div class="table-wrap"><table><tr><th>${t('admin.city.name')}</th><th>${t('irrf.kind')}</th><th>${t('inss.rules.from')}</th><th>${t('irrf.values')}</th><th>${t('inss.rules.source')}</th></tr>
+      ${irrfRules.map((r) => { const on = r.valid_from <= today && (!r.valid_to || r.valid_to >= today);
+        return `<tr><td>${esc(city(r.city_id)?.name || r.city_id)}${on ? ` <span class="badge ok">${t('inss.rules.current')}</span>` : ''}</td><td>${t(`irrf.kind.${r.kind}`)}</td>
+          <td>${fmtDay(r.valid_from, lang)}${r.valid_to ? ` → ${fmtDay(r.valid_to, lang)}` : ''}</td><td>${irrfDesc(r)}</td><td>${esc(r.source || '—')}</td></tr>`; }).join('')}</table></div>`
+      : `<div class="notice">${t('irrf.none')}</div>`}
+    <form id="irrf-pf" style="margin-top:12px"><h3>${t('irrf.pf.new')}</h3><p class="hint">${t('irrf.pf.hint')}</p>
+      <div class="grid2"><div class="field"><label>${t('admin.city.name')}</label><select name="city">${cityList.map((c) => `<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('')}</select></div>
+        <div class="field"><label>${t('inss.rules.from')}</label><input type="date" name="from" required value="${today}"></div></div>
+      ${[0, 1, 2, 3, 4].map((i) => bracketRow(i, i === 4)).join('')}
+      <div class="grid2"><div class="field"><label>${t('irrf.simplified')} (R$)</label><input name="simplified" inputmode="decimal"></div>
+        <div class="field"><label>${t('irrf.min')} (R$)</label><input name="min" inputmode="decimal"></div></div>
+      <details><summary>${t('irrf.reducer')}</summary><p class="hint">${t('irrf.reducer.hint')}</p>
+        <div class="grid2"><div class="field"><label>${t('irrf.red.full')} (R$)</label><input name="rfull" inputmode="decimal"></div>
+          <div class="field"><label>${t('irrf.red.partial')} (R$)</label><input name="rpart" inputmode="decimal"></div>
+          <div class="field"><label>${t('irrf.red.a')} (R$)</label><input name="ra" inputmode="decimal"></div>
+          <div class="field"><label>${t('irrf.red.b')}</label><input name="rb" inputmode="decimal" placeholder="0,133145"></div></div></details>
+      <div class="field"><label>${t('inss.rules.source')}</label><input name="source" required placeholder="Lei / IN RFB nº …"></div>
+      <div class="field"><label>${t('inss.rules.note')}</label><input name="note"></div>
+      <button class="btn small">${t('irrf.save')}</button></form>
+    <form id="irrf-pj" style="margin-top:16px"><h3>${t('irrf.pj.new')}</h3><p class="hint">${t('irrf.pj.hint')}</p>
+      <div class="grid2"><div class="field"><label>${t('admin.city.name')}</label><select name="city">${cityList.map((c) => `<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('')}</select></div>
+        <div class="field"><label>${t('inss.rules.from')}</label><input type="date" name="from" required value="${today}"></div>
+        <div class="field"><label>${t('irrf.rate')} (%)</label><input name="rate" required inputmode="decimal"></div>
+        <div class="field"><label>${t('irrf.min')} (R$)</label><input name="min" inputmode="decimal"></div></div>
+      <div class="row" style="gap:12px;margin-bottom:8px">${['mei', 'company', 'rep'].map((k) => `<label style="font-weight:400"><input type="checkbox" name="st" value="${k}"${k !== 'mei' ? ' checked' : ''} style="width:auto"> ${t(`fs.${k}`)}</label>`).join('')}</div>
+      <div class="field"><label>${t('inss.rules.source')}</label><input name="source" required placeholder="RIR/2018 art. … / IN RFB nº …"></div>
+      <div class="field"><label>${t('inss.rules.note')}</label><input name="note"></div>
+      <button class="btn small">${t('irrf.save')}</button></form></div>`;
+
   const reportCard = `<div class="card"><h2>${t('admin.inss.title')}</h2><p class="hint">${t('admin.inss.hint')}</p>
     <button class="btn small ghost" id="inss-show">${t('admin.inss.show')} · ${esc(month)}</button><div id="inss-out" style="margin-top:10px"></div></div>`;
 
   return {
-    html: `${todoCard}${monthCard}${filingCard}${rulesCard}${reportCard}`,
+    html: `${todoCard}${monthCard}${filingCard}${rulesCard}${irrfCard}${reportCard}`,
     mount(root, ctx) {
       const m = root.querySelector('#inss-m');
       m.onchange = () => { if (m.value) ctx.go(`inss/${m.value}`); };
@@ -246,6 +288,33 @@ export async function inssAdmin({ cityList, partnerList }) {
           if (!r || !r.ok) { notify(tRaw(`inss.err.${r?.reason || 'generic'}`, { date: r?.last_use ? fmtDay(r.last_use, lang) : '' })); return; }
           ctx.refresh(tRaw('common.saved'));
         } catch { notify(tRaw('err.generic')); }
+      };
+      const num = (v) => { const x = String(v || '').trim(); if (x === '') return null; const n = Number(x.includes(',') ? x.replace(/\./g, '').replace(',', '.') : x); return Number.isFinite(n) ? n : null; };
+      const cts = (v) => (String(v || '').trim() === '' ? null : toCents(v));
+      const irrfErr = (r) => notify(tRaw(`irrf.err.${['source', 'brackets', 'used', 'values'].includes(r?.reason) ? r.reason : 'generic'}`, { date: r?.last_use ? fmtDay(r.last_use, lang) : '' }));
+      root.querySelector('#irrf-pf').onsubmit = async (e) => {
+        e.preventDefault(); const f = e.target; const brackets = [];
+        for (let i = 0; i < 5; i += 1) {
+          const rate = num(f[`rate${i}`].value); const up = i < 4 ? cts(f[`up${i}`].value) : null;
+          if (rate == null && up == null) continue;
+          if (rate == null || rate < 0 || rate >= 100 || (i < 4 && up == null)) { irrfErr({ reason: 'brackets' }); return; }
+          brackets.push({ up_to_cents: up, rate: Math.round(rate * 1000) / 100000, deduction_cents: cts(f[`ded${i}`].value) || 0 });
+        }
+        if (!brackets.length || brackets[brackets.length - 1].up_to_cents != null) { irrfErr({ reason: 'brackets' }); return; }
+        const params = {};
+        if (cts(f.simplified.value)) params.simplified_cents = cts(f.simplified.value);
+        if (cts(f.min.value)) params.min_cents = cts(f.min.value);
+        if (cts(f.rfull.value) || cts(f.rpart.value)) params.reducer = { full_up_to_cents: cts(f.rfull.value), partial_up_to_cents: cts(f.rpart.value), a_cents: cts(f.ra.value) || 0, b: num(f.rb.value) || 0 };
+        const r = await store.setIrrfRule({ city: f.city.value, kind: 'irrf_pf', brackets, params, from: f.from.value, note: f.note.value, source: f.source.value }).catch(() => null);
+        if (r && r.ok) ctx.refresh(tRaw('common.saved')); else irrfErr(r);
+      };
+      root.querySelector('#irrf-pj').onsubmit = async (e) => {
+        e.preventDefault(); const f = e.target;
+        const rate = num(f.rate.value); if (rate == null || rate < 0 || rate >= 100) { irrfErr({ reason: 'values' }); return; }
+        const params = { statuses: [...f.querySelectorAll('[name=st]:checked')].map((x) => x.value) };
+        if (cts(f.min.value)) params.min_cents = cts(f.min.value);
+        const r = await store.setIrrfRule({ city: f.city.value, kind: 'irrf_pj', rate: Math.round(rate * 1000) / 100000, params, from: f.from.value, note: f.note.value, source: f.source.value }).catch(() => null);
+        if (r && r.ok) ctx.refresh(tRaw('common.saved')); else irrfErr(r);
       };
       root.querySelector('#inss-show').onclick = async () => {
         const out = root.querySelector('#inss-out');

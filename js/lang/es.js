@@ -229,6 +229,7 @@ export default {
   'g.payouts': 'Mis pagos',
   'g.payouts.none': 'Ningún pago por ahora.',
   'g.pix.seebanner': 'Un Pix de 1 R$ espera su confirmación en la parte superior de la página.',
+  'po.irrf': "IRRF retenido (Kombrio)",
   // v96 : statut fiscal et NFS-e du guide payé en CNPJ.
   "fs.label": "Situación fiscal",
   "fs.mei": "MEI",

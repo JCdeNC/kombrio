@@ -143,6 +143,7 @@ export default {
   'g.payouts': 'Meine Auszahlungen',
   'g.payouts.none': 'Noch keine Auszahlung.',
   'g.pix.seebanner': 'Ein Pix über 1 R$ wartet oben auf der Seite auf Ihre Bestätigung.',
+  'po.irrf': "Einbehaltene Einkommensteuer (IRRF)",
   // v96 : statut fiscal et NFS-e du guide payé en CNPJ.
   "fs.label": "Steuerstatus",
   "fs.mei": "MEI",
