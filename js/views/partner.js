@@ -461,7 +461,12 @@ function saveError(r, c, photoMin) {
 }
 // v67 : scanner de QR dans l'app (caméra arrière) : BarcodeDetector si le téléphone le permet, sinon jsQR.
 const JSQR = 'https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js';
-export const refOf = (text) => { const m = String(text || '').match(/(GG-[a-f0-9]{64}|B-[a-f0-9]{32}|C-[a-f0-9]{32})/); return m ? m[1] : null; };
+// v94 : le QR client créé par le guide est « C- » + 24 lettres et chiffres (randomToken), pas seulement de l'hexadécimal :
+// avant, le scanner de la fiche le refusait (« Ce QR n'est pas un QR Kombrio »). Les ventes directes restent « C- » + 32 hexa.
+export const refOf = (text) => {
+  const m = String(text || '').match(/(?:^|[^A-Za-z0-9])(GG-[a-f0-9]{64}|B-[a-f0-9]{32}|C-[A-Za-z0-9]{16,64})(?![A-Za-z0-9])/);
+  return m ? m[1] : null;
+};
 const loadScript = (src) => new Promise((resolve, reject) => {
   if (window.jsQR) { resolve(); return; }
   const el = document.createElement('script'); el.src = src; el.onload = resolve; el.onerror = reject; document.head.appendChild(el);
