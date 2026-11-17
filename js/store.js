@@ -220,6 +220,21 @@ export async function signUpPartner({ email, password, code, name, phone, terms 
   if (error) throw new Error(error.message.includes('registered') ? 'exists' : 'code');
   return Boolean(data.session);
 }
+// v89 : un établissement s'inscrit lui-même (établissement + accès du gérant), puis l'administrateur le valide.
+export async function signUpPartnerSelf({ email, password, partnerName, partnerType, city, area, address, taxId, name, phone, terms }) {
+  const { data, error } = await sb.auth.signUp({
+    email, password,
+    options: { data: { role: 'partner_signup', partner_name: partnerName, partner_type: partnerType, city, area, address, tax_id: taxId, name, phone, terms },
+      emailRedirectTo: location.href.split('#')[0] },
+  });
+  if (error) throw new Error(error.message.includes('registered') ? 'exists' : 'signup');
+  return Boolean(data.session);
+}
+// Le gérant connecté dont l'établissement attend la validation (null sinon).
+export async function myPartnerPending() {
+  if (!(await currentUser())) return null;
+  return check(await sb.rpc('my_partner_pending'));
+}
 // Le gérant connecté : le lien de son espace (null si pas connecté ou pas gérant).
 export async function myPartnerToken() {
   if (!(await currentUser())) return null;
@@ -521,11 +536,6 @@ export async function setPartnerJ1(partnerId, on) {
 // v66 : photo de l'addition pour l'admin, seulement dans un litige (alerte sur le passage).
 export async function adminBillPhoto(visitId) {
   return check(await sb.rpc('admin_bill_photo', { p_visit: visitId }));
-}
-export async function createPartnerLead({ name, contact, phone, email, type, message }) {
-  return check(await sb.rpc('create_partner_lead', {
-    p_name: name, p_contact: contact, p_phone: phone || null, p_email: email || null, p_type: type || null, p_message: message || null,
-  }));
 }
 export async function adminLeads() {
   return check(await sb.from('partner_leads').select('*').order('created_at', { ascending: false }).limit(100));

@@ -2,7 +2,7 @@
 // Sans passage en attente, le même QR ouvre son espace (historique, offre, QR à imprimer).
 // Pas de compte : tout passe par le code secret du QR Partenaire, vérifié par la base.
 import { t, tRaw, getLang } from '../i18n.js';
-import { todayIn, esc, money, cents, parseCents, fmtMoment, fmtDay, qrSvg, appLink, readFileAsDataUrl, notify, pixPayload, pixKeyOf, photoToJpeg, confirmTwice, fmtTaxId, locale, phoneField, phoneValue } from '../util.js';
+import { todayIn, esc, money, cents, parseCents, fmtMoment, fmtDay, qrSvg, appLink, readFileAsDataUrl, notify, pixPayload, pixKeyOf, photoToJpeg, confirmTwice, fmtTaxId, locale, phoneField, phoneValue, validTaxId, onlyDigits } from '../util.js';
 import * as store from '../store.js';
 import { inssBadge, inssTimeline, inssLinesTable, inssCsv, downloadText, openDataUrl } from './admin-inss.js';
 import { statusBadge, notFound, termsGateView, forgotLink, mountForgot, resetView, lastMonths, shortMonth, delta, barChart, appTabs } from './shared.js';
@@ -35,6 +35,15 @@ export async function partnerHome(params, ctx) {
   let mine = null;
   try { mine = await store.myPartnerToken(); } catch { /* rien */ }
   if (mine) return { html: '', mount: () => ctx.replace(`p/${mine}`) };
+  // v89 : inscrit lui-même, en attente de la validation de Kombrio.
+  let pending = null;
+  try { pending = await store.myPartnerPending(); } catch { /* rien */ }
+  if (pending) return {
+    html: `<h1>${t('pm.title')}</h1>
+      <div class="card"><h2>${esc(pending.name)}</h2><div class="notice warn">${t('ps.pending')}</div>
+      <button type="button" class="btn ghost block" id="ps-out" style="margin-top:12px">${t('ps.logout')}</button></div>`,
+    mount(root, c) { root.querySelector('#ps-out').onclick = async () => { await store.signOut(); c.refresh(); }; },
+  };
   let me = null;
   try { me = localStorage.getItem(ME_KEY); } catch { /* rien */ }
   if (me) return { html: '', mount: () => ctx.replace(`p/${me}`) };
@@ -52,6 +61,11 @@ export async function partnerHome(params, ctx) {
         <h2>${t('pm.first')}</h2>
         <p class="hint">${t('pm.first.hint')}</p>
         <a class="btn secondary block" href="#/ativar">${t('pm.first.button')}</a>
+      </div>
+      <div class="card">
+        <h2>${t('ps.home.title')}</h2>
+        <p class="hint">${t('ps.home.hint')}</p>
+        <a class="btn secondary block" href="#/parceria">${t('ps.home.button')}</a>
       </div>
       <div class="card">
         <h2>${t('team.home.title')}</h2>
@@ -111,6 +125,71 @@ export async function activateView([code = ''], ctx) {
         } catch (err) {
           button.disabled = false;
           notify(tRaw(err.message === 'exists' ? 'auth.err.exists' : 'pm.activate.err'));
+        }
+      };
+    },
+  };
+}
+
+// v89 : « Devenir partenaire » — l'établissement s'inscrit lui-même (établissement + accès du gérant).
+// Il arrive « en attente » : Kombrio le valide dans l'admin avant qu'il n'apparaisse aux clients.
+export async function signupView(params, ctx) {
+  const cities = await store.listCities().catch(() => []);
+  return {
+    html: `
+      <p><a href="#/">← ${t('pm.title')}</a></p>
+      <form class="card" id="psignup">
+        <h1>${t('np.form.title')}</h1>
+        <p class="hint">${t('ps.hint')}</p>
+        <h2>${t('ps.place')}</h2>
+        <div class="field"><label for="s-pname">${t('np.name')}</label><input id="s-pname" name="partnerName" required maxlength="120"></div>
+        <div class="grid2">
+          <div class="field"><label for="s-type">${t('np.type')}</label><select id="s-type" name="partnerType">
+            ${store.PARTNER_TYPES.map((k) => `<option value="${k}">${t(`ptype.${k}`)}</option>`).join('')}</select></div>
+          <div class="field"><label for="s-city">${t('ps.city')}</label><select id="s-city" name="city" required>
+            ${cities.map((c) => `<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('')}</select></div>
+        </div>
+        <div class="grid2">
+          <div class="field"><label for="s-area">${t('ps.area')}</label><input id="s-area" name="area" required maxlength="120"></div>
+          <div class="field"><label for="s-tax">${t('ps.taxid')}</label><input id="s-tax" name="taxId" inputmode="numeric" maxlength="20"></div>
+        </div>
+        <div class="field"><label for="s-addr">${t('ps.address')}</label><input id="s-addr" name="address" maxlength="200" autocomplete="street-address"></div>
+        <h2>${t('ps.manager')}</h2>
+        <div class="grid2">
+          <div class="field"><label for="s-name">${t('pm.name')}</label><input id="s-name" name="name" required autocomplete="name" maxlength="120"></div>
+          ${phoneField('s-phone', t('guide.signup.phone'), t('phone.other'))}
+        </div>
+        <div class="field"><label for="s-email">${t('auth.email')}</label><input id="s-email" name="email" type="email" required autocomplete="email"></div>
+        <div class="grid2">
+          <div class="field"><label for="s-pass">${t('auth.password.new')}</label><input id="s-pass" name="password" type="password" required minlength="8" autocomplete="new-password"></div>
+          <div class="field"><label for="s-pass2">${t('auth.password.confirm')}</label><input id="s-pass2" name="password2" type="password" required minlength="8" autocomplete="new-password"></div>
+        </div>
+        <label style="font-weight:400;display:flex;gap:10px;align-items:flex-start;margin:4px 0 14px">
+          <input type="checkbox" name="terms" required style="width:auto;margin-top:4px">
+          <span>${t('pm.terms.accept')} <a href="#/termos" target="_blank" rel="noopener">${t('pm.terms.link')}</a> (${esc(TERMS_VERSION)}).</span>
+        </label>
+        <button class="btn block">${t('ps.submit')}</button>
+      </form>`,
+    mount(root) {
+      root.querySelector('#psignup').onsubmit = async (e) => {
+        e.preventDefault();
+        const f = Object.fromEntries(new FormData(e.target));
+        if (f.password !== f.password2) { notify(tRaw('auth.err.mismatch')); return; }
+        const tax = onlyDigits(f.taxId);
+        if (tax && !validTaxId(tax)) { notify(tRaw('ps.err.taxid')); return; }
+        const phone = phoneValue(e.target, 's-phone');
+        if (!phone) { notify(tRaw('phone.err')); return; }
+        const button = e.target.querySelector('button');
+        button.disabled = true;
+        try {
+          const ready = await store.signUpPartnerSelf({
+            email: f.email.trim(), password: f.password, partnerName: f.partnerName.trim(), partnerType: f.partnerType, city: f.city,
+            area: f.area.trim(), address: f.address.trim(), taxId: tax, name: f.name.trim(), phone, terms: TERMS_VERSION,
+          });
+          ctx.go('', tRaw(ready ? 'ps.done' : 'ps.confirm'));
+        } catch (err) {
+          button.disabled = false;
+          notify(tRaw(err.message === 'exists' ? 'auth.err.exists' : 'ps.err'));
         }
       };
     },

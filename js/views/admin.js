@@ -134,7 +134,8 @@ function todoCounts({ guides, payoutList, paymentList, visits, adjustments, pixC
     pix: guides.filter((g) => g.status === 'validated' && g.pixStatus !== undefined
       && (g.pixStatus === 'review' || pixChecks.some((c) => c.guideId === g.id && c.status === 'pending') || (g.pixStatus !== 'verified' && g.pixKey && !openPix(g)))).length,
     transactions: visits.filter((v) => v.status === 'disputed').length + adjustments.filter((a) => a.partnerStatus !== 'settled').length,
-    partners: partnerList.filter((p) => p.status === 'active' && late.has(p.id)).length,
+    // v89 : inscriptions de partenaires à valider, en plus des partenaires en retard de paiement.
+    partners: partnerList.filter((p) => (p.status === 'active' && late.has(p.id)) || p.status === 'pending').length,
   };
 }
 
@@ -886,7 +887,11 @@ async function journal({ visits, paymentList, payoutList }) {
 
 // Boutons Actif / Suspendu (v38) : guides validés ou suspendus, et partenaires. Suspendre demande un motif (journal).
 const isOn = (kind, x) => (kind === 'guide' ? x.status === 'validated' : x.status === 'active');
-const activeToggle = (kind, x) => `<span class="row" style="gap:6px;align-items:center">
+const activeToggle = (kind, x) => (kind === 'partner' && x.status === 'pending'
+  ? `<span class="row" style="gap:6px;align-items:center"><span class="badge warn">${t('admin.act.pending')}</span>
+    <button type="button" class="btn small" data-act-kind="partner" data-act-id="${esc(x.id)}" data-act-on="1" data-act-pending="1" data-act-name="${esc(x.name)}">${t('admin.act.validate')}</button></span>`
+  : activeToggleOn(kind, x));
+const activeToggleOn = (kind, x) => `<span class="row" style="gap:6px;align-items:center">
     <span class="badge ${isOn(kind, x) ? 'ok' : 'bad'}">${t(isOn(kind, x) ? 'admin.act.on' : 'admin.act.off')}</span>
     <button type="button" class="btn small ${isOn(kind, x) ? 'ghost' : ''}" data-act-kind="${kind}" data-act-id="${esc(x.id)}" data-act-on="${isOn(kind, x) ? '0' : '1'}" data-act-name="${esc(x.name)}">${t(isOn(kind, x) ? 'admin.act.suspend' : 'admin.act.reactivate')}</button></span>`;
 // Parrainage par guide (v52) : même réglage que l'onglet Parrainage, directement sur la fiche.
@@ -940,7 +945,8 @@ function mountActive(root, ctx) {
     b.onclick = async () => {
       const kind = b.dataset.actKind; const on = b.dataset.actOn === '1'; const name = b.dataset.actName;
       let reason = null;
-      if (on) { if (!confirm(tRaw('admin.act.confirm.on', { name }))) return; }
+      const validating = b.dataset.actPending === '1';
+      if (on) { if (!confirm(tRaw(validating ? 'admin.act.confirm.validate' : 'admin.act.confirm.on', { name }))) return; }
       else {
         reason = prompt(tRaw(`admin.act.reason.${kind}`, { name }));
         if (reason === null) return;
@@ -951,7 +957,7 @@ function mountActive(root, ctx) {
         const r = kind === 'guide'
           ? await store.adminSetGuideStatus(b.dataset.actId, on ? 'validated' : 'suspended', reason)
           : await store.adminSetPartnerStatus(b.dataset.actId, on ? 'active' : 'paused', reason);
-        if (r && r.ok) ctx.refresh(tRaw(on ? 'admin.act.done.on' : 'admin.act.done.off', { name }));
+        if (r && r.ok) ctx.refresh(tRaw(validating ? 'admin.act.done.validate' : on ? 'admin.act.done.on' : 'admin.act.done.off', { name }));
         else { b.disabled = false; notify(tRaw('err.generic')); }
       } catch { b.disabled = false; notify(tRaw('err.generic')); }
     };
@@ -963,8 +969,9 @@ async function partners({ partnerList, cityList, city }) {
     html: `<div class="card">
       <h2>${t('admin.part.title')}</h2>
       <button type="button" class="btn ghost small" id="suspend-late">${t('admin.part.late')}</button>
-      <ul class="list">${partnerList.map((p) => `<li>
+      <ul class="list">${[...partnerList].sort((a, b) => Number(b.status === 'pending') - Number(a.status === 'pending')).map((p) => `<li>
         <div class="spread"><b>${esc(p.name)}</b>${activeToggle('partner', p)}</div>
+        ${p.status === 'pending' ? `<div class="notice warn" style="margin:6px 0">${t('admin.part.pending.hint', { name: p.managerName || '', phone: p.managerPhone || '', email: p.managerEmail || '' })}</div>` : ''}
         ${partnerPlus(p, new Date().toISOString().slice(0, 10))}
         <div class="hint">${t(`ptype.${p.type}`)} · ${esc(p.area || '')} · ${esc(city(p.cityId)?.name || '')}</div>
         <div class="hint">${t('admin.part.taxid')} ${p.taxId ? esc(fmtTaxId(p.taxId)) : `<b>${t('admin.missing')}</b>`}</div>
