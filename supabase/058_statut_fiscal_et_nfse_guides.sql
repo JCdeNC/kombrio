@@ -48,6 +48,16 @@ alter table payout_lines add column if not exists nf_number text check (nf_numbe
 alter table payout_lines add column if not exists nf_file jsonb check (nf_file is null or length(nf_file->>'data') < 3000000);
 alter table payout_lines add column if not exists nf_at timestamptz;
 
+-- Les lignes de virement restent figées (montants, partenaire, retenue) : seule la NFS-e (numéro, fichier, date) peut être jointe.
+create or replace function public.payout_lines_readonly() returns trigger language plpgsql as $$
+begin
+  if tg_op = 'UPDATE'
+     and (to_jsonb(new) - array['nf_number', 'nf_file', 'nf_at']) = (to_jsonb(old) - array['nf_number', 'nf_file', 'nf_at']) then
+    return new;
+  end if;
+  raise exception 'ligne de virement non modifiable';
+end $$;
+
 -- Nombre de NFS-e encore attendues pour un virement.
 create or replace function public.payout_nf_missing(p_payout uuid) returns int
 language sql stable security definer set search_path = public as $$
