@@ -1322,6 +1322,15 @@ export default {
   'np.send': "Envoyer",
   'np.sent': "Merci ! Kombrio va vous contacter.",
   'np.err.missing': "Indiquez le nom de l'établissement, votre nom et un WhatsApp ou un e-mail.",
+  // v91 : langue du partenaire, alerte interne, bienvenue, réponses types.
+  'ps.welcome.title': "Bienvenue chez Kombrio, {name} !",
+  'ps.welcome.text': "Votre inscription est validée : votre espace est actif. Les guides peuvent vous amener des clients ; scannez le QR du client à chaque visite.",
+  'admin.al.internal': "Interne",
+  'admin.al.internal.hint': "Rappel automatique pour Kombrio : le partenaire ne le voit pas. À la validation, il est clos et un e-mail de bienvenue part dans la langue du partenaire.",
+  'admin.al.internal.go': "Ouvrir l'onglet Partenaires",
+  'admin.al.tpl.taken': "Réponse type : pris en charge",
+  'admin.al.tpl.done': "Réponse type : réglé",
+  'admin.part.lang': "langue : {lang}",
   // v90 : lecture automatique du comprovante.
   'rc.pick': "Comprovante",
   'rc.hint': "Joignez la capture du reçu (ou Cmd+V) : l'E2E se remplit tout seul.",

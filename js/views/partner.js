@@ -185,7 +185,7 @@ export async function signupView(params, ctx) {
         try {
           const ready = await store.signUpPartnerSelf({
             email: f.email.trim(), password: f.password, partnerName: f.partnerName.trim(), partnerType: f.partnerType, city: f.city,
-            area: f.area.trim(), address: f.address.trim(), taxId: tax, name: f.name.trim(), phone, terms: TERMS_VERSION,
+            area: f.area.trim(), address: f.address.trim(), taxId: tax, name: f.name.trim(), phone, terms: TERMS_VERSION, lang: getLang(),
           });
           ctx.go('', tRaw(ready ? 'ps.done' : 'ps.confirm'));
         } catch (err) {
@@ -756,6 +756,8 @@ export function spaceView(space, tab = 'painel') {
   else if (late >= 7) banner = `<div class="notice warn"><b>${t('pd.late7.title', { n: late })}</b><br>${t('pd.late7.text', { amount: c(payCents) })}</div>`;
   if (rejected) banner += `<div class="notice bad"><b>${t('pd.rejected.title', { num: rejected.num })}</b><br>${esc(rejected.note || '')} ${t('pd.rejected.text')}</div>`;
   if (fresh) banner += `<div class="notice">${t('pd.welcome')}</div>`;
+  // v91 : bienvenue pendant 14 jours après la validation par Kombrio (dans la langue de l'app).
+  if (partner.validatedAt && ageDays(partner.validatedAt) < 14) banner += `<div class="notice ok"><b>${t('ps.welcome.title', { name: partner.name })}</b><br>${t('ps.welcome.text')}</div>`;
   // Alertes envoyées à Kombrio : en cours, ou résolues depuis moins de 7 jours avec une réponse.
   alerts.filter((a) => a.status !== 'resolved' || (a.answer && ageDays(a.resolvedAt) < 7)).forEach((a) => {
     banner += `<div class="notice ${a.status === 'resolved' ? 'ok' : ''}"><b>${t('alert.line', { num: a.num, topic: topicLabel('partner', a.topic), status: alertStatus(a.status) })}</b><br>${a.answer ? t('alert.answer', { text: a.answer }) : t('alert.wait')}</div>`;

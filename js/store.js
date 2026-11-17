@@ -41,6 +41,7 @@ const toGuide = (r) => r && ({
 const toPartner = (r) => r && ({
   id: r.id, cityId: r.city_id, type: r.type, name: r.name, area: r.area, offer: r.offer || '', token: r.token, status: r.status, taxId: r.tax_id,
   photo: r.photo || '', address: r.address || '', reportToken: r.report_token || '', managerToken: r.manager_token || '',
+  lang: r.lang || 'pt', validatedAt: r.validated_at || '',
   activationCode: r.activation_code || '', managerName: r.manager_name || '', managerEmail: r.manager_email || '',
   managerPhone: r.manager_phone || '', commissionRate: r.commission_rate == null ? 0.1 : Number(r.commission_rate), termsVersion: r.terms_version || '', termsAcceptedAt: r.terms_accepted_at || '', termsSha: r.terms_sha256 || '', circleEnabled: !!r.circle_enabled, founderUntil: r.founder_until || '',
   // v66 : ancien QR caisse actif ou coupé ; photo de l'addition obligatoire (personnel) à partir de ce montant.
@@ -221,10 +222,10 @@ export async function signUpPartner({ email, password, code, name, phone, terms 
   return Boolean(data.session);
 }
 // v89 : un établissement s'inscrit lui-même (établissement + accès du gérant), puis l'administrateur le valide.
-export async function signUpPartnerSelf({ email, password, partnerName, partnerType, city, area, address, taxId, name, phone, terms }) {
+export async function signUpPartnerSelf({ email, password, partnerName, partnerType, city, area, address, taxId, name, phone, terms, lang }) {
   const { data, error } = await sb.auth.signUp({
     email, password,
-    options: { data: { role: 'partner_signup', partner_name: partnerName, partner_type: partnerType, city, area, address, tax_id: taxId, name, phone, terms },
+    options: { data: { role: 'partner_signup', partner_name: partnerName, partner_type: partnerType, city, area, address, tax_id: taxId, name, phone, terms, lang },
       emailRedirectTo: location.href.split('#')[0] },
   });
   if (error) throw new Error(error.message.includes('registered') ? 'exists' : 'signup');
@@ -743,6 +744,7 @@ export async function setReferralReward(id, action, text = null) {
 const toAlert = (r) => r && ({
   id: r.id, num: num(r.num), authorKind: r.author_kind, guideId: r.guide_id, partnerId: r.partner_id, visitId: r.visit_id,
   topic: r.topic, message: r.message || '', status: r.status, answer: r.answer || '', createdAt: r.created_at, resolvedAt: r.resolved_at || '',
+  internal: !!r.internal, partnerLang: r.partners?.lang || 'pt',
   guideName: r.guides?.name || '', partnerName: r.partners?.name || '', visitNum: num(r.visits?.num), visitCode: r.visits?.code || '',
 });
 export async function guideCreateAlert(topic, message, visitId = null) {
@@ -764,7 +766,7 @@ export async function countFaqSolved(kind, topic) {
   try { await sb.rpc('count_faq_solved', { p_kind: kind, p_topic: topic }); } catch { /* simple compteur */ }
 }
 export async function adminListAlerts() {
-  const { data, error } = await sb.from('alerts').select('*, guides(name), partners(name), visits(num, code)').order('created_at', { ascending: false }).limit(200);
+  const { data, error } = await sb.from('alerts').select('*, guides(name), partners(name, lang), visits(num, code)').order('created_at', { ascending: false }).limit(200);
   return error ? [] : data.map(toAlert);
 }
 export async function adminFaqSolvedSince(iso) {

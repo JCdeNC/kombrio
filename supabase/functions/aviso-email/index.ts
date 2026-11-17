@@ -1,4 +1,4 @@
-// Fonction Supabase « aviso-email » (v56 ; rappel des passages v59 ; bilan hebdomadaire admin + n° Brevo v66) : envoie les e-mails du cycle notés dans la boîte d'envoi (table mail_outbox).
+// Fonction Supabase « aviso-email » (v56 ; bienvenue partenaire v91 ; rappel des passages v59 ; bilan hebdomadaire admin + n° Brevo v66) : envoie les e-mails du cycle notés dans la boîte d'envoi (table mail_outbox).
 // Appelée par la base (script 031) avec le numéro interne de l'e-mail, juste après sa mise en file.
 // Sûre même si quelqu'un l'appelle à la main : elle n'envoie qu'un e-mail existant, encore « queued », une seule fois.
 // Secret déjà en place : BREVO_API_KEY.
@@ -87,6 +87,22 @@ function build(kind: string, p: Record<string, unknown>): { subject: string; htm
          <table style="border-collapse:collapse;width:100%;font-size:14px">${lines}</table>
          <p style="margin:16px 0 0;color:#5B6F78;font-size:13px">Admin › Virements › « Virements J+1 » : Préparer le virement J+1, puis Envoyer par Inter.</p>`,
         'https://app.kombrio.com.br/admin/', 'Ouvrir l’admin'),
+    };
+  }
+  if (kind === 'partner_welcome') {
+    // v91 : bienvenue au partenaire validé, dans la langue de son inscription (portugais par défaut).
+    const W: Record<string, { s: string; h: string; b: string; l: string; f: string }> = {
+      pt: { s: 'Bem-vindo à Kombrio', h: 'Bem-vindo à Kombrio{m}!', b: 'O cadastro de <b>{p}</b> foi validado: o seu espaço de parceiro está ativo. Os guias já podem trazer clientes e você registra cada visita escaneando o QR do cliente.', l: 'Abrir meu espaço', f: 'Kombrio · e-mail automático, não responda. Dúvidas: contato@kombrio.com.br' },
+      fr: { s: 'Bienvenue chez Kombrio', h: 'Bienvenue chez Kombrio{m} !', b: 'L’inscription de <b>{p}</b> est validée : votre espace partenaire est actif. Les guides peuvent maintenant vous amener des clients ; vous enregistrez chaque visite en scannant le QR du client.', l: 'Ouvrir mon espace', f: 'Kombrio · e-mail automatique, ne pas répondre. Questions : contato@kombrio.com.br' },
+      en: { s: 'Welcome to Kombrio', h: 'Welcome to Kombrio{m}!', b: '<b>{p}</b> has been approved: your partner space is active. Guides can now bring you customers; you record each visit by scanning the customer’s QR code.', l: 'Open my space', f: 'Kombrio · automatic e-mail, do not reply. Questions: contato@kombrio.com.br' },
+      es: { s: 'Bienvenido a Kombrio', h: '¡Bienvenido a Kombrio{m}!', b: 'El registro de <b>{p}</b> fue validado: su espacio de socio está activo. Los guías ya pueden traerle clientes; usted registra cada visita escaneando el QR del cliente.', l: 'Abrir mi espacio', f: 'Kombrio · e-mail automático, no responda. Dudas: contato@kombrio.com.br' },
+    };
+    const w = W[String(p.lang)] || (p.lang === 'de' ? W.en : W.pt);
+    const m = p.manager ? `, ${esc(p.manager)}` : '';
+    return {
+      subject: `${w.s} · ${String(p.partner ?? '')}`,
+      html: box(w.h.replace('{m}', m), `<p>${w.b.replace('{p}', esc(p.partner))}</p>`, 'https://app.kombrio.com.br/partner/', w.l)
+        .replace('Kombrio · e-mail automático, não responda. Dúvidas: contato@kombrio.com.br', w.f),
     };
   }
   if (kind === 'admin_report') {

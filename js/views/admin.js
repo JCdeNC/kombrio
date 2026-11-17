@@ -1,6 +1,6 @@
 // Administration (français, passable en portugais) : validations, paiements, reversements, partenaires, villes.
 // Accès réservé au compte qui a le rôle « admin » dans la base (le tout premier créé ici).
-import { t, tRaw, getLang } from '../i18n.js';
+import { t, tRaw, getLang, LANGS } from '../i18n.js';
 import { esc, money, cents, parseCents, fmtMoment, fmtDay, qrSvg, appLink, notify, confirmTwice, validTaxId, fmtTaxId, onlyDigits } from '../util.js';
 import * as store from '../store.js';
 import { receiptZone, mountReceipts } from '../receipt.js';
@@ -140,6 +140,17 @@ function todoCounts({ guides, payoutList, paymentList, visits, adjustments, pixC
   };
 }
 
+// v91 : réponses types aux alertes, dans la langue de l'auteur. Les modifier ici si besoin.
+const REPLY_TPL = {
+  pt: { taken: 'Olá! Recebemos a sua mensagem e já estamos verificando. Voltamos a falar com você em breve.\nEquipe Kombrio', done: 'Olá! O seu pedido foi resolvido. Obrigado pela confiança.\nEquipe Kombrio' },
+  fr: { taken: 'Bonjour ! Nous avons bien reçu votre message et nous regardons tout de suite. Nous revenons vers vous très vite.\nL’équipe Kombrio', done: 'Bonjour ! Votre demande est réglée. Merci de votre confiance.\nL’équipe Kombrio' },
+  en: { taken: 'Hello! We received your message and are looking into it. We will get back to you shortly.\nThe Kombrio team', done: 'Hello! Your request has been resolved. Thank you for your trust.\nThe Kombrio team' },
+  es: { taken: '¡Hola! Recibimos su mensaje y ya lo estamos revisando. Le responderemos muy pronto.\nEquipo Kombrio', done: '¡Hola! Su solicitud fue resuelta. Gracias por su confianza.\nEquipo Kombrio' },
+  de: { taken: 'Hallo! Wir haben Ihre Nachricht erhalten und kümmern uns darum. Wir melden uns in Kürze.\nIhr Kombrio-Team', done: 'Hallo! Ihr Anliegen ist erledigt. Vielen Dank für Ihr Vertrauen.\nIhr Kombrio-Team' },
+};
+const replyLang = (a) => (a.authorKind === 'partner' && REPLY_TPL[a.partnerLang] ? a.partnerLang : 'pt');
+const langName = (code) => (LANGS.find(([c]) => c === code) || [code, code])[1];
+
 // Alertes (v33) : envoyées par les guides et les partenaires quand la FAQ ne suffit pas. L'autre partie ne les voit jamais.
 async function alertas({ alerts }) {
   const lang = getLang();
@@ -156,14 +167,21 @@ async function alertas({ alerts }) {
       <div class="hint"><span class="badge">${t(kind === 'guide' ? 'admin.al.guide' : 'admin.al.partner')}</span>
         ${esc(kind === 'guide' ? a.guideName : a.partnerName)} · ${fmtMoment(a.createdAt, lang, 'America/Sao_Paulo')}${a.visitNum ? ` · ${esc(store.fmtCode(a.visitCode) || store.txNum(a.visitNum))}` : ''}</div>
       <p style="margin:6px 0">${a.message ? esc(a.message) : `<span class="hint">${t('admin.al.empty')}</span>`}</p>
+      ${a.internal ? `<form class="al-form" data-id="${esc(a.id)}"><p class="hint" style="margin:0 0 6px"><span class="badge">${t('admin.al.internal')}</span> ${t('admin.al.internal.hint')}</p>
+        <div class="row" style="gap:6px"><a class="btn small" href="#/partners">${t('admin.al.internal.go')}</a>
+          ${a.status !== 'resolved' ? `<button class="btn small ghost" data-st="resolved">${t('admin.al.close')}</button>` : ''}</div></form></li>` : `
       <form class="al-form" data-id="${esc(a.id)}">
-        <div class="field" style="margin:0 0 6px"><label>${t('admin.al.answer')}</label><textarea name="answer" rows="2" maxlength="1000" style="width:100%">${esc(a.answer)}</textarea></div>
+        <div class="field" style="margin:0 0 6px"><label>${t('admin.al.answer')} <span class="hint">· ${esc(langName(replyLang(a)))}</span></label><textarea name="answer" rows="2" maxlength="1000" style="width:100%">${esc(a.answer)}</textarea></div>
+        <div class="row" style="gap:6px;margin-bottom:6px">
+          <button type="button" class="btn small ghost" data-tpl="taken" data-lang="${replyLang(a)}">${t('admin.al.tpl.taken')}</button>
+          <button type="button" class="btn small ghost" data-tpl="done" data-lang="${replyLang(a)}">${t('admin.al.tpl.done')}</button>
+        </div>
         <div class="row" style="gap:6px">
           ${a.status === 'new' ? `<button class="btn small" data-st="in_progress">${t('admin.al.take')}</button>` : ''}
           ${a.status !== 'resolved' ? `<button class="btn small secondary" data-st="${a.status}">${t('admin.al.save')}</button><button class="btn small ghost" data-st="resolved">${t('admin.al.close')}</button>`
             : `<button class="btn small ghost" data-st="in_progress">${t('admin.al.reopen')}</button>`}
           ${a.visitId ? `<button type="button" class="btn small ghost" data-bphoto="${esc(a.visitId)}">${t('admin.al.photo')}</button>` : ''}
-        </div></form></li>`;
+        </div></form></li>`}`;
   };
   return {
     html: `<div class="pd-kpis">
@@ -174,6 +192,12 @@ async function alertas({ alerts }) {
       </div>
       <div class="card"><h2>${t('admin.al.list')}</h2>${list.length ? `<ul class="list">${list.map(item).join('')}</ul>` : `<p class="hint">${t('admin.al.none')}</p>`}</div>`,
     mount(root, ctx) {
+      // v91 : réponse type dans la langue de l'auteur (partenaire : langue d'inscription ; guide : portugais).
+      root.querySelectorAll('[data-tpl]').forEach((b) => { b.onclick = () => {
+        const area = b.closest('form').answer;
+        area.value = REPLY_TPL[b.dataset.lang]?.[b.dataset.tpl] || REPLY_TPL.pt[b.dataset.tpl];
+        area.focus();
+      }; });
       // v66 : photo de l'addition, seulement dans un litige (consultation notée au journal).
       root.querySelectorAll('[data-bphoto]').forEach((b) => { b.onclick = async (e) => {
         e.preventDefault();
@@ -185,7 +209,7 @@ async function alertas({ alerts }) {
         f.querySelectorAll('[data-st]').forEach((b) => {
           b.onclick = async (e) => {
             e.preventDefault(); b.disabled = true;
-            try { await store.adminSetAlert(f.dataset.id, b.dataset.st, f.answer.value); ctx.refresh(tRaw('common.saved')); }
+            try { await store.adminSetAlert(f.dataset.id, b.dataset.st, f.answer ? f.answer.value : null); ctx.refresh(tRaw('common.saved')); }
             catch { b.disabled = false; notify(tRaw('err.generic')); }
           };
         });
@@ -992,7 +1016,7 @@ async function partners({ partnerList, cityList, city }) {
         <div class="spread"><b>${esc(p.name)}</b>${activeToggle('partner', p)}</div>
         ${p.status === 'pending' ? `<div class="notice warn" style="margin:6px 0">${t('admin.part.pending.hint', { name: p.managerName || '', phone: p.managerPhone || '', email: p.managerEmail || '' })}</div>` : ''}
         ${partnerPlus(p, new Date().toISOString().slice(0, 10))}
-        <div class="hint">${t(`ptype.${p.type}`)} · ${esc(p.area || '')} · ${esc(city(p.cityId)?.name || '')}</div>
+        <div class="hint">${t(`ptype.${p.type}`)} · ${esc(p.area || '')} · ${esc(city(p.cityId)?.name || '')} · ${t('admin.part.lang', { lang: langName(p.lang) })}</div>
         <div class="hint">${t('admin.part.taxid')} ${p.taxId ? esc(fmtTaxId(p.taxId)) : `<b>${t('admin.missing')}</b>`}</div>
         ${p.offer ? `<div class="offer">${esc(p.offer)}</div>` : `<div class="hint">${t('admin.part.nooffer')}</div>`}
         <details style="margin-top:8px"><summary>${t('admin.part.showcase')}</summary>
