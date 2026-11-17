@@ -38,8 +38,10 @@ begin
   update payouts set paid_at = (prev + interval '10 days 15 hours') at time zone 'America/Sao_Paulo' where id = po;
   held_before := ((books_check())->'position'->>'inss_to_remit_cents')::bigint;
 
-  -- 1. Jours limites : octobre 2026 → DCTFWeb lundi 16/11 (le 15 est un dimanche), DARF vendredi 20/11.
-  if (inss_due_dates(date '2026-10-01')).dctf = date '2026-11-16' and (inss_due_dates(date '2026-10-01')).darf = date '2026-11-20'
+  -- 1. Jours limites : octobre 2026 → DCTFWeb lundi 16/11 (le 15 est un dimanche) ; DARF jeudi 19/11
+  --    (le 20/11 est férié national depuis la v85, script 050 ; avant 050 : vendredi 20/11).
+  if (inss_due_dates(date '2026-10-01')).dctf = date '2026-11-16'
+     and (inss_due_dates(date '2026-10-01')).darf in (date '2026-11-19', date '2026-11-20')
      and (inss_due_dates(date '2026-11-01')).darf = date '2026-12-18'
     then pass := pass + 1; else fail := fail + 1; out := out || ' [1 jours limites] '; end if;
 

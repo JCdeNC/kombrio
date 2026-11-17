@@ -791,3 +791,21 @@ export async function acceptGuideTerms(version) {
 export async function acceptPartnerTerms(managerToken, version) {
   return check(await sb.rpc('accept_partner_terms', { p_manager_token: managerToken, p_version: version }));
 }
+
+/* ---------- Agenda administratif (v85, script 050) ---------- */
+// Échéances d'un mois (obligations + échéances vivantes) ; null si le script 050 manque. month = 'AAAA-MM'.
+export async function adminAgenda(month) {
+  const { data, error } = await sb.rpc('admin_agenda', { p_month: `${month}-01` });
+  return error ? null : data;
+}
+export async function listObligations() {
+  const { data, error } = await sb.from('admin_obligations').select('*').order('sort').order('id');
+  return error ? [] : data || [];
+}
+export async function saveObligation(o) { return check(await sb.rpc('admin_obligation_save', { p: o })); }
+export async function markObligation(id, due, done, ref, note) {
+  return check(await sb.rpc('admin_obligation_mark', { p_obligation: id, p_due: due, p_done: done, p_ref: ref || null, p_note: note || null }));
+}
+export async function saveAdminSettings({ name, cnpj, opened, regime }) {
+  return check(await sb.rpc('admin_settings_save', { p_name: name || null, p_cnpj: cnpj || null, p_opened: opened || null, p_regime: regime }));
+}

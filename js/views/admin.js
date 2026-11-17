@@ -9,9 +9,10 @@ import { topicLabel, alertStatus } from './help.js';
 import { GUIDE_TERMS_VERSION } from './guide.js';
 import { TERMS_VERSION } from './partner.js';
 import { inssAdmin } from './admin-inss.js';
+import { agendaAdmin, agendaTodo, agendaLabel } from './admin-agenda.js';
 
-const TABS = ['dashboard', 'alertas', 'validations', 'payments', 'payouts', 'inss', 'pix', 'referral', 'transactions', 'partners', 'cities', 'journal'];
-const TAB_GROUPS = [['todo', ['alertas', 'payments', 'payouts', 'inss', 'pix']], ['network', ['validations', 'partners', 'cities', 'referral']], ['records', ['transactions', 'journal']]];
+const TABS = ['dashboard', 'agenda', 'alertas', 'validations', 'payments', 'payouts', 'inss', 'pix', 'referral', 'transactions', 'partners', 'cities', 'journal'];
+const TAB_GROUPS = [['todo', ['agenda', 'alertas', 'payments', 'payouts', 'inss', 'pix']], ['network', ['validations', 'partners', 'cities', 'referral']], ['records', ['transactions', 'journal']]];
 
 export async function adminView([tab = 'dashboard']) {
   if (store.inRecovery() && await store.hasSession()) return resetView();
@@ -31,7 +32,7 @@ export async function adminView([tab = 'dashboard']) {
   const link = (k) => `<a href="#/${k}" class="${k === tab ? 'on' : ''}">${t(`admin.tab.${k}`)}${todo[k] ? `<span class="todo" title="${esc(tRaw('admin.todo.hint'))}">${todo[k]}</span>` : ''}</a>`;
   const nav = `<nav class="tabs tabs-grouped">${link('dashboard')}${TAB_GROUPS.map(([g, ks]) => `<span class="tgrp"><span class="tg">${t(`admin.group.${g}`)}</span>${ks.map(link).join('')}</span>`).join('')}</nav>`;
   data.todo = todo;
-  const view = await ({ dashboard, alertas, validations, payments, payouts, inss: inssAdmin, pix: pixAdmin, referral, transactions, partners, cities, journal })[tab](data);
+  const view = await ({ dashboard, agenda: agendaAdmin, alertas, validations, payments, payouts, inss: inssAdmin, pix: pixAdmin, referral, transactions, partners, cities, journal })[tab](data);
   return {
     html: `<div class="spread"><h1>${t('admin.title')}</h1>
         <span class="hint">${esc(me.email)} <button class="btn ghost small" id="logout">${t('common.logout')}</button></span></div>
@@ -87,29 +88,31 @@ function loginView() {
 const plural = (key, n) => tRaw(`${key}.${n === 1 ? 'one' : 'other'}`, { n });
 
 async function loadAll() {
-  const [cityList, guides, partnerList, visits, payoutList, paymentList, adjustments, pixChecks, expenses, cadChecks, alerts, inssTodo] = await Promise.all([
+  const [cityList, guides, partnerList, visits, payoutList, paymentList, adjustments, pixChecks, expenses, cadChecks, alerts, inssTodo, agenda] = await Promise.all([
     store.listCities(), store.listGuides(), store.listPartners(), store.listVisits(), store.listPayouts(), store.listPayments(),
     store.listAdjustments(), store.listPixVerifications(), store.listExpenses(), store.listCadasturChecks(), store.adminListAlerts(),
-    store.adminInssTodo(),
+    store.adminInssTodo(), store.adminAgenda(new Date().toISOString().slice(0, 7)),
   ]);
   const city = (id) => cityList.find((c) => c.id === id);
   const guide = (id) => guides.find((g) => g.id === id);
   const partner = (id) => partnerList.find((p) => p.id === id);
   const cur = (n, cityId) => cents(n, city(cityId)?.currency || 'BRL', getLang());
-  return { cityList, guides, partnerList, visits, payoutList, paymentList, adjustments, pixChecks, expenses, cadChecks, alerts, inssTodo: inssTodo || [], city, guide, partner, cur };
+  return { cityList, guides, partnerList, visits, payoutList, paymentList, adjustments, pixChecks, expenses, cadChecks, alerts, inssTodo: inssTodo || [], agenda, city, guide, partner, cur };
 }
 // Corrections pas encore reversées et déjà dues au guide : une baisse tout de suite, une hausse une fois le complément reçu.
 const openAdjustments = (adjustments, guideId) => adjustments.filter((a) => (!guideId || a.guideId === guideId) && !a.payoutId
   && (a.guideDelta < 0 || a.partnerStatus === 'settled'));
 
 // Pastilles des onglets : nombre de tâches qui attendent une action de l'admin.
-function todoCounts({ guides, payoutList, paymentList, visits, adjustments, pixChecks, partnerList, alerts, inssTodo = [] }) {
+function todoCounts({ guides, payoutList, paymentList, visits, adjustments, pixChecks, partnerList, alerts, inssTodo = [], agenda = null }) {
   const openPix = (g) => pixChecks.some((c) => c.guideId === g.id && ['pending', 'sent'].includes(c.status) && !c.verifiedAt);
   const late = new Set(visits.filter((v) => v.status === 'declared' && v.declaredAt && Date.now() - new Date(v.declaredAt) > 30 * 864e5).map((v) => v.partnerId));
   return {
     alertas: alerts.filter((a) => a.status === 'new').length,
     // v84 : déclarations INSS des mois passés pas encore payées (ou en écart).
     inss: inssTodo.length,
+    // v85 : échéances en retard ou dans les 3 jours.
+    agenda: agendaTodo(agenda),
     validations: guides.filter((g) => g.status === 'pending').length,
     payments: paymentList.filter((p) => p.status === 'submitted').length,
     payouts: payoutList.filter((p) => p.status === 'in_progress').length
@@ -178,7 +181,7 @@ async function alertas({ alerts }) {
 const sumOf = (list, key) => list.reduce((s, v) => s + (v[key] || 0), 0);
 const IN = (v, ...st) => st.includes(v.status);
 
-async function dashboard({ guides, partnerList, visits, adjustments, cur, cityList, todo = {} }) {
+async function dashboard({ guides, partnerList, visits, adjustments, cur, cityList, todo = {}, agenda = null }) {
   const cityId = cityList[0]?.id;
   const lang = getLang(); const tz = cityList[0]?.timezone || 'America/Sao_Paulo';
   const months6 = lastMonths(6, tz);
@@ -196,10 +199,19 @@ async function dashboard({ guides, partnerList, visits, adjustments, cur, cityLi
   // v60 : « À faire aujourd'hui » en tête, avec un lien vers chaque onglet concerné.
   const todoLines = TABS.filter((k) => todo[k]).map((k) => `<li><a href="#/${k}">${t(`admin.tab.${k}`)}</a> <span class="todo-n">${todo[k]}</span></li>`);
   if (openLeads.length) todoLines.push(`<li>${t('lead.title')} <span class="hint">(${t('admin.today.below')})</span> <span class="todo-n">${openLeads.length}</span></li>`);
+  // v85 : les 7 prochains jours de l'agenda (et les retards), en tête du tableau de bord.
+  const agToday = agenda?.today || new Date().toISOString().slice(0, 10);
+  const agEnd = new Date(`${agToday}T12:00:00Z`); agEnd.setUTCDate(agEnd.getUTCDate() + 7);
+  const agNext = agenda ? [...(agenda.overdue || []), ...(agenda.items || []).filter((x) => ['late', 'soon', 'todo'].includes(x.status) && x.due <= agEnd.toISOString().slice(0, 10))]
+    .sort((a, b) => a.due.localeCompare(b.due)) : [];
+  const agendaCard = agenda ? `<div class="card"><div class="spread"><h2 style="margin:0">${t('ag.dash')}</h2><a class="btn ghost small" href="#/agenda">${t('admin.tab.agenda')}</a></div>
+    ${agNext.length ? `<ul class="list">${agNext.slice(0, 8).map((x) => `<li class="ag-item ag-${esc(x.category)}"><div class="spread"><span><span class="ag-dot"></span>${agendaLabel(x)}</span>
+      <span class="badge ${x.status === 'late' ? 'bad' : x.status === 'soon' ? 'warn' : ''}">${fmtDay(x.due, lang)}</span></div></li>`).join('')}</ul>` : `<p class="hint" style="margin:0">${t('ag.dash.none')}</p>`}</div>` : '';
   const todoCard = `<div class="card"><h2>${t('admin.today')}</h2>${todoLines.length ? `<ul class="admin-todo">${todoLines.join('')}</ul>` : `<p class="hint" style="margin:0">${t('admin.today.none')}</p>`}</div>`;
   return {
     html: `
       ${todoCard}
+      ${agendaCard}
       ${leadsCard}
       <div class="stats">
         <div class="stat"><b>${live.length}</b><span>${t('admin.stat.visits')}</span></div>
