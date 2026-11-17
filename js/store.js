@@ -32,7 +32,7 @@ const toCity = (r) => r && ({
 const toGuide = (r) => r && ({
   id: r.id, cityId: r.city_id, name: r.name, phone: r.phone, license: r.license, photo: r.photo,
   status: r.status, email: r.email, cpf: r.cpf, cnpj: r.cnpj || '', taxKind: r.tax_kind === 'cnpj' ? 'cnpj' : 'cpf', fiscalStatus: r.fiscal_status || (r.tax_kind === 'cnpj' ? 'mei' : 'cpf'), pixKey: r.pix_key, pixHolder: r.pix_holder || '', createdAt: r.created_at, weeklyPayout: !!r.weekly_payout, code: r.code || '',
-  referralEnabled: !!r.referral_enabled,
+  referralEnabled: !!r.referral_enabled, actorKind: r.actor_kind || 'guide', // v99 : guide, tc (Tour Company), agency
   // Module Pix (v30) : undefined tant que le script 015 n'est pas lancé.
   pixKeyType: r.pix_key_type || '', pixKeyVersion: r.pix_key_version ?? null, pixStatus: r.pix_status, pixVerifiedAt: r.pix_verified_at || '',
   termsVersion: r.terms_version || '', termsAcceptedAt: r.terms_accepted_at || '',
@@ -41,7 +41,7 @@ const toGuide = (r) => r && ({
 const toPartner = (r) => r && ({
   id: r.id, cityId: r.city_id, type: r.type, name: r.name, area: r.area, offer: r.offer || '', token: r.token, status: r.status, taxId: r.tax_id,
   photo: r.photo || '', address: r.address || '', reportToken: r.report_token || '', managerToken: r.manager_token || '',
-  lang: r.lang || 'pt', validatedAt: r.validated_at || '', groupId: r.group_id || null,
+  lang: r.lang || 'pt', validatedAt: r.validated_at || '', rateTc: Number(r.rate_tc) || 0, rateAgency: Number(r.rate_agency) || 0, groupId: r.group_id || null,
   activationCode: r.activation_code || '', managerName: r.manager_name || '', managerEmail: r.manager_email || '',
   managerPhone: r.manager_phone || '', commissionRate: r.commission_rate == null ? 0.1 : Number(r.commission_rate), termsVersion: r.terms_version || '', termsAcceptedAt: r.terms_accepted_at || '', termsSha: r.terms_sha256 || '', circleEnabled: !!r.circle_enabled, founderUntil: r.founder_until || '',
   // v66 : ancien QR caisse actif ou coupé ; photo de l'addition obligatoire (personnel) à partir de ce montant.
@@ -203,12 +203,12 @@ export async function setNewPassword(password) {
 }
 
 // Inscription d'un guide. Renvoie false si la base demande d'abord de confirmer l'e-mail.
-export async function signUpGuide({ email, password, name, phone, license, cityId, cpf, cnpj = null, pixKey, pixType = null, pixHolder = null, refCode }) {
+export async function signUpGuide({ email, password, name, phone, license, cityId, cpf, cnpj = null, pixKey, pixType = null, pixHolder = null, refCode, actorKind = 'guide' }) {
   const { data, error } = await sb.auth.signUp({
     email, password,
-    options: { data: { role: 'guide', name, phone, license, city_id: cityId, cpf, cnpj, pix_key: pixKey, pix_type: pixType, pix_holder: pixHolder, ref_code: refCode || null }, emailRedirectTo: location.href.split('#')[0] },
+    options: { data: { role: 'guide', name, phone, license, city_id: cityId, cpf, cnpj, pix_key: pixKey, pix_type: pixType, pix_holder: pixHolder, ref_code: refCode || null, actor_kind: actorKind }, emailRedirectTo: location.href.split('#')[0] },
   });
-  if (error) throw new Error(error.message.includes('registered') ? 'exists' : 'auth');
+  if (error) throw new Error(error.message.includes('registered') ? 'exists' : error.message.includes('cnpj_required') ? 'cnpj' : 'auth');
   return Boolean(data.session);
 }
 
@@ -402,6 +402,10 @@ export async function setPartnerOfferFull(managerToken, { offer, priceCents, pro
 export const isoWeekday = (day) => new Date(`${day}T12:00:00Z`).getUTCDay() || 7;
 export const offerActive = (p, day) => (!p.offerStart || day >= p.offerStart) && (!p.offerEnd || day <= p.offerEnd)
   && (!p.offerDays || !p.offerDays.length || p.offerDays.includes(isoWeekday(day)));
+// v99 : taux du partenaire pour les Tour Companies et les agences (s'ajoutent au taux guide).
+export async function setPartnerRoleRates(managerToken, tc, agency) {
+  return check(await sb.rpc('set_partner_role_rates', { p_manager_token: managerToken, p_tc: tc, p_agency: agency }));
+}
 export async function setCommissionRate(managerToken, rate) {
   return check(await sb.rpc('set_commission_rate', { p_manager_token: managerToken, p_rate: rate }));
 }

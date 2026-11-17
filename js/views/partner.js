@@ -884,6 +884,15 @@ export function spaceView(space, tab = 'painel') {
             <input id="m-child" name="child" inputmode="decimal" placeholder="${t('partner.model.child.ph')}" value="${partner.childCents ? (partner.childCents / 100).toFixed(2).replace('.', ',') : ''}"></div></div>
         <button class="btn secondary">${t('common.save')}</button>
       </form>
+      <form class="card" id="roles">
+        <h2>${t('roles.title')}</h2><p class="hint">${t('roles.hint')}</p>
+        <div class="grid2 rs-keep2">
+          <div class="field"><label for="r-tc">${t('roles.tc')} (%)</label><input id="r-tc" name="tc" inputmode="decimal" value="${partner.rateTc ? String(Math.round(partner.rateTc * 10000) / 100).replace('.', ',') : ''}" placeholder="0"></div>
+          <div class="field"><label for="r-ag">${t('roles.agency')} (%)</label><input id="r-ag" name="agency" inputmode="decimal" value="${partner.rateAgency ? String(Math.round(partner.rateAgency * 10000) / 100).replace('.', ',') : ''}" placeholder="5"></div>
+        </div>
+        <p class="hint" style="margin:0 0 8px">${t('roles.example')}</p>
+        <button class="btn secondary">${t('common.save')}</button>
+      </form>
       <form class="card" id="extras">
         <h2>${t('partner.extras.title')}</h2>
         <p class="hint">${t('partner.extras.hint')}</p>
@@ -1050,6 +1059,15 @@ export function spaceView(space, tab = 'painel') {
           if (partner.commissionModel === 'per_person') await store.setCommissionModel(key, 'percent');
         }
         ctx.refresh(tRaw('common.saved'));
+      };
+      const rolesForm = root.querySelector('#roles');
+      if (rolesForm) rolesForm.onsubmit = async (e) => {
+        e.preventDefault();
+        const pctOf = (v) => { const x = String(v || '').trim().replace(',', '.'); return x === '' ? 0 : Number(x); };
+        const tc = pctOf(rolesForm.tc.value); const ag = pctOf(rolesForm.agency.value);
+        if (!(tc >= 0 && tc <= 50 && ag >= 0 && ag <= 50)) { notify(tRaw('roles.err')); return; }
+        const ok = await store.setPartnerRoleRates(key, Math.round(tc * 100) / 10000, Math.round(ag * 100) / 10000).catch(() => false);
+        if (ok) ctx.refresh(tRaw('common.saved')); else notify(tRaw('err.generic'));
       };
       const extrasForm = root.querySelector('#extras');
       if (extrasForm) extrasForm.onsubmit = async (e) => {

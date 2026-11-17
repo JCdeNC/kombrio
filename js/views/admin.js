@@ -343,7 +343,7 @@ async function validations({ guides, city, cadChecks }) {
     html: `<div class="card">
       <h2>${t('admin.val.title')}</h2>
       ${pending.length ? `<ul class="list">${pending.map((g) => `<li>
-        <div class="spread"><b>${esc(g.name)}</b><span class="hint">${esc(city(g.cityId)?.name || '')}</span></div>
+        <div class="spread"><b>${esc(g.name)}${g.actorKind && g.actorKind !== 'guide' ? ` <span class="badge warn">${t(`role.${g.actorKind}`)}</span>` : ''}</b><span class="hint">${esc(city(g.cityId)?.name || '')}</span></div>
         <div class="hint">${esc(g.email || '')} · ${waLink(g.phone) ? `<a href="${waLink(g.phone)}" target="_blank" rel="noopener">${esc(g.phone)}</a>` : esc(g.phone || '')} · ${esc(city(g.cityId)?.licenseLabel || '')} ${esc(g.license || '')}</div>
         <div class="hint">CPF ${g.cpf ? esc(fmtTaxId(g.cpf)) : `<b>${t('admin.missing')}</b>`}${g.cnpj ? ` · CNPJ ${esc(fmtTaxId(g.cnpj))} (${t('id.paid.short')})` : ''} · ${t('admin.val.pix')} ${g.pixKey ? esc(g.pixKey) : `<b>${t('admin.missing')}</b>`}${g.pixHolder ? ` · ${t('su.pix.holder')} : <b>${esc(g.pixHolder)}</b>` : ''}</div>
         ${(() => { const c = lastCheck(cadChecks, g.id); return c && c.validUntil >= today

@@ -60,7 +60,9 @@ async function loginView() {
         ${forgotLink()}
       </form>
       <form class="card" id="signup">
-        <h2>${t('guide.signup.title')}</h2>
+        <h2 id="su-title">${t('guide.signup.title')}</h2>
+        <div class="field"><label>${t('su.role.title')}</label>
+          <div class="bill-cases">${['guide', 'tc', 'agency'].map((k) => `<label class="bill-case${k === 'guide' ? ' on' : ''}"><input type="radio" name="actorKind" value="${k}"${k === 'guide' ? ' checked' : ''}><span><b>${t(`role.${k}`)}</b><br><small>${t(`su.role.${k}.hint`)}</small></span></label>`).join('')}</div></div>
         <h3 class="su-step">1. ${t('su.s.you')}</h3>
         <div class="field"><label for="g-name">${t('guide.signup.name')}</label><input id="g-name" name="name" required autocomplete="name"></div>
         <div class="grid2">
@@ -102,6 +104,16 @@ async function loginView() {
       const taxIn = root.querySelector('#g-cpf'); const cnpjIn = root.querySelector('#g-cnpj');
       maskTaxId(taxIn, () => 'cpf'); maskTaxId(cnpjIn, () => 'cnpj');
       maskCadastur(root.querySelector('#g-license'));
+      // v99 : Tour Company ou agence : CNPJ obligatoire (le bloc s'ouvre), libellés adaptés.
+      const su = root.querySelector('#signup');
+      su.querySelectorAll('[name=actorKind]').forEach((r) => { r.onchange = () => {
+        const company = su.actorKind.value !== 'guide';
+        su.querySelectorAll('.bill-case').forEach((l) => l.classList.toggle('on', l.querySelector('input').checked));
+        const box = su.querySelector('.su-cnpj'); box.open = company || box.open; cnpjIn.required = company;
+        su.querySelector('label[for=g-name]').textContent = tRaw(company ? 'su.role.company.name' : 'guide.signup.name');
+        su.querySelector('#su-title').textContent = tRaw(company ? 'su.role.company.title' : 'guide.signup.title');
+        su.querySelector('label[for=g-cpf]').textContent = tRaw(company ? 'su.role.company.cpf' : 'guide.signup.cpf');
+      }; });
       // Clé Pix CPF / CNPJ : reprise du numéro saisi plus haut (modifiable).
       const pType = root.querySelector('#g-ptype'); const pKey = root.querySelector('#g-pix');
       const fillKey = () => { if (!pKey.value) { if (pType.value === 'cpf') pKey.value = taxIn.value; if (pType.value === 'cnpj') pKey.value = cnpjIn.value; } };
@@ -121,6 +133,7 @@ async function loginView() {
         if (!phone) { notify(tRaw('phone.err')); return; }
         if (!validCpf(f.cpf)) { notify(tRaw('guide.signup.err.cpf')); return; }
         const cnpj = onlyDigits(f.cnpj || '');
+        if (f.actorKind !== 'guide' && !cnpj) { notify(tRaw('su.role.err.cnpj')); return; }
         if (cnpj && !validCnpj(cnpj)) { notify(tRaw('guide.signup.err.cnpj')); return; }
         const lic = onlyDigits(f.license);
         if (!((lic.length === 11 && lic !== onlyDigits(f.cpf)) || (lic.length === 14 && validCnpj(lic)))) { notify(tRaw('guide.signup.err.license')); return; }
@@ -129,10 +142,10 @@ async function loginView() {
         try {
           const ready = await store.signUpGuide({
             email: f.email.trim(), password: f.password, name: f.name.trim(), phone,
-            license: f.license.trim(), cityId: f.cityId, cpf: onlyDigits(f.cpf), cnpj: cnpj || null, pixKey: f.pixKey.trim(), pixType: f.pixType, pixHolder: f.pixHolder.trim().replace(/\s+/g, ' '), refCode: (f.refCode || '').trim(),
+            license: f.license.trim(), cityId: f.cityId, cpf: onlyDigits(f.cpf), cnpj: cnpj || null, pixKey: f.pixKey.trim(), pixType: f.pixType, pixHolder: f.pixHolder.trim().replace(/\s+/g, ' '), actorKind: f.actorKind || 'guide', refCode: (f.refCode || '').trim(),
           });
           ctx.refresh(tRaw(ready ? 'guide.signup.done' : 'auth.confirm'));
-        } catch (err) { notify(tRaw(err.message === 'exists' ? 'auth.err.exists' : 'auth.err.signup')); }
+        } catch (err) { notify(tRaw(err.message === 'exists' ? 'auth.err.exists' : err.message === 'cnpj' ? 'su.role.err.cnpj' : 'auth.err.signup')); }
       };
     },
   };
@@ -420,7 +433,7 @@ async function dashboardView(me, city, tab = 'inicio') {
   return {
     html: `<div class="dash-wide">
       <div class="spread"><div><h1 style="margin-bottom:2px">${t('guide.hello', { name: me.name })}</h1>
-        <p class="hint" style="margin:0">${esc(city.name || '')}${me.code ? ` · ${esc(me.code)}` : ''}</p></div>
+        <p class="hint" style="margin:0">${me.actorKind && me.actorKind !== 'guide' ? `<span class="badge">${t(`role.${me.actorKind}`)}</span> ` : ''}${esc(city.name || '')}${me.code ? ` · ${esc(me.code)}` : ''}</p></div>
         <div class="row" style="gap:6px">${helpButton()}</div></div>
       ${nav}${banners}${body}</div>`,
     mount(root, ctx) {
