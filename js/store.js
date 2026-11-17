@@ -452,6 +452,11 @@ export async function addStay(guideId, s) {
 export async function listStays(guideId) {
   return check(await sb.from('stays').select('*').eq('guide_id', guideId).order('end_day', { ascending: false })).map(toStay);
 }
+// v100 : agences et TC : rattacher un TC ou des guides à un groupe, par leur code.
+export async function linkActor(stayId, code) { return check(await sb.rpc('link_actor', { p_stay: stayId, p_code: code })); }
+export async function unlinkActor(stayId, actorId) { return check(await sb.rpc('unlink_actor', { p_stay: stayId, p_actor: actorId })); }
+export async function stayActors(stayId) { try { return check(await sb.rpc('stay_actors', { p_stay: stayId })) || []; } catch { return []; } }
+export async function myLinkedStays() { try { return check(await sb.rpc('my_linked_stays')) || []; } catch { return []; } }
 export async function getStay(stayId) {
   return toStay(check(await sb.from('stays').select('*').eq('id', stayId).maybeSingle()));
 }

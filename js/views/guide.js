@@ -209,13 +209,15 @@ async function loadGuide(me, city) {
   const [stays, visits, adjustments, payouts, pixChecks, partners, alerts] = await Promise.all([
     store.listStays(me.id), store.listVisits({ guideId: me.id }), store.listAdjustments(me.id), store.listPayouts(me.id),
     store.listPixVerifications(me.id), store.publicPartners(city.id), store.listMyAlerts()]);
-  return { stays, visits, adjustments, payouts, pixChecks, partners, alerts };
+  const linked = await store.myLinkedStays();   // v100 : groupes d'une agence ou d'un TC auxquels on est rattaché
+  return { stays, visits, adjustments, payouts, pixChecks, partners, alerts, linked };
 }
 
 async function dashboardView(me, city, tab = 'inicio') {
   const lang = getLang();
   const d = await loadGuide(me, city);
-  const { stays, visits, adjustments, payouts, pixChecks, partners, alerts } = d;
+  const { stays, visits, adjustments, payouts, pixChecks, partners, alerts, linked = [] } = d;
+  const company = me.actorKind && me.actorKind !== 'guide';
   const today = todayIn(city.timezone);
   const cur = (n) => cents(n, city.currency, lang);
   const pname = (id) => partners.find((p) => p.id === id)?.name || '?';
@@ -367,10 +369,15 @@ async function dashboardView(me, city, tab = 'inicio') {
         <div class="hint"><b>${p.offerDays && p.offerDays.length ? t('client.offer.days', { days: weekdayList(p.offerDays, lang) }) : t('g.offers.everyday')}</b>${p.offerEnd ? ` · ${t('client.offer.until', { day: fmtDay(p.offerEnd, lang) })}` : ''}</div></li>`).join('')}</ul>`
         : `<p class="hint" style="margin:0">${t('g.offers.none')}</p>`}</div>`;
 
+  // v100 : groupes d'une agence ou d'un TC auxquels ce compte est rattaché.
+  const linkedCard = linked.length ? `<div class="card"><h2 style="margin:0 0 6px">${t('grp.mine.title')}</h2><ul class="list">${linked.map((x) => `<li>
+      <div class="spread"><b>${esc(x.client)}</b><span class="badge">${t(`role.${x.role}`)}</span></div>
+      <div class="hint">${t('grp.mine.owner', { owner: esc(x.owner), kind: t(`role.${x.owner_kind}`) })} · ${t('stay.people', { n: x.people })} · ${fmtDay(x.start, lang)} → ${fmtDay(x.end, lang)}${x.code ? ` · ${esc(x.code)}` : ''}</div>
+      <a class="btn ghost small" target="_blank" rel="noopener" href="${esc(appLink('client', `c/${x.token}`))}">${t('guide.stay.preview')}</a></li>`).join('')}</ul></div>` : '';
   const newStayForm = `<form class="card" id="new-stay">
-        <h2>${t('guide.stay.new')}</h2>
+        <h2>${t(company ? 'stay.group.new' : 'guide.stay.new')}</h2>
         <div class="grid2">
-          <div class="field"><label for="s-client">${t('guide.stay.client')}</label><input id="s-client" name="client" required placeholder="${t('guide.stay.client.ph')}"></div>
+          <div class="field"><label for="s-client">${t(company ? 'stay.group.name' : 'guide.stay.client')}</label><input id="s-client" name="client" required placeholder="${t('guide.stay.client.ph')}"></div>
           <div class="field"><label for="s-people">${t('guide.stay.people')}</label><input id="s-people" name="people" type="number" min="1" max="99" value="2" required></div>
           <div class="field"><label for="s-start">${t('guide.stay.start')}</label><input id="s-start" name="start" type="date" value="${today}" required></div>
           <div class="field"><label for="s-end">${t('guide.stay.end')}</label><input id="s-end" name="end" type="date" value="${addDays(today, 3)}" required></div>
@@ -419,7 +426,7 @@ async function dashboardView(me, city, tab = 'inicio') {
     inicio: `${kpis}<div class="pd-cols"><div class="pd-side">${txCard(t('g.recent'), recent, visits.length > 5 ? `<a href="#/ganhos">${t('g.seeall')}</a>` : '')}
         ${staysCard(stays.filter((s) => stayState(s) !== 'done' && !s.archivedAt).slice(0, 4), false)}</div>
       <div class="pd-side">${todoCard}${nextCard}${chartCard}${partnersCard}${me.referralEnabled ? `<a class="card" href="#/indicacao" style="display:block;text-decoration:none;color:inherit"><b>${t('ref.card.title')}</b><span class="hint" style="display:block">${t('ref.card.hint')}</span></a>` : ''}</div></div>`,
-    clientes: `<div class="pd-cols"><div class="pd-side">${staysCard(stays, true)}</div><div class="pd-side">${newStayForm}${offersCard}</div></div>`,
+    clientes: `<div class="pd-cols"><div class="pd-side">${staysCard(stays, true)}${linkedCard}</div><div class="pd-side">${newStayForm}${offersCard}</div></div>`,
     ganhos: `${kpis}<div class="pd-cols"><div class="pd-side"><div class="card g-card"><div class="spread"><h2 style="margin:0">${t('g.all')}</h2>
         <span class="hint">${t('guide.sum.note', { pct })}</span></div>${filters}<div id="g-list">${visits.length ? visits.map(txRow).join('') : `<p class="hint">${t('g.tx.none')}</p>`}</div></div></div>
       <div class="pd-side">${nextCard}${adjCard}${payoutsCard}<a class="card" href="#/releve" style="display:block;text-decoration:none;color:inherit"><b>${t('guide.statement.title')}</b><span class="hint" style="display:block">${t('g.statement.hint')}</span></a></div></div>`,
@@ -734,6 +741,9 @@ async function referralView(me, city) {
 async function stayView(me, city, stayId) {
   const stay = await store.getStay(stayId);
   if (!stay || stay.guideId !== me.id) return notFound();
+  // v100 : une agence rattache un TC et/ou des guides ; un TC rattache des guides.
+  const canLink = me.actorKind === 'agency' || me.actorKind === 'tc';
+  const actors = canLink ? await store.stayActors(stay.id) : [];
   const lang = getLang();
   const valid = stayIsValid(stay, city);
   const visits = await store.listVisits({ stayId: stay.id });
@@ -775,8 +785,27 @@ async function stayView(me, city, stayId) {
       <div class="card">
         <h2>${t('guide.stay.visits')}</h2>
         ${visits.length ? `<ul class="list">${visits.map(visitItem).join('')}</ul>` : `<p class="hint">${t('guide.stay.visits.none')}</p>`}
-      </div>`,
+      </div>
+      ${canLink ? `<div class="card" id="links"><h2>${t('grp.links.title')}</h2><p class="hint">${t(me.actorKind === 'agency' ? 'grp.links.hint.agency' : 'grp.links.hint.tc')}</p>
+        ${actors.length ? `<ul class="list">${actors.map((a) => `<li><div class="spread"><span><b>${esc(a.name)}</b> <span class="badge">${t(`role.${a.role}`)}</span><br><span class="hint">${esc(a.code || '')}</span></span>
+          <button type="button" class="btn ghost small" data-unlink="${esc(a.actor_id)}">${t('grp.links.remove')}</button></div></li>`).join('')}</ul>` : `<p class="hint">${t('grp.links.none')}</p>`}
+        <form class="row" id="link-form" style="align-items:flex-end;gap:8px;margin-top:8px">
+          <div class="field" style="margin:0;flex:1"><label for="lk-code">${t('grp.links.code')}</label><input id="lk-code" name="code" required autocapitalize="characters" placeholder="RIO-KG-12345 / RIO-KT-12345" style="text-transform:uppercase"></div>
+          <button class="btn small">${t('grp.links.add')}</button></form>
+        <p class="hint" style="margin-top:8px">${t('grp.notready')}</p></div>` : ''}`,
     mount(root) {
+      const lf = root.querySelector('#link-form');
+      if (lf) lf.onsubmit = async (e) => {
+        e.preventDefault();
+        const r = await store.linkActor(stay.id, lf.code.value.trim()).catch(() => null);
+        if (r && r.ok) { notify(tRaw('grp.links.done', { name: r.name })); location.reload(); }
+        else notify(tRaw(`link.err.${r && ['code', 'self', 'kind', 'one_tc', 'role', 'ended', 'stay'].includes(r.reason) ? r.reason : 'generic'}`));
+      };
+      root.querySelectorAll('[data-unlink]').forEach((b) => { b.onclick = async () => {
+        if (!confirm(tRaw('grp.links.remove.confirm'))) return;
+        const ok = await store.unlinkActor(stay.id, b.dataset.unlink).catch(() => false);
+        if (ok) location.reload(); else notify(tRaw('err.generic'));
+      }; });
       // v67 : QR « Guia + grupo » — renouvelé chaque minute tant qu'il est affiché (preuve que le guide est là).
       const ggOpen = root.querySelector('#ggopen');
       if (ggOpen) {
