@@ -417,10 +417,16 @@ async function payments({ paymentList, visits, partner, cur, city }) {
       <p class="hint">${t('admin.pay.hint2')}</p>
       ${open.length ? `<ul class="list">${open.map((y) => {
         const p = partner(y.partnerId);
+        // v95 : un Pix de groupe couvre plusieurs lojas : détail par loja.
+        const byShop = {};
+        covered(y).forEach((v) => { const k = partner(v.partnerId)?.name || '?'; (byShop[k] = byShop[k] || []).push(v); });
+        const lines = y.groupId
+          ? Object.keys(byShop).sort().map((k) => `<div class="hint"><b>${esc(k)}</b> : ${byShop[k].map((v) => `${esc(store.txNum(v.num))} (${cur(v.dueCents ?? v.declaredCents, p?.cityId)})`).join(' · ')} = <b>${cur(byShop[k].reduce((s2, v) => s2 + (v.dueCents ?? v.declaredCents ?? 0), 0), p?.cityId)}</b></div>`).join('')
+          : `<div class="hint">${covered(y).map((v) => `${esc(store.txNum(v.num))} (${cur(v.declaredCents, p?.cityId)})`).join(' · ')}</div>`;
         return `<li>
-        <div class="spread"><b>${t('admin.pay.num', { num: y.num })} · ${esc(p?.name)} → ${cur(y.cents, p?.cityId)}</b><span class="badge">${t(`method.${y.method}`)}</span></div>
+        <div class="spread"><b>${t('admin.pay.num', { num: y.num })} · ${y.groupId ? `${t('admin.grp.pix')} · ` : ''}${esc(p?.name)} → ${cur(y.cents, p?.cityId)}</b><span class="badge">${t(`method.${y.method}`)}</span></div>
         <div class="hint">${fmtMoment(y.submittedAt, lang, city(p?.cityId)?.timezone)}${y.pixRef ? ` · Pix ${esc(y.pixRef)}` : ''}</div>
-        <div class="hint">${covered(y).map((v) => `${esc(store.txNum(v.num))} (${cur(v.declaredCents, p?.cityId)})`).join(' · ')}</div>
+        ${lines}
         <div style="margin:8px 0">${receiptCell(y)}</div>
         <form class="verify row" data-id="${esc(y.id)}" style="align-items:flex-end">
           <div class="field" style="margin:0"><label>${t('admin.pay.received')}</label><input name="cents" inputmode="decimal" style="width:130px" placeholder="${(y.cents / 100).toFixed(2).replace('.', ',')}"></div>
@@ -1008,12 +1014,26 @@ function mountActive(root, ctx) {
 }
 
 async function partners({ partnerList, cityList, city }) {
+  // v95 : groupes d'établissements (Pix unique ou par loja).
+  const groups = await store.listGroups();
+  const groupName = (id) => (groups.find((g) => g.id === id) || {}).name || '';
+  const groupsCard = `<div class="card" id="groups"><h2>${t('admin.grp.title')}</h2><p class="hint">${t('admin.grp.hint')}</p>
+    ${groups.length ? `<ul class="list">${groups.map((g) => `<li><div class="spread"><b>${esc(g.name)}</b>
+        <select data-gmode="${esc(g.id)}" style="width:auto">${['single', 'each'].map((m) => `<option value="${m}"${g.payMode === m ? ' selected' : ''}>${t(`admin.grp.mode.${m}`)}</option>`).join('')}</select></div>
+      <div class="hint">${partnerList.filter((p) => p.groupId === g.id).map((p) => esc(p.name)).join(' · ') || t('admin.grp.empty')}</div></li>`).join('')}</ul>` : ''}
+    <form class="row" id="grp-add" style="align-items:flex-end;gap:8px;margin-top:8px">
+      <div class="field" style="margin:0;flex:1"><label>${t('admin.grp.name')}</label><input name="name" required maxlength="80" placeholder="Pierim"></div>
+      <div class="field" style="margin:0"><label>${t('admin.grp.mode')}</label><select name="mode">${['single', 'each'].map((m) => `<option value="${m}">${t(`admin.grp.mode.${m}`)}</option>`).join('')}</select></div>
+      <button class="btn small">${t('admin.grp.add')}</button></form></div>`;
+  const groupPick = (p) => `<div class="row" style="gap:6px;align-items:center;margin-top:6px"><span class="hint">${t('admin.grp.of')}</span>
+      <select data-pgroup="${esc(p.id)}" style="width:auto"><option value="">${t('admin.grp.none')}</option>${groups.map((g) => `<option value="${esc(g.id)}"${p.groupId === g.id ? ' selected' : ''}>${esc(g.name)}</option>`).join('')}</select></div>`;
   return {
-    html: `<div class="card">
+    html: `${groupsCard}<div class="card">
       <h2>${t('admin.part.title')}</h2>
       <button type="button" class="btn ghost small" id="suspend-late">${t('admin.part.late')}</button>
       <ul class="list">${[...partnerList].sort((a, b) => Number(b.status === 'pending') - Number(a.status === 'pending')).map((p) => `<li>
-        <div class="spread"><b>${esc(p.name)}</b>${activeToggle('partner', p)}</div>
+        <div class="spread"><b>${esc(p.name)}${p.groupId ? ` <span class="badge">${esc(groupName(p.groupId))}</span>` : ''}</b>${activeToggle('partner', p)}</div>
+        ${groupPick(p)}
         ${p.status === 'pending' ? `<div class="notice warn" style="margin:6px 0">${t('admin.part.pending.hint', { name: p.managerName || '', phone: p.managerPhone || '', email: p.managerEmail || '' })}</div>` : ''}
         ${partnerPlus(p, new Date().toISOString().slice(0, 10))}
         <div class="hint">${t(`ptype.${p.type}`)} · ${esc(p.area || '')} · ${esc(city(p.cityId)?.name || '')} · ${t('admin.part.lang', { lang: langName(p.lang) })}</div>
@@ -1091,6 +1111,13 @@ async function partners({ partnerList, cityList, city }) {
     mount(root, ctx) {
       mountActive(root, ctx);
       mountPlus(root, ctx);
+      const ga = root.querySelector('#grp-add');
+      if (ga) ga.onsubmit = async (e) => { e.preventDefault();
+        try { await store.addGroup(ga.name.value, ga.mode.value); ctx.refresh(tRaw('common.saved')); } catch { notify(tRaw('err.generic')); } };
+      root.querySelectorAll('[data-gmode]').forEach((sel) => { sel.onchange = async () => {
+        try { await store.setGroupMode(sel.dataset.gmode, sel.value); ctx.refresh(tRaw('common.saved')); } catch { notify(tRaw('err.generic')); } }; });
+      root.querySelectorAll('[data-pgroup]').forEach((sel) => { sel.onchange = async () => {
+        try { await store.setPartnerGroup(sel.dataset.pgroup, sel.value); ctx.refresh(tRaw('common.saved')); } catch { notify(tRaw('err.generic')); } }; });
       maskTaxId(root.querySelector('#p-tax'));
       // v68 : modèle de commission (% de l'addition ou forfait par client), pour les prochains passages.
       root.querySelectorAll('.pmodel').forEach((form) => { form.onsubmit = async (e) => {

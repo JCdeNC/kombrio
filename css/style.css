@@ -573,3 +573,9 @@ main { overflow-wrap: break-word; }
 .wday input:checked { background: var(--brand); border-color: var(--brand); }
 .wday input:checked::before { transform: scale(1); }
 .wday input:focus-visible { outline: 3px solid rgba(0, 127, 101, .35); outline-offset: 2px; }
+
+/* v95 : bandeau du groupe d'établissements (changer de loja) */
+.grp-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 12px; margin: 0 0 12px;
+  background: var(--info-bg); border-radius: var(--radius-btn); }
+.grp-bar select { width: auto; flex: 1 1 140px; margin: 0; }
+.grp-bar .btn { white-space: nowrap; }

@@ -41,7 +41,7 @@ const toGuide = (r) => r && ({
 const toPartner = (r) => r && ({
   id: r.id, cityId: r.city_id, type: r.type, name: r.name, area: r.area, offer: r.offer || '', token: r.token, status: r.status, taxId: r.tax_id,
   photo: r.photo || '', address: r.address || '', reportToken: r.report_token || '', managerToken: r.manager_token || '',
-  lang: r.lang || 'pt', validatedAt: r.validated_at || '',
+  lang: r.lang || 'pt', validatedAt: r.validated_at || '', groupId: r.group_id || null,
   activationCode: r.activation_code || '', managerName: r.manager_name || '', managerEmail: r.manager_email || '',
   managerPhone: r.manager_phone || '', commissionRate: r.commission_rate == null ? 0.1 : Number(r.commission_rate), termsVersion: r.terms_version || '', termsAcceptedAt: r.terms_accepted_at || '', termsSha: r.terms_sha256 || '', circleEnabled: !!r.circle_enabled, founderUntil: r.founder_until || '',
   // v66 : ancien QR caisse actif ou coupé ; photo de l'addition obligatoire (personnel) à partir de ce montant.
@@ -108,7 +108,7 @@ const toExpense = (r) => r && ({
 const toPayment = (r) => r && ({
   id: r.id, num: num(r.num), partnerId: r.partner_id, cents: num(r.amount_cents), method: r.method, pixRef: r.pix_ref,
   receipt: r.receipt || null, status: r.status, receivedCents: num(r.received_cents), note: r.note,
-  submittedAt: r.submitted_at, verifiedAt: r.verified_at,
+  submittedAt: r.submitted_at, verifiedAt: r.verified_at, groupId: r.group_id || null,
 });
 // Correction après encaissement (contre-écriture) : l'original ne bouge pas, l'écart est ajouté.
 const toAdjustment = (r) => r && ({
@@ -285,6 +285,36 @@ export async function setGuideStatus(guideId, status) {
 
 /* ---------- Partenaires ---------- */
 // Cercle Kombrio et Parceiro Fundador (v52) : réglages admin par partenaire (journalisés par le trigger d'audit).
+// v95 : groupes d'établissements (ex. Pierim, 3 lojas) ; Pix unique ('single') ou Pix par loja ('each').
+export async function listGroups() {
+  try { return check(await sb.from('partner_groups').select('*').order('name')).map((g) => ({ id: g.id, name: g.name, payMode: g.pay_mode })); } catch { return []; }
+}
+export async function addGroup(name, payMode) {
+  check(await sb.from('partner_groups').insert({ name: name.trim(), pay_mode: payMode }));
+}
+export async function setGroupMode(groupId, payMode) {
+  check(await sb.from('partner_groups').update({ pay_mode: payMode }).eq('id', groupId));
+}
+export async function setPartnerGroup(partnerId, groupId) {
+  check(await sb.from('partners').update({ group_id: groupId || null }).eq('id', partnerId));
+}
+export async function groupSpace(managerToken) {
+  const d = check(await sb.rpc('group_space', { p_manager_token: managerToken }));
+  if (!d) return null;
+  return {
+    group: { id: d.group.id, name: d.group.name, payMode: d.group.pay_mode }, me: d.me,
+    members: (d.members || []).map((m) => ({ id: m.id, name: m.name, area: m.area || '', status: m.status, managerToken: m.manager_token,
+      toPayCents: Number(m.to_pay_cents) || 0, toPayCount: Number(m.to_pay_count) || 0, toDeclare: Number(m.to_declare) || 0,
+      verifyingCents: Number(m.verifying_cents) || 0, monthVisits: Number(m.month_visits) || 0 })),
+    toPay: (d.to_pay || []).map((v) => ({ ...toVisit(v), partnerName: v.partner_name })),
+    payments: (d.payments || []).map((y) => ({ id: y.id, num: num(y.num), cents: num(y.amount_cents), status: y.status, submittedAt: y.submitted_at, note: y.note || '' })),
+  };
+}
+export async function submitGroupPayment(managerToken, { visitIds, method, pixRef, receipt }) {
+  return check(await sb.rpc('submit_group_payment', {
+    p_manager_token: managerToken, p_visits: visitIds, p_method: method, p_pix_ref: pixRef || null, p_receipt: receipt,
+  }));
+}
 export async function setPartnerCircle(partnerId, on) {
   check(await sb.from('partners').update({ circle_enabled: on }).eq('id', partnerId));
 }

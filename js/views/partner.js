@@ -209,6 +209,8 @@ export async function partnerView([token, action, visitId], ctx) {
   space.alerts = space.role === 'manager' ? await store.partnerAlerts(token) : [];
   space.closings = space.role === 'manager' ? await store.partnerClosings(token) : [];
   if (space.role === 'manager' && action === 'equipe') space.team = await store.staffList(token).catch(() => []);
+  // v95 : loja d'un groupe (ex. Pierim) : tableau du groupe, changement de loja, Pix unique.
+  space.group = space.role === 'manager' && space.partner.groupId ? await store.groupSpace(token).catch(() => null) : null;
 
   // v74 : une nouvelle version des conditions doit être acceptée par le gérant avant de continuer.
   if (space.role === 'manager' && space.partner.status === 'active' && space.partner.termsVersion !== TERMS_VERSION) {
@@ -237,6 +239,7 @@ export async function partnerView([token, action, visitId], ctx) {
   if (['visitas', 'pagamentos', 'equipe', 'config'].includes(action)) return spaceView(space, action);
   if (action === 'declarar') return declareManyView(space);
   if (action === 'pagar') return payView(space);
+  if (action === 'grupo' && space.group) return groupView(space);
   if (action === 'relatorio') return reportPage(space, visitId);
   if (action === 'mes') return monthPage(space, visitId, space.closings);
   if (action === 'demonstrativo') return docPage(space, visitId, space.closings, `#/p/${encodeURIComponent(token)}/pagamentos`);
@@ -946,11 +949,13 @@ export function spaceView(space, tab = 'painel') {
 
   return {
     html: `<div class="dash-wide">
+      ${groupBar(space)}
       <div class="spread"><div><h1 style="margin-bottom:2px">${esc(partner.name)}</h1>
         <p class="hint" style="margin:0">${t(`ptype.${partner.type}`)}${partner.area ? ` · ${esc(partner.area)}` : ''} · ${t('pd.k.rate', { rate: rateLbl })}${partner.managerName ? ` · ${t('pm.hello', { name: partner.managerName })}` : ''}</p></div>
         <div class="row" style="gap:6px">${helpButton()}${loggedIn ? `<button class="btn ghost small no-print" id="logout">${t('common.logout')}</button>` : ''}</div></div>
       ${tabsNav}${banner}${body}</div>`,
     mount(root, ctx) {
+      mountGroupBar(root);
       if (tab === 'painel') mountPending(root, ctx, key);
       if (tab === 'equipe') mountTeam(root, ctx, key);
       mountHelp(root, { kind: 'partner', send: (topic, msg, vId) => store.partnerCreateAlert(key, topic, msg, vId),
@@ -1134,27 +1139,71 @@ function declareManyView({ partner, city, visits, key }) {
 }
 
 // Étape 2 : payer les commissions déclarées (un Pix peut en couvrir plusieurs), avec le comprovante.
-function payView({ partner, city, visits, key }) {
+// v95 : bandeau du groupe (ex. « Grupo Pierim ») : passer d'une loja à l'autre, ouvrir le tableau du groupe.
+function groupBar({ group, key }) {
+  if (!group) return '';
+  return `<div class="grp-bar no-print"><b>${t('grp.bar', { name: group.group.name })}</b>
+    <select id="grp-switch" aria-label="${esc(tRaw('grp.switch'))}">${group.members.map((m) => `<option value="${esc(m.managerToken)}"${m.managerToken === key ? ' selected' : ''}>${esc(m.name)}</option>`).join('')}</select>
+    <a class="btn ghost small" href="#/p/${encodeURIComponent(key)}/grupo">${t('grp.open')}</a></div>`;
+}
+function mountGroupBar(root) {
+  const sel = root.querySelector('#grp-switch');
+  if (sel) sel.onchange = () => { location.hash = `#/p/${encodeURIComponent(sel.value)}`; };
+}
+function groupView(space) {
+  const { group, city, key } = space;
   const lang = getLang();
   const c = (n) => cents(n, city.currency, lang);
-  const todo = visits.filter((v) => v.status === 'declared');
+  const single = group.group.payMode === 'single';
+  const sumOf = (k) => group.members.reduce((s2, m) => s2 + m[k], 0);
+  const total = sumOf('toPayCents');
+  return {
+    html: `<div class="dash-wide">${groupBar(space)}
+      <p><a href="#/p/${encodeURIComponent(key)}">← ${t('partner.space')}</a></p>
+      <div class="card"><h1 style="margin-bottom:4px">${t('grp.title', { name: group.group.name })}</h1>
+        <p class="hint">${t(single ? 'grp.mode.single' : 'grp.mode.each')}</p>
+        <div class="table-wrap"><table>
+          <tr><th>${t('grp.col.shop')}</th><th>${t('grp.col.month')}</th><th>${t('grp.col.declare')}</th><th>${t('grp.col.pay')}</th></tr>
+          ${group.members.map((m) => `<tr><td><a href="#/p/${encodeURIComponent(m.managerToken)}">${esc(m.name)}</a>${m.area ? `<div class="hint">${esc(m.area)}</div>` : ''}</td>
+            <td>${m.monthVisits}</td><td>${m.toDeclare ? `<span class="badge warn">${m.toDeclare}</span>` : '—'}</td>
+            <td>${m.toPayCents ? `<b>${c(m.toPayCents)}</b>` : '—'}${m.verifyingCents ? `<div class="hint">${t('grp.verifying', { amount: c(m.verifyingCents) })}</div>` : ''}</td></tr>`).join('')}
+          <tr><td><b>${t('grp.total')}</b></td><td><b>${sumOf('monthVisits')}</b></td><td><b>${sumOf('toDeclare') || '—'}</b></td><td><b>${c(total)}</b></td></tr>
+        </table></div>
+        ${single ? (group.toPay.length ? `<a class="btn block" style="margin-top:12px" href="#/p/${encodeURIComponent(key)}/pagar">${t('grp.pay.go', { amount: c(total) })}</a>` : `<p class="hint" style="margin-top:12px">${t('partner.pay.nothing')}</p>`)
+          : `<p class="hint" style="margin-top:12px">${t('grp.each.hint')}</p>`}
+        ${sumOf('toDeclare') ? `<p class="hint">${t('grp.declare.hint')}</p>` : ''}
+      </div>
+      ${group.payments.length ? `<div class="card"><h2>${t('grp.payments')}</h2><ul class="list">${group.payments.map((y) => `<li><div class="spread"><span>${t('grp.pay.num', { num: y.num })} · ${fmtDay(String(y.submittedAt).slice(0, 10), lang)}</span><b>${c(y.cents)}</b></div>
+        <div class="hint">${t(`payment.${y.status}`)}${y.note ? ` · ${esc(y.note)}` : ''}</div></li>`).join('')}</ul></div>` : ''}
+    </div>`,
+    mount(root) { mountGroupBar(root); },
+  };
+}
+
+function payView({ partner, city, visits, key, group }) {
+  const lang = getLang();
+  const c = (n) => cents(n, city.currency, lang);
+  // v95 : groupe à Pix unique : toutes les visites à payer des lojas du groupe, un seul Pix.
+  const grp = group && group.group.payMode === 'single' ? group : null;
+  const todo = grp ? grp.toPay : visits.filter((v) => v.status === 'declared');
   const pixKey = pixKeyOf(city);
   // Visites cochées dans le tableau de bord (sinon : toutes).
   let pre = null;
   try { pre = JSON.parse(sessionStorage.getItem('kb-pay-sel') || 'null'); sessionStorage.removeItem('kb-pay-sel'); } catch { pre = null; }
   if (pre && !pre.length) pre = null;
+  if (grp) pre = null;
   const back = `#/p/${encodeURIComponent(key)}`;
   if (!todo.length) return { html: `<div class="notice">${t('partner.pay.nothing')}</div><a class="btn ghost" href="${back}">${t('partner.space')}</a>` };
   return {
     html: `
       <p><a href="${back}">← ${t('partner.space')}</a></p>
       <form class="card" id="pay">
-        <h1>${t('partner.pay.title')}</h1>
-        <p class="hint">${t('partner.pay.hint')}</p>
+        <h1>${grp ? t('grp.pay.title', { name: grp.group.name }) : t('partner.pay.title')}</h1>
+        <p class="hint">${grp ? t('grp.pay.hint') : t('partner.pay.hint')}</p>
         <ul class="list">${todo.map((v) => `<li>
           <label class="spread" style="font-weight:400;align-items:center">
             <span><input type="checkbox" name="sel" value="${esc(v.id)}"${!pre || pre.includes(v.id) ? ' checked' : ''} style="width:auto;margin-right:8px"><b>${esc(v.client || '?')}</b>
-              <span class="hint"> · ${esc(store.visitRef(v))} · ${fmtDay(v.at.slice(0, 10), lang)}</span></span>
+              <span class="hint">${v.partnerName ? ` · <b>${esc(v.partnerName)}</b>` : ''} · ${esc(store.visitRef(v))} · ${fmtDay(v.at.slice(0, 10), lang)}</span></span>
             <b>${c(v.dueCents)}${v.feeCents ? `<br><small class="hint">${t('mode2.pay.line', { com: c(v.declaredCents), fee: c(v.feeCents) })}</small>` : ''}</b>
           </label></li>`).join('')}</ul>
         <div class="stat" style="margin:12px 0"><span>${t('partner.pay.total')}</span><b id="total">${c(0)}</b></div>
@@ -1225,7 +1274,7 @@ function payView({ partner, city, visits, key }) {
             if (file.size > MAX_RECEIPT) { notify(tRaw('partner.declare.toobig')); button.disabled = false; return; }
             receipt = { name: file.name, type: file.type, data: await readFileAsDataUrl(file) };
           }
-          const r = await store.submitPayment(key, { visitIds: list.map((v) => v.id), method: form.method.value, pixRef: form.pixref.value.trim(), receipt });
+          const r = await (grp ? store.submitGroupPayment : store.submitPayment)(key, { visitIds: list.map((v) => v.id), method: form.method.value, pixRef: form.pixref.value.trim(), receipt });
           if (!r.ok) { button.disabled = false; notify(tRaw(`partner.pay.err.${r.reason}`)); return; }
           ctx.go(`p/${key}`, tRaw('partner.pay.sent', { num: r.num }));
         } catch {
