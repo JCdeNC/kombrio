@@ -126,7 +126,6 @@ begin
      and r->'declarations'->0->>'darf_pdf' is null
      and jsonb_array_length(r->'rules') >= 1
      and inss_declaration_file('G-DECL1', d1, 'darf') = 'data:application/pdf;base64,QQ=='
-     and inss_declaration_file('G-DECL2', d1, 'darf') is null
     then pass := pass + 1; else fail := fail + 1; out := out || ' [12 vue partenaire ' || coalesce(r::text, 'null') || '] '; end if;
 
   -- 13. Le comptable (lien du relevé) voit les CPF complets quand c'est lui qui déclare ; un lien inconnu ne voit rien.
@@ -136,13 +135,14 @@ begin
      and exists (select 1 from ledger where event = 'inss_filing_set' and data->>'to' = 'accountant' and data->>'partner' = p1::text)
     then pass := pass + 1; else fail := fail + 1; out := out || ' [13 vue comptable] '; end if;
 
-  -- 14. Taux : source obligatoire ; impossible à une date déjà utilisée ; possible demain avec la source.
-  if set_tax_rule('rio', 'inss_ci', 0.11, 800000, today + 1, 'x', null)->>'reason' = 'source'
-     and set_tax_rule('rio', 'inss_ci', 0.11, 800000, today, 'x', 'Portaria teste')->>'reason' = 'used'
-     and (set_tax_rule('rio', 'inss_ci', 0.11, 800000, today + 1, 'teto teste', 'Portaria teste')->>'ok')::boolean
-     and (tax_rule_at('rio', 'inss_ci', today + 1)).source = 'Portaria teste'
-     and (tax_rule_at('rio', 'inss_ci', today)).valid_to = today
-    then pass := pass + 1; else fail := fail + 1; out := out || ' [14 taux datés] '; end if;
+  -- 14. Taux : source obligatoire ; impossible à une date déjà utilisée ; possible demain avec la source (étapes dans l'ordre).
+  ok := set_tax_rule('rio', 'inss_ci', 0.11, 800000, today + 1, 'x', null)->>'reason' = 'source';
+  ok := ok and set_tax_rule('rio', 'inss_ci', 0.11, 800000, today, 'x', 'Portaria teste')->>'reason' = 'used';
+  r := set_tax_rule('rio', 'inss_ci', 0.11, 800000, today + 1, 'teto teste', 'Portaria teste');
+  ok := ok and (r->>'ok')::boolean;
+  ok := ok and (tax_rule_at('rio', 'inss_ci', today + 1)).source = 'Portaria teste';
+  ok := ok and (tax_rule_at('rio', 'inss_ci', today)).valid_to = today;
+  if ok then pass := pass + 1; else fail := fail + 1; out := out || ' [14 taux datés ' || coalesce(r::text, 'null') || '] '; end if;
 
   -- 15. Rappel : un e-mail par boîte d'administration, avec son propre objet.
   r := inss_reminder();
@@ -157,7 +157,9 @@ begin
   begin perform admin_inss_step(d2, 'esocial', '{"receipt":"1.1.000000009"}'); exception when others then n := n + 1; end;
   begin perform admin_inss_overview(prev); exception when others then n := n + 1; end;
   begin perform admin_set_inss_filing(p1, 'kombrio', today, null); exception when others then n := n + 1; end;
-  if n = 4 and inss_declaration_file(null, d1, 'darf') is null then pass := pass + 1; else fail := fail + 1; out := out || ' [16 droits ' || n || '] '; end if;
+  -- (sans être admin) : le code d'un autre partenaire ne donne pas la pièce jointe ; le bon code, oui.
+  if n = 4 and inss_declaration_file(null, d1, 'darf') is null and inss_declaration_file('G-DECL2', d1, 'darf') is null
+     and inss_declaration_file('G-DECL1', d1, 'darf') is not null then pass := pass + 1; else fail := fail + 1; out := out || ' [16 droits ' || n || '] '; end if;
 
   raise exception 'RÉSULTATS : % réussi(s), % échec(s).%', pass, fail, case when out = '' then ' Tout est conforme.' else ' Échecs :' || out end;
 end $$;

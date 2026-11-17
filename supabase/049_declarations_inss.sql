@@ -239,7 +239,7 @@ begin
     if d.id is null then
       insert into inss_declarations (partner_id, month, doc_code, declarant_name, declarant_tax_id, filing, lines, rules,
                                      gross_cents, inss_cents, guides, sha256, dctf_due, darf_due)
-      values (pid, m0, 'INSS-' || to_char(m0, 'YYYY-MM') || '-' || upper(left(replace(pid::text, '-', ''), 6)),
+      values (pid, m0, 'INSS-' || to_char(m0, 'YYYY-MM') || '-' || upper(left(md5(pid::text), 8)),
               pa.name, pa.tax_id, pa.inss_filing, snap->'lines', snap->'rules',
               (snap->>'gross_cents')::bigint, (snap->>'inss_cents')::bigint, (snap->>'guides')::int, snap->>'sha256', dd.dctf, dd.darf)
       returning * into d;
