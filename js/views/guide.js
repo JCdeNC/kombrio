@@ -3,7 +3,7 @@ import { t, tRaw, getLang } from '../i18n.js';
 import { esc, money, cents, locale, fmtDay, fmtMoment, todayIn, addDays, stayIsValid, qrSvg, appLink, notify, validCpf, validCnpj, onlyDigits, maskCadastur, validCadastur, validPixKey, phoneField, phoneValue } from '../util.js';
 import * as store from '../store.js';
 import { validity, statusBadge, guideAmounts, notFound, termsGateView, forgotLink, mountForgot, resetView, lastMonths, shortMonth, monthKeyOf, delta, barChart, appTabs } from './shared.js';
-import { maskTaxId, fmtTaxId, qrCardBlob, shareOrDownload, photoToJpeg } from '../util.js';
+import { maskTaxId, fmtTaxId, qrCardBlob, shareOrDownload, photoToJpeg, weekdayList } from '../util.js';
 import { helpButton, problemLink, mountHelp, topicLabel, alertStatus } from './help.js';
 import { WEEKLY_OPTION } from '../config.js';
 // Durée maximale d'un séjour (K-15, décidé le 06/11/2026) : les clients restent au plus une semaine. Même règle dans la base (script 014).
@@ -342,6 +342,16 @@ async function dashboardView(me, city, tab = 'inicio') {
       <div class="table-wrap" style="margin-top:8px"><table><tr><th>${t('guide.col.partner')}</th><th>${t('dash.col.visits')}</th><th>${t('dash.col.got')}</th><th>${t('dash.col.wait')}</th></tr>
       ${byPartner.map((p) => `<tr><td>${esc(p.name)}</td><td>${p.n}</td><td>${cur(p.got)}</td><td>${p.wait ? `≈ ${cur(p.wait)}` : '—'}</td></tr>`).join('')}</table></div></div>` : '';
 
+  // v92 : offres des partenaires et leurs jours, pour conseiller le client. Liste neutre, par ordre alphabétique
+  // (indépendance du guide : aucun classement, aucun objectif).
+  const withOffer = partners.filter((p) => p.offer || p.offerPromoCents).sort((a, b) => a.name.localeCompare(b.name));
+  const offersCard = `<div class="card"><h2 style="margin:0 0 4px">${t('g.offers.title')}</h2><p class="hint">${t('g.offers.hint')}</p>
+      ${withOffer.length ? `<ul class="list">${withOffer.map((p) => `<li><b>${esc(p.name)}</b><span class="hint">${p.area ? ` · ${esc(p.area)}` : ''}</span>
+        ${p.offerPromoCents ? `<div class="offer"><b>${t('client.price')}</b> ${esc(cur(p.offerPromoCents))} <s class="hint">${esc(cur(p.offerPriceCents))}</s></div>` : ''}
+        ${p.offer ? `<div class="offer"><b>${t('client.offer')}</b> ${esc(p.offer)}</div>` : ''}
+        <div class="hint"><b>${p.offerDays && p.offerDays.length ? t('client.offer.days', { days: weekdayList(p.offerDays, lang) }) : t('g.offers.everyday')}</b>${p.offerEnd ? ` · ${t('client.offer.until', { day: fmtDay(p.offerEnd, lang) })}` : ''}</div></li>`).join('')}</ul>`
+        : `<p class="hint" style="margin:0">${t('g.offers.none')}</p>`}</div>`;
+
   const newStayForm = `<form class="card" id="new-stay">
         <h2>${t('guide.stay.new')}</h2>
         <div class="grid2">
@@ -391,7 +401,7 @@ async function dashboardView(me, city, tab = 'inicio') {
     inicio: `${kpis}<div class="pd-cols"><div class="pd-side">${txCard(t('g.recent'), recent, visits.length > 5 ? `<a href="#/ganhos">${t('g.seeall')}</a>` : '')}
         ${staysCard(stays.filter((s) => stayState(s) !== 'done' && !s.archivedAt).slice(0, 4), false)}</div>
       <div class="pd-side">${todoCard}${nextCard}${chartCard}${partnersCard}${me.referralEnabled ? `<a class="card" href="#/indicacao" style="display:block;text-decoration:none;color:inherit"><b>${t('ref.card.title')}</b><span class="hint" style="display:block">${t('ref.card.hint')}</span></a>` : ''}</div></div>`,
-    clientes: `<div class="pd-cols"><div class="pd-side">${staysCard(stays, true)}</div><div class="pd-side">${newStayForm}</div></div>`,
+    clientes: `<div class="pd-cols"><div class="pd-side">${staysCard(stays, true)}</div><div class="pd-side">${newStayForm}${offersCard}</div></div>`,
     ganhos: `${kpis}<div class="pd-cols"><div class="pd-side"><div class="card g-card"><div class="spread"><h2 style="margin:0">${t('g.all')}</h2>
         <span class="hint">${t('guide.sum.note', { pct })}</span></div>${filters}<div id="g-list">${visits.length ? visits.map(txRow).join('') : `<p class="hint">${t('g.tx.none')}</p>`}</div></div></div>
       <div class="pd-side">${nextCard}${adjCard}${payoutsCard}<a class="card" href="#/releve" style="display:block;text-decoration:none;color:inherit"><b>${t('guide.statement.title')}</b><span class="hint" style="display:block">${t('g.statement.hint')}</span></a></div></div>`,
