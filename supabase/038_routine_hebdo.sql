@@ -158,8 +158,8 @@ begin
   insert into ledger (actor_kind, event, data)
   values ('system', 'weekly_check', jsonb_build_object('run', run, 'grave', nb_grave, 'attention', nb_att, 'items', items));
 
-  -- Deux boîtes : l'adresse du domaine (OVH) et la boîte Gmail de l'administration.
-  foreach dest in array array['jean.c@kombrio.com.br', 'kombrio.admin@gmail.com'] loop
+  -- Trois boîtes : l'adresse du domaine (OVH), la boîte Gmail de l'administration et, en copie (v85), la boîte personnelle de JC.
+  foreach dest in array array['jean.c@kombrio.com.br', 'kombrio.admin@gmail.com', 'jean.c.turcon@gmail.com'] loop
     perform queue_mail('admin_report', dest, jsonb_build_object(
       'run', run, 'date', to_char(now() at time zone 'America/Sao_Paulo', 'DD/MM/YYYY HH24:MI'),
       'grave', nb_grave, 'attention', nb_att, 'items', items));
