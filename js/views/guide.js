@@ -221,7 +221,8 @@ async function dashboardView(me, city, tab = 'inicio') {
   const today = todayIn(city.timezone);
   const cur = (n) => cents(n, city.currency, lang);
   const pname = (id) => partners.find((p) => p.id === id)?.name || '?';
-  const stayOf = (id) => stays.find((s) => s.id === id);
+  // v102 : une ligne de commission d'un groupe d'agence ou de TC renvoie au groupe auquel on est rattaché.
+  const stayOf = (id) => stays.find((s) => s.id === id) || linked.find((s) => s.id === id);
   const pick = (st, key) => visits.filter((v) => st.includes(v.status)).reduce((s, v) => s + (v[key] || 0), 0);
   const openAdj = adjustments.filter((a) => !a.payoutId && (a.guideDelta < 0 || a.partnerStatus === 'settled')).reduce((s, a) => s + a.guideDelta, 0);
   const payoutSum = (st) => payouts.filter((p) => p.status === st).reduce((s, p) => s + (p.cents || 0), 0);
@@ -263,7 +264,7 @@ async function dashboardView(me, city, tab = 'inicio') {
   const txRow = (v) => {
     const sh = shareOf(v); const a = alertOf(v.id);
     return `<div class="g-tx" data-p="${esc(v.partnerId)}" data-s="${esc(v.status)}">
-      <div class="spread"><span><b>${esc(pname(v.partnerId))}</b> · ${esc(stayOf(v.stayId)?.client || '')}<br>
+      <div class="spread"><span><b>${esc(pname(v.partnerId))}</b> · ${esc(stayOf(v.stayId)?.client || '')}${v.parentVisitId && stayOf(v.stayId)?.owner ? ` <span class="hint">(${t('g.line.via', { name: esc(stayOf(v.stayId).owner) })})</span>` : ''}<br>
         <span class="hint">${fmtDay(v.at.slice(0, 10), lang)} · ${esc(store.visitRef(v))} · ${t('stay.people', { n: v.peopleServed })}${v.direct ? ` · ${t('vd.tag')}` : ''}${v.guidePresent ? ` · ${t('rs.present')}` : ''}${v.guideMeal ? ` · ${t('rs.meal.tag')}` : ''}${v.computedCents != null && v.declaredCents != null && v.declaredCents < v.computedCents ? ` · ${t('g.reduced')}` : ''}</span></span>
         <span class="g-amt">${sh == null ? `<span class="hint">${t('g.amt.none')}</span>` : CASHED.includes(v.status) ? `<b>${cur(sh)}</b>` : `<b>≈ ${cur(sh)}</b><br><span class="hint">${t('g.amt.est')}</span>`}</span></div>
       ${tracker(v)}
@@ -744,6 +745,7 @@ async function stayView(me, city, stayId) {
   // v100 : une agence rattache un TC et/ou des guides ; un TC rattache des guides.
   const canLink = me.actorKind === 'agency' || me.actorKind === 'tc';
   const actors = canLink ? await store.stayActors(stay.id) : [];
+  const split = canLink ? await store.stayCommissionLines(stay.id) : [];   // v102 : répartition par rôle de chaque passage
   const lang = getLang();
   const valid = stayIsValid(stay, city);
   const visits = await store.listVisits({ stayId: stay.id });
@@ -782,10 +784,10 @@ async function stayView(me, city, stayId) {
           <p class="hint" style="text-align:center">${t('guide.stay.showcl.hint')}</p>
           <button type="button" class="btn ghost small" id="clclose">${t('gg.close')}</button></div>
       </div>
-      <div class="card">
+      ${canLink ? splitCard(split, city, lang) : `<div class="card">
         <h2>${t('guide.stay.visits')}</h2>
         ${visits.length ? `<ul class="list">${visits.map(visitItem).join('')}</ul>` : `<p class="hint">${t('guide.stay.visits.none')}</p>`}
-      </div>
+      </div>`}
       ${canLink ? `<div class="card" id="links"><h2>${t('grp.links.title')}</h2><p class="hint">${t(me.actorKind === 'agency' ? 'grp.links.hint.agency' : 'grp.links.hint.tc')}</p>
         ${actors.length ? `<ul class="list">${actors.map((a) => `<li><div class="spread"><span><b>${esc(a.name)}</b> <span class="badge">${t(`role.${a.role}`)}</span><br><span class="hint">${esc(a.code || '')}</span></span>
           <button type="button" class="btn ghost small" data-unlink="${esc(a.actor_id)}">${t('grp.links.remove')}</button></div></li>`).join('')}</ul>` : `<p class="hint">${t('grp.links.none')}</p>`}
@@ -835,6 +837,21 @@ async function stayView(me, city, stayId) {
       };
     },
   };
+}
+
+// v102 : agence ou TC — chaque passage du groupe avec ce que touche chaque apporteur (net après la part Kombrio).
+function splitCard(split, city, lang) {
+  const cur = (n) => cents(n, city.currency, lang);
+  const net = (l) => (['received', 'payout_pending', 'paid'].includes(l.status) && l.actor_cents != null ? { v: Number(l.actor_cents), est: false }
+    : l.declared_cents == null ? null : { v: Math.floor(Number(l.declared_cents) * (1 - (l.platform_share == null ? 0.2 : Number(l.platform_share)))), est: true });
+  const line = (l) => { const n = net(l); return `<li class="split-line"><span><span class="badge">${t(`role.${l.role}`)}</span> ${esc(l.name || '?')}${l.mine ? ` <span class="hint">(${t('grp.split.you')})</span>` : ''}</span>
+    <span>${n ? `<b>${n.est ? '≈ ' : ''}${cur(n.v)}</b>` : '<span class="hint">—</span>'} ${statusBadge({ status: l.status })}</span></li>`; };
+  return `<div class="card"><h2>${t('grp.split.title')}</h2><p class="hint">${t('grp.split.hint')}</p>
+    ${split.length ? `<ul class="list">${split.map((v) => `<li>
+      <div class="spread"><b>${esc(v.partner || '?')}</b>${statusBadge({ status: v.status })}</div>
+      <div class="hint">${fmtMoment(v.at, lang, city.timezone)} · ${t('stay.people', { n: v.people })}${v.invoice_cents != null ? ` · ${cur(Number(v.invoice_cents))}` : ''}</div>
+      ${(v.lines || []).length ? `<ul class="split-lines">${v.lines.map(line).join('')}</ul>` : ''}</li>`).join('')}</ul>`
+      : `<p class="hint">${t('grp.split.none')}</p>`}</div>`;
 }
 
 // Relevé du guide : chaque transaction, déclaré ≠ encaissé, parts 80/20 seulement sur l'encaissé, reversement.

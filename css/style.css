@@ -579,3 +579,9 @@ main { overflow-wrap: break-word; }
   background: var(--info-bg); border-radius: var(--radius-btn); }
 .grp-bar select { width: auto; flex: 1 1 140px; margin: 0; }
 .grp-bar .btn { white-space: nowrap; }
+
+/* v102 : lignes de commission par rôle (groupe d'agence ou de TC). */
+.pd-row.pd-child { background: var(--bg); }
+.pd-row.pd-child .pd-who { padding-left: 12px; border-left: 2px solid var(--line); }
+.split-lines { list-style: none; margin: 8px 0 0; padding: 0 0 0 12px; border-left: 2px solid var(--line); }
+.split-line { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; padding: 4px 0; font-size: .92rem; }

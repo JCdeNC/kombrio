@@ -752,7 +752,7 @@ export function spaceView(space, tab = 'painel') {
   const late = toPay.length ? Math.max(...toPay.map((v) => ageDays(v.declaredAt))) : 0;
   const lastPay = payments[0];
   const rejected = lastPay && lastPay.status === 'rejected' && toPay.length ? lastPay : null;
-  const inMonth = visits.filter((v) => monthOf(v.at, city.timezone) === month && v.status !== 'cancelled');
+  const inMonth = visits.filter((v) => monthOf(v.at, city.timezone) === month && v.status !== 'cancelled' && store.isMainVisit(v));
   const paidMonth = payments.filter((y) => y.status === 'verified' && y.verifiedAt && monthOf(y.verifiedAt, city.timezone) === month).reduce((s, y) => s + y.cents, 0);
   const fresh = !visits.length && !payments.length;
   const dk = doneKey(partner.id, month);
@@ -779,10 +779,10 @@ export function spaceView(space, tab = 'painel') {
     const inv = v.status === 'visited'
       ? `<input class="pd-inv" data-inv="${esc(v.id)}" inputmode="decimal" placeholder="${t('pd.col.bill')}" aria-label="${esc(tRaw('pd.col.bill'))} ${esc(v.client || '')}">`
       : `<span class="pd-num">${v.invoiceCents == null ? '—' : c(v.invoiceCents)}</span>`;
-    return `<label class="pd-row" data-v="${v.status}">
+    return `<label class="pd-row${v.parentVisitId ? ' pd-child' : ''}" data-v="${v.status}">
       <span class="pd-c">${can ? `<input type="checkbox" data-sel="${esc(v.id)}" data-st="${v.status}" aria-label="${esc(v.client || '')}">` : ''}</span>
       <span class="pd-d">${fmtDay(v.at.slice(0, 10), lang)}</span>
-      <span class="pd-who"><b>${esc(v.client || '?')}</b><small>${roleTag(v)}${esc(v.guideName || '?')} · ${t('scan.people', { n: v.peopleServed })} · ${esc(store.visitRef(v))}${v.tableLabel ? ` · ${t('rs.table.short', { n: v.tableLabel })}` : ''}${v.statusNote && ['disputed', 'cancelled'].includes(v.status) ? ` · ${esc(v.statusNote)}` : ''}</small>${rowTags(v)}${alertOf(v.id) ? `<span class="badge">${t('alert.short', { num: alertOf(v.id).num, status: alertStatus(alertOf(v.id).status) })}</span>` : problemLink(v.id)}</span>
+      <span class="pd-who"><b>${esc(v.client || '?')}</b><small>${roleTag(v)}${esc(v.guideName || '?')} · ${v.parentVisitId ? '' : `${t('scan.people', { n: v.peopleServed })} · `}${esc(store.visitRef(v))}${v.tableLabel ? ` · ${t('rs.table.short', { n: v.tableLabel })}` : ''}${v.statusNote && ['disputed', 'cancelled'].includes(v.status) ? ` · ${esc(v.statusNote)}` : ''}</small>${rowTags(v)}${alertOf(v.id) ? `<span class="badge">${t('alert.short', { num: alertOf(v.id).num, status: alertStatus(alertOf(v.id).status) })}</span>` : problemLink(v.id)}</span>
       <span class="pd-st">${statusBadge(v, 'partner')}</span>
       <span class="pd-i">${inv}</span>
       <span class="pd-num pd-com" data-com="${esc(v.id)}">${v.declaredCents == null ? '—' : c(v.declaredCents)}</span>
@@ -833,7 +833,8 @@ export function spaceView(space, tab = 'painel') {
   const months6 = lastMonths(6, city.timezone);
   const prevMonth = months6[4];
   const stat = (m) => { const l = visits.filter((v) => monthOf(v.at, city.timezone) === m && v.status !== 'cancelled');
-    return { n: l.length, people: l.reduce((s, v) => s + (v.peopleServed || 0), 0), bills: l.reduce((s, v) => s + (v.invoiceCents || 0), 0), com: l.reduce((s, v) => s + (v.declaredCents || 0), 0) }; };
+    const main = l.filter(store.isMainVisit);   // v102 : les lignes TC/guide d'un groupe d'agence ne sont pas des passages en plus
+    return { n: main.length, people: main.reduce((s, v) => s + (v.peopleServed || 0), 0), bills: main.reduce((s, v) => s + (v.invoiceCents || 0), 0), com: l.reduce((s, v) => s + (v.declaredCents || 0), 0) }; };
   const now = stat(month); const before = stat(prevMonth);
   const kpis = `<div class="pd-kpis">
       <div class="pd-kpi"><span>${t('pd.k.visits')}</span><b>${now.n}${delta(now.n, before.n)}</b><em>${t('pd.k.people', { n: now.people })}</em></div>
@@ -1354,14 +1355,14 @@ function reportBlock({ partner, city, visits, adjustments = [] }, month, base) {
       </div>
       <p class="print-only"><b>${esc(monthLabel(m, lang))}</b></p>
       <div class="stats" style="margin-top:12px">
-        <div class="stat"><b>${counted.length}</b><span>${t('report.visits')}</span></div>
+        <div class="stat"><b>${counted.filter(store.isMainVisit).length}</b><span>${t('report.visits')}</span></div>
         <div class="stat"><b>${cur(declared)}</b><span>${t('report.declared')}</span></div>
         <div class="stat"><b>${cur(paid)}</b><span>${t('report.paid')}</span></div>
       </div>
       ${todo ? `<div class="notice">${t('partner.nodeclared', { n: todo })}</div>` : ''}
       ${rows.length ? `<div class="table-wrap"><table>
         <tr><th>${t('report.col.id')}</th><th>${t('report.col.date')}</th><th>${t('report.col.client')}</th><th>${t('report.col.guide')}</th><th>${t('report.col.people')}</th><th>${t('report.col.amount')}</th><th>${t('report.col.status')}</th></tr>
-        ${rows.map((v) => `<tr><td style="white-space:nowrap">${esc(store.txNum(v.num))}</td><td style="white-space:nowrap">${shortMoment(v.at, lang, city.timezone)}</td><td>${esc(v.client || '')}</td><td>${esc(v.guideName || '')}</td><td>${v.peopleServed}</td>
+        ${rows.map((v) => `<tr><td style="white-space:nowrap">${esc(store.txNum(v.num))}</td><td style="white-space:nowrap">${shortMoment(v.at, lang, city.timezone)}</td><td>${v.parentVisitId ? '↳ ' : ''}${esc(v.client || '')}</td><td>${roleTag(v)}${esc(v.guideName || '')}</td><td>${v.parentVisitId ? '' : v.peopleServed}</td>
           <td>${v.declaredCents != null ? cur(v.declaredCents) : '—'}</td><td>${statusBadge(v, 'partner')}</td></tr>`).join('')}
         <tr><td colspan="5"><b>${t('report.total')}</b></td><td><b>${cur(declared)}</b></td><td></td></tr>
       </table></div>` : `<p class="hint">${t('report.none')}</p>`}
@@ -1383,7 +1384,7 @@ function reportBlock({ partner, city, visits, adjustments = [] }, month, base) {
       const num = (n) => (n == null ? '' : (n / 100).toFixed(2).replace('.', ','));
       const cell = (x) => `"${String(x ?? '').replace(/"/g, '""')}"`;
       const head = ['report.col.id', 'report.col.date', 'report.col.client', 'report.col.guide', 'report.col.people', 'report.col.amount', 'report.col.status'].map((k) => cell(tRaw(k)));
-      const lines = rows.map((v) => [store.txNum(v.num), shortMoment(v.at, lang, city.timezone), v.client, v.guideName, v.peopleServed,
+      const lines = rows.map((v) => [store.txNum(v.num), shortMoment(v.at, lang, city.timezone), v.client, v.actorRole && (v.parentVisitId || v.actorRole !== 'guide') ? `${v.guideName} (${tRaw(`role.${v.actorRole}`)})` : v.guideName, v.parentVisitId ? '' : v.peopleServed,
         num(v.declaredCents), pLabel(v)].map(cell));
       lines.push([cell(tRaw('report.total')), '', '', '', '', cell(num(declared)), '']);
       const csv = '﻿' + [head, ...lines].map((r) => r.join(';')).join('\r\n');
@@ -1470,7 +1471,7 @@ function monthPage(space, month, closings) {
       <div class="spread"><div><h1 style="margin-bottom:2px">${t('mes.title')}</h1><p class="hint" style="margin:0">${t('mes.hint')}</p></div>
         <select id="mes-month" style="width:auto">${months.map((x) => `<option value="${x}" ${x === m ? 'selected' : ''}>${esc(monthLabel(x, lang))}</option>`).join('')}</select></div>
       ${step(1, t('mes.s1'), !toDeclare.length && !disputed.length, `
-        <p>${t('mes.s1.count', { n: inM.length, people: inM.reduce((s, v) => s + v.peopleServed, 0) })}</p>
+        <p>${t('mes.s1.count', { n: inM.filter(store.isMainVisit).length, people: inM.filter(store.isMainVisit).reduce((s, v) => s + v.peopleServed, 0) })}</p>
         ${toDeclare.length ? `<div class="notice warn">${t('mes.s1.todo', { n: toDeclare.length })}</div><a class="btn" href="${base}">${t('mes.s1.go')}</a>` : `<p class="hint">${t('mes.s1.done')}</p>`}
         ${disputed.length ? `<div class="notice bad">${t('mes.s1.disputed', { n: disputed.length })}</div>` : ''}`)}
       ${step(2, t('mes.s2'), payCents <= 0, `
@@ -1602,7 +1603,7 @@ function docPage(space, sel, closings, back) {
 function counterView({ partner, city, visits, key }) {
   const lang = getLang();
   // Les groupes en attente sont déjà dans « Pendentes agora » : ici, seulement ceux déjà lancés.
-  const done = visits.filter((v) => !(v.status === 'visited' && Date.now() - new Date(v.at) < 16 * 36e5));
+  const done = visits.filter((v) => store.isMainVisit(v) && !(v.status === 'visited' && Date.now() - new Date(v.at) < 16 * 36e5));
   return {
     html: `
       <div class="spread"><h1>${esc(partner.name)}</h1>${helpButton()}</div>
@@ -1639,7 +1640,7 @@ const root = () => document.getElementById('app');
 function staffView({ partner, city, visits, key, staff }) {
   const lang = getLang();
   const c = (n) => cents(n, city.currency, lang);
-  const done = visits.filter((v) => !(v.status === 'visited' && Date.now() - new Date(v.at) < 16 * 36e5));
+  const done = visits.filter((v) => store.isMainVisit(v) && !(v.status === 'visited' && Date.now() - new Date(v.at) < 16 * 36e5));
   const me = staff || { name: '', post: 'other' };
   return {
     html: `

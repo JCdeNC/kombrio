@@ -254,7 +254,7 @@ async function dashboard({ guides, partnerList, visits, adjustments, cur, cityLi
       ${agendaCard}
       ${leadsCard}
       <div class="stats">
-        <div class="stat"><b>${live.length}</b><span>${t('admin.stat.visits')}</span></div>
+        <div class="stat"><b>${live.filter(store.isMainVisit).length}</b><span>${t('admin.stat.visits')}</span></div>
         <div class="stat"><b>${live.filter((v) => IN(v, 'zero')).length}</b><span>${t('admin.stat.zero')}</span></div>
         <div class="stat"><b>${live.filter((v) => IN(v, 'disputed')).length}</b><span>${t('admin.stat.disputed')}</span></div>
       </div>
@@ -273,9 +273,10 @@ async function dashboard({ guides, partnerList, visits, adjustments, cur, cityLi
       </div>
       <div class="card"><h2 style="margin:0">${t('dash.6m.admin')}</h2>
         ${barChart(months6.map((m) => { const l = live.filter((v) => monthKeyOf(v.at, tz) === m);
-          return { label: shortMonth(m, lang), value: sumOf(l, 'declaredCents'), text: `${cur(sumOf(l, 'declaredCents'), cityId)} · Kombrio ${cur(sumOf(l.filter((v) => IN(v, 'received', 'payout_pending', 'paid')), 'kombrioCents'), cityId)} · ${t('dash.visits', { n: l.length })}` }; }))}</div>
+          return { label: shortMonth(m, lang), value: sumOf(l, 'declaredCents'), text: `${cur(sumOf(l, 'declaredCents'), cityId)} · Kombrio ${cur(sumOf(l.filter((v) => IN(v, 'received', 'payout_pending', 'paid')), 'kombrioCents'), cityId)} · ${t('dash.visits', { n: l.filter(store.isMainVisit).length })}` }; }))}</div>
       <div class="card"><div class="spread"><h2 style="margin:0">${t('dash.rank.title')}</h2>
-        <select id="rank-period" style="width:auto">${['month', '3m', 'all'].map((k) => `<option value="${k}">${t(`dash.rank.${k}`)}</option>`).join('')}</select></div>
+        <span class="row" style="gap:6px"><select id="rank-role" style="width:auto" aria-label="${esc(tRaw('admin.role.filter'))}">${['', 'guide', 'tc', 'agency'].map((k) => `<option value="${k}">${k ? t(`role.${k}`) : t('admin.role.all')}</option>`).join('')}</select>
+        <select id="rank-period" style="width:auto">${['month', '3m', 'all'].map((k) => `<option value="${k}">${t(`dash.rank.${k}`)}</option>`).join('')}</select></span></div>
         <p class="hint">${t('dash.rank.hint')}</p>
         <div class="pd-cols"><div class="pd-side" id="rank-guides"></div><div class="pd-side" id="rank-partners"></div></div></div>`,
     mount(root) {
@@ -285,10 +286,12 @@ async function dashboard({ guides, partnerList, visits, adjustments, cur, cityLi
       const sel = root.querySelector('#rank-period');
       const draw = () => {
         const p = sel.value; const keep = p === 'month' ? months6.slice(5) : p === '3m' ? months6.slice(3) : null;
-        const l = live.filter((v) => !keep || keep.includes(monthKeyOf(v.at, tz)));
+        const role = root.querySelector('#rank-role').value;
+        const roleOf = (v) => v.actorRole || guides.find((g) => g.id === v.guideId)?.actorKind || 'guide';
+        const l = live.filter((v) => (!keep || keep.includes(monthKeyOf(v.at, tz))) && (!role || roleOf(v) === role));
         const table = (key, nameOf, title) => {
           const rows = [...new Set(l.map((v) => v[key]))].map((id) => { const x = l.filter((v) => v[key] === id);
-            return { name: nameOf(id), n: x.length, com: sumOf(x, 'declaredCents'), kb: sumOf(x.filter((v) => IN(v, 'received', 'payout_pending', 'paid')), 'kombrioCents') }; })
+            return { name: nameOf(id), n: key === 'partnerId' ? x.filter(store.isMainVisit).length : x.length, com: sumOf(x, 'declaredCents'), kb: sumOf(x.filter((v) => IN(v, 'received', 'payout_pending', 'paid')), 'kombrioCents') }; })
             .sort((a, b) => b.com - a.com || b.n - a.n).slice(0, 10);
           return `<h3>${title}</h3>${rows.length ? `<div class="table-wrap"><table class="kb-rank"><tr><th>#</th><th>${t('dash.col.name')}</th><th>${t('dash.col.visits')}</th><th>${t('dash.col.com')}</th><th>Kombrio</th></tr>
             ${rows.map((r, i) => `<tr><td>${i + 1}</td><td>${esc(r.name)}</td><td>${r.n}</td><td>${cur(r.com, cityId)}</td><td>${cur(r.kb, cityId)}</td></tr>`).join('')}</table></div>` : `<p class="hint">—</p>`}`;
@@ -296,7 +299,7 @@ async function dashboard({ guides, partnerList, visits, adjustments, cur, cityLi
         root.querySelector('#rank-guides').innerHTML = table('guideId', (id) => guides.find((g) => g.id === id)?.name || '?', t('dash.rank.guides'));
         root.querySelector('#rank-partners').innerHTML = table('partnerId', (id) => partnerList.find((p) => p.id === id)?.name || '?', t('dash.rank.partners'));
       };
-      sel.onchange = draw; draw();
+      sel.onchange = draw; root.querySelector('#rank-role').onchange = draw; draw();
     },
   };
 }
@@ -867,7 +870,7 @@ async function pixAdmin({ guides, pixChecks, expenses, cur, guide }) {
 // Toutes les transactions : déclaré / encaissé / parts, corrections tracées (motif obligatoire).
 async function transactions({ visits, adjustments, guide, partner, cur, city }) {
   const lang = getLang();
-  const rows = visits.slice(0, 300);
+  const rows = store.nestLines(visits).slice(0, 300);   // v102 : lignes TC/guide sous leur passage
   const actions = (v) => {
     const a = [];
     if (IN(v, 'zero', 'declared')) a.push('correct');
@@ -881,15 +884,18 @@ async function transactions({ visits, adjustments, guide, partner, cur, city }) 
     html: `<div class="card">
       <h2>${t('admin.tx.title')}</h2>
       <p class="hint">${t('admin.tx.hint')}</p>
-      <div class="field"><label for="tx-find">${t('admin.tx.find')}</label><input id="tx-find" autocomplete="off" spellcheck="false" placeholder="KTR-BMX · KB-000123" style="max-width:260px"></div>
+      <div class="row" style="gap:10px;align-items:flex-end"><div class="field"><label for="tx-find">${t('admin.tx.find')}</label><input id="tx-find" autocomplete="off" spellcheck="false" placeholder="KTR-BMX · KB-000123" style="max-width:260px"></div>
+        <div class="field"><label for="tx-role">${t('admin.role.filter')}</label><select id="tx-role" style="width:auto">${['', 'guide', 'tc', 'agency'].map((k) => `<option value="${k}">${k ? t(`role.${k}`) : t('admin.role.all')}</option>`).join('')}</select></div></div>
       ${rows.length ? `<div class="table-wrap"><table>
         <tr><th>ID</th><th>${t('common.date')}</th><th>${t('admin.part.title')}</th><th>${t('common.guide')}</th><th>${t('admin.tx.people')}</th><th>${t('admin.tx.declared')}</th><th>${t('admin.tx.received')}</th><th>Kombrio</th><th>${t('common.guide')}</th><th>${t('admin.col.status')}</th></tr>
         ${rows.map((v) => {
           const p = partner(v.partnerId);
           const c = (n) => (n == null ? '—' : cur(n, p?.cityId));
           const acts = actions(v);
-          return `<tr data-find="${esc(`${v.code} ${store.txNum(v.num).replace('-', '')}`)}"><td style="white-space:nowrap">${esc(store.txNum(v.num))}${v.code ? `<div class="hint">${esc(store.fmtCode(v.code))}</div>` : ''}</td><td style="white-space:nowrap">${fmtMoment(v.at, lang, city(p?.cityId)?.timezone)}</td>
-            <td>${esc(p?.name || '?')}</td><td>${esc(guide(v.guideId)?.name || '?')}</td><td>${v.peopleServed}</td>
+          const role = v.actorRole || guide(v.guideId)?.actorKind || 'guide';
+          const parent = v.parentVisitId ? visits.find((x) => x.id === v.parentVisitId) : null;
+          return `<tr data-find="${esc(`${v.code} ${store.txNum(v.num).replace('-', '')}`)}" data-role="${role}"><td style="white-space:nowrap">${esc(store.txNum(v.num))}${v.code ? `<div class="hint">${esc(store.fmtCode(v.code))}</div>` : ''}</td><td style="white-space:nowrap">${fmtMoment(v.at, lang, city(p?.cityId)?.timezone)}</td>
+            <td>${esc(p?.name || '?')}</td><td>${role !== 'guide' || v.parentVisitId ? `<span class="badge">${t(`role.${role}`)}</span> ` : ''}${esc(guide(v.guideId)?.name || '?')}${parent ? `<div class="hint">↳ ${esc(store.txNum(parent.num))}</div>` : ''}</td><td>${v.parentVisitId ? '' : v.peopleServed}</td>
             <td>${c(v.declaredCents)}</td><td>${c(v.receivedCents)}</td><td>${c(v.kombrioCents)}</td><td>${c(v.guideCents)}</td>
             <td>${statusBadge(v)}${v.statusNote ? `<div class="hint">${esc(v.statusNote)}</div>` : ''}
               ${acts.length ? `<details><summary class="hint">${t('admin.tx.act')}</summary>
@@ -925,10 +931,14 @@ async function transactions({ visits, adjustments, guide, partner, cur, city }) 
     </div>`,
     mount(root, ctx) {
       const find = root.querySelector('#tx-find');
-      if (find) find.oninput = () => {
-        const q = find.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
-        root.querySelectorAll('tr[data-find]').forEach((r) => { r.hidden = Boolean(q) && !r.dataset.find.replace(/[^A-Z0-9 ]/g, '').split(' ').some((x) => x.includes(q)); });
+      const txRole = root.querySelector('#tx-role');
+      const filterTx = () => {
+        const q = find ? find.value.toUpperCase().replace(/[^A-Z0-9]/g, '') : '';
+        const role = txRole ? txRole.value : '';
+        root.querySelectorAll('tr[data-find]').forEach((r) => { r.hidden = (Boolean(q) && !r.dataset.find.replace(/[^A-Z0-9 ]/g, '').split(' ').some((x) => x.includes(q))) || (Boolean(role) && r.dataset.role !== role); });
       };
+      if (find) find.oninput = filterTx;
+      if (txRole) txRole.onchange = filterTx;
       root.querySelectorAll('form.adjsettle').forEach((f) => {
         f.onsubmit = async (e) => {
           e.preventDefault();

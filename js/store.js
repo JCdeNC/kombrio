@@ -87,6 +87,21 @@ const toVisit = (r) => r && ({
   dueCents: r.declared_cents == null ? null : Number(r.declared_cents) + (Number(r.fee_cents) || 0),
   parentVisitId: r.parent_visit_id || null, actorRole: r.actor_role || null, // v101 : ligne de commission par rôle
 });
+// v102 : chaque ligne de commission (TC, guide d'un groupe d'agence) juste après son passage principal.
+export function nestLines(visits) {
+  const kids = new Map();
+  visits.filter((v) => v.parentVisitId).forEach((v) => { if (!kids.has(v.parentVisitId)) kids.set(v.parentVisitId, []); kids.get(v.parentVisitId).push(v); });
+  const mainIds = new Set(visits.filter((v) => !v.parentVisitId).map((v) => v.id));
+  const out = [];
+  visits.forEach((v) => {
+    if (v.parentVisitId && mainIds.has(v.parentVisitId)) return;
+    out.push(v);
+    if (!v.parentVisitId) (kids.get(v.id) || []).forEach((k) => out.push(k));
+  });
+  return out;
+}
+// Un passage (pas une ligne de commission) : pour compter les visites, les personnes et les additions.
+export const isMainVisit = (v) => !v.parentVisitId;
 const toPayout = (r) => r && ({
   id: r.id, num: num(r.num), guideId: r.guide_id, cents: num(r.amount_cents), status: r.status, reference: r.reference,
   // v53 : cents = montant NET envoyé ; grossCents = avant retenue ; inssCents = INSS retenu (guide CPF).
@@ -355,14 +370,14 @@ export async function partnerSpace(token) {
   const d = check(await sb.rpc('partner_space', { p_token: token }));
   if (!d) return null;
   const codes = await sb.rpc('partner_visit_codes', { p_token: token }).then((x) => x.data || {}, () => ({}));
-  return { role: d.role, staff: d.staff || null, partner: toPartner(d.partner), city: toCity(d.city), visits: (d.visits || []).map((v) => toVisit({ ...v, code: codes[v.id] })), payments: (d.payments || []).map(toPayment),
+  return { role: d.role, staff: d.staff || null, partner: toPartner(d.partner), city: toCity(d.city), visits: nestLines((d.visits || []).map((v) => toVisit({ ...v, code: codes[v.id] }))), payments: (d.payments || []).map(toPayment),
     adjustments: (d.adjustments || []).map(toAdjustment) };
 }
 // Relevé du comptable (lecture seule), à partir de son lien. null si le lien n'est pas reconnu.
 export async function partnerReport(reportToken) {
   const d = check(await sb.rpc('partner_report', { p_token: reportToken }));
   if (!d) return null;
-  return { partner: toPartner(d.partner), city: toCity(d.city), visits: (d.visits || []).map(toVisit), payments: (d.payments || []).map(toPayment),
+  return { partner: toPartner(d.partner), city: toCity(d.city), visits: nestLines((d.visits || []).map(toVisit)), payments: (d.payments || []).map(toPayment),
     adjustments: (d.adjustments || []).map(toAdjustment) };
 }
 // Clôture mensuelle (v54) : le gérant fige son mois (nouvelle version si quelque chose a changé). month = 'AAAA-MM'.
@@ -458,6 +473,7 @@ export async function linkActor(stayId, code) { return check(await sb.rpc('link_
 export async function unlinkActor(stayId, actorId) { return check(await sb.rpc('unlink_actor', { p_stay: stayId, p_actor: actorId })); }
 export async function stayActors(stayId) { try { return check(await sb.rpc('stay_actors', { p_stay: stayId })) || []; } catch { return []; } }
 export async function myLinkedStays() { try { return check(await sb.rpc('my_linked_stays')) || []; } catch { return []; } }
+export async function stayCommissionLines(stayId) { try { return check(await sb.rpc('stay_commission_lines', { p_stay: stayId })) || []; } catch { return []; } } // v102
 export async function getStay(stayId) {
   return toStay(check(await sb.from('stays').select('*').eq('id', stayId).maybeSingle()));
 }
