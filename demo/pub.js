@@ -7,14 +7,15 @@
   var SLIDES = [
     { ico: '🍽️', title: 'Seus clientes chegam com um guia?', text: 'A Kombrio registra, calcula e paga as comissões por você.' },
     { ico: '📱', title: 'Escaneie o QR do cliente', text: 'Um segundo, com a câmera do celular. Nada para instalar.', mock: 'scan' },
-    { ico: '🧾', title: 'Digite o valor da conta', text: 'A comissão é calculada sozinha, com a taxa que você escolhe.', mock: 'bill' },
+    { ico: '🧾', title: 'Digite o valor da conta', text: 'A comissão é calculada sozinha, com a taxa que você escolhe.', mock: 'bill', ms: 8000 },
     { ico: '💸', title: 'Um só Pix por mês', text: 'A Kombrio repassa a cada guia, Tour Company ou agência.', mock: 'pix' },
     { ico: '✅', title: 'Zero planilha. Zero cobrança.', text: 'Tudo registrado, com comprovante e relatório para o seu contador.' },
     { end: true, title: 'Cadastro gratuito.', text: 'Você só paga as comissões que definir.' }
   ];
   var MOCKS = {
     scan: '<div class="pub-phone"><div class="pub-ok">✓ Visita registrada</div><div class="pub-line"><span>Guia</span><b>Ana Souza</b></div><div class="pub-line"><span>Pessoas</span><b>4</b></div></div>',
-    bill: '<div class="pub-phone"><div class="pub-line"><span>Conta</span><b>R$ 500,00</b></div><div class="pub-line big"><span>Comissão 10 %</span><b>R$ 50,00</b></div></div>',
+    bill: '<div class="pub-phone"><div class="pub-line"><span>Conta</span><b>R$ 500,00</b></div><div class="pub-line big"><span>Comissão 10 %</span><b>R$ 50,00</b></div></div>'
+      + '<p class="pub-note">10 % é só um exemplo. Você define tudo: a taxa, um valor fixo por pessoa, bônus, taxas diferentes para guias, Tour Companies e agências. E muda quando quiser.</p>',
     pix: '<div class="pub-phone"><div class="pub-line"><span>Ana · Bruno · Carla</span><b>12 visitas</b></div><div class="pub-line big"><span>Um Pix</span><b>R$ 640,00</b></div></div>'
   };
   var i = 0, timer = null, started = 0, left = DURATION, paused = false;
@@ -59,7 +60,7 @@
     if (again) again.onclick = function (e) { e.stopPropagation(); paused = false; show(0); };
     document.getElementById('pub').classList.toggle('is-end', !!SLIDES[i].end);
     if (SLIDES[i].end) { bars.children[i].firstChild.style.width = '100%'; return; }
-    left = DURATION;
+    left = SLIDES[i].ms || DURATION;
     if (!paused) play();
   }
   function play() {

@@ -94,3 +94,4 @@ body { padding-bottom: 84px; }
 @media (prefers-reduced-motion: reduce) { .pub-slide, .pub-ico, .pub-phone { animation: none; } }
 .pub-end .pub-btn.secondary { background: #fff; color: var(--ink); border-color: #fff; }
 .pub.is-end .pub-pause { visibility: hidden; }
+.pub-note { margin: 14px auto 0 !important; max-width: 300px !important; font-size: .92rem !important; color: rgba(255,255,255,.78) !important; animation: pub-up .6s .6s ease both; }
