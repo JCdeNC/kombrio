@@ -875,7 +875,7 @@ export function spaceView(space, tab = 'painel') {
           <label style="font-weight:400;display:flex;gap:10px;align-items:center"><input type="radio" name="model" value="per_person" style="width:auto"${partner.commissionModel === 'per_person' ? ' checked' : ''}> ${t('partner.model.per_person')}</label></div>
         <div id="m-percent"${partner.commissionModel === 'per_person' ? ' hidden' : ''}>
         <p class="hint">${t('partner.rate.hint')}</p>
-        <div class="field"><select name="rate">${[5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 20].map((n) => `<option value="${n / 100}"${rate === n ? ' selected' : ''}>${n} %${n === 10 ? ` (${t('partner.rate.suggested')})` : ''}</option>`).join('')}</select></div></div>
+        <div class="field"><select name="rate">${[0, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 20].map((n) => `<option value="${n / 100}"${rate === n ? ' selected' : ''}>${n} %${n === 10 ? ` (${t('partner.rate.suggested')})` : n === 0 ? ` (${t('partner.rate.zero')})` : ''}</option>`).join('')}</select></div></div>
         <div id="m-pp"${partner.commissionModel === 'per_person' ? '' : ' hidden'}>
           <div class="field"><label for="m-amount">${t('partner.model.amount')}</label>
             <input id="m-amount" name="pp" inputmode="decimal" placeholder="${esc(city.currency)} 10,00" value="${partner.perPersonCents ? (partner.perPersonCents / 100).toFixed(2).replace('.', ',') : ''}"></div>
