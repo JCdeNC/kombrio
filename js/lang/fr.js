@@ -245,7 +245,7 @@ export default {
   'partner.model.child.ph': 'vide = comme un adulte',
   'partner.model.child.err': 'Montant par enfant entre 1 et 500 R$ (ou vide).',
   'rate.per_person': '{amount} / client',
-  'partner.rate.hint': "Choisissez de 5 % à 15 %, ou 20 %. S'applique aux prochains passages de clients Kombrio.",
+  'partner.rate.hint': "Choisissez 0 % (pas de guide), de 5 % à 15 %, ou 20 %. S'applique aux prochains passages de clients Kombrio.",
   'partner.rate.suggested': 'suggéré',
   'guide.weekly.title': 'Être payé chaque semaine',
   'guide.weekly.hint': 'Par défaut, le paiement est mensuel (80 % pour vous). Si vous cochez, vous êtes payé chaque semaine, avec 75 % pour vous et 25 % pour Kombrio.',

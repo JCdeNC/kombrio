@@ -245,7 +245,7 @@ export default {
   'partner.model.child.ph': 'vazio = igual a um adulto',
   'partner.model.child.err': 'Valor por criança entre R$ 1 e 500 (ou vazio).',
   'rate.per_person': '{amount} / cliente',
-  'partner.rate.hint': 'Escolha de 5 % a 15 %, ou 20 %. Vale para as próximas passagens de clientes Kombrio.',
+  'partner.rate.hint': 'Escolha 0 % (sem guia), de 5 % a 15 %, ou 20 %. Vale para as próximas passagens de clientes Kombrio.',
   'partner.rate.suggested': 'sugerido',
   'guide.weekly.title': 'Receber toda semana',
   'guide.weekly.hint': 'Por padrão, o pagamento é mensal (80 % para você). Se marcar, você recebe toda semana, com 75 % para você e 25 % para o Kombrio.',
