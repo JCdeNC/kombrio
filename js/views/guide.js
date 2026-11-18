@@ -59,18 +59,56 @@ async function loginView() {
         <button class="btn block">${t('auth.login')}</button>
         ${forgotLink()}
       </form>
-      <form class="card" id="signup">
-        <h2 id="su-title">${t('guide.signup.title')}</h2>
-        <div class="field"><label>${t('su.role.title')}</label>
-          <div class="bill-cases">${['guide', 'tc', 'agency'].map((k) => `<label class="bill-case${k === 'guide' ? ' on' : ''}"><input type="radio" name="actorKind" value="${k}"${k === 'guide' ? ' checked' : ''}><span><b>${t(`role.${k}`)}</b><br><small>${t(`su.role.${k}.hint`)}</small></span></label>`).join('')}</div></div>
-        <h3 class="su-step">1. ${t('su.s.you')}</h3>
-        <div class="field"><label for="g-name">${t('guide.signup.name')}</label><input id="g-name" name="name" required autocomplete="name"></div>
+      ${signupForm('guide', cities)}
+      <div class="card" id="co-card"><h2>${t('su.co.card.title')}</h2><p class="hint">${t('su.co.card.text')}</p>
+        <button type="button" class="btn secondary block" id="co-open">${t('su.co.open')}</button></div>
+      <div id="co-box" hidden>${signupForm('company', cities)}
+        <p style="text-align:center"><button type="button" class="link-btn" id="co-close">${t('su.co.close')}</button></p></div>`,
+    mount(root, ctx) {
+      mountForgot(root.querySelector('#login'));
+      root.querySelector('#login').onsubmit = async (e) => {
+        e.preventDefault();
+        const f = Object.fromEntries(new FormData(e.target));
+        try { await store.signIn(f.email.trim(), f.password); ctx.refresh(); } catch { notify(tRaw('auth.err.login')); }
+      };
+      mountSignup(root.querySelector('#signup-guide'), 'guide', ctx);
+      mountSignup(root.querySelector('#signup-company'), 'company', ctx);
+      // v103 : l'inscription entreprise (Tour Company ou agence) est à part, pour ne pas mélanger avec le guide.
+      const coBox = root.querySelector('#co-box'); const coCard = root.querySelector('#co-card'); const gForm = root.querySelector('#signup-guide');
+      const showCo = (on) => { coBox.hidden = !on; coCard.hidden = on; gForm.hidden = on; if (on) coBox.scrollIntoView({ behavior: 'smooth', block: 'start' }); };
+      root.querySelector('#co-open').onclick = () => showCo(true);
+      root.querySelector('#co-close').onclick = () => showCo(false);
+      if (/[?&]empresa\b/.test(location.hash) || /[?&]empresa\b/.test(location.search)) showCo(true);
+    },
+  };
+}
+
+// v103 : formulaire d'inscription — « guide » (personne, CPF, Cadastur) ou « company » (Tour Company / agence :
+// entreprise + CNPJ + Cadastur de l'entreprise, puis responsable + CPF).
+function signupForm(kind, cities) {
+  const co = kind === 'company'; const x = co ? 'c' : 'g';
+  const pixDefault = co ? 'cnpj' : 'cpf';
+  return `<form class="card" id="signup-${kind}">
+        <h2>${t(co ? 'su.role.company.title' : 'guide.signup.title')}</h2>
+        ${co ? `<div class="field"><label>${t('su.role.title')}</label>
+          <div class="bill-cases">${['tc', 'agency'].map((k) => `<label class="bill-case${k === 'tc' ? ' on' : ''}"><input type="radio" name="actorKind" value="${k}"${k === 'tc' ? ' checked' : ''}><span><b>${t(`role.${k}`)}</b><br><small>${t(`su.role.${k}.hint`)}</small></span></label>`).join('')}</div></div>`
+          : '<input type="hidden" name="actorKind" value="guide">'}
+        <h3 class="su-step">1. ${t(co ? 'su.co.s.company' : 'su.s.you')}</h3>
+        <div class="field"><label for="${x}-name">${t(co ? 'su.role.company.name' : 'guide.signup.name')}</label><input id="${x}-name" name="name" required autocomplete="${co ? 'organization' : 'name'}"></div>
+        ${co ? `<div class="grid2">
+          <div class="field"><label for="c-cnpj">${t('guide.signup.cnpj')}</label><input id="c-cnpj" name="cnpj" required inputmode="numeric" placeholder="00.000.000/0000-00"></div>
+          <div class="field"><label for="c-license">${t('su.co.license')}</label><input id="c-license" name="license" required inputmode="numeric" placeholder="00.000000.00-0"></div>
+        </div>` : ''}
         <div class="grid2">
-          ${phoneField('g-phone', t('guide.signup.phone'), t('phone.other'))}
-          <div class="field"><label for="g-city">${t('guide.signup.city')}</label>
-            <select id="g-city" name="cityId">${cities.map((c) => `<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('')}</select></div>
+          ${phoneField(`${x}-phone`, t('guide.signup.phone'), t('phone.other'))}
+          <div class="field"><label for="${x}-city">${t('guide.signup.city')}</label>
+            <select id="${x}-city" name="cityId">${cities.map((c) => `<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('')}</select></div>
         </div>
-        <h3 class="su-step">2. ${t('su.s.id')}</h3>
+        ${co ? `<h3 class="su-step">2. ${t('su.co.s.contact')}</h3>
+        <div class="grid2">
+          <div class="field"><label for="c-contact">${t('su.co.contact')}</label><input id="c-contact" name="contactName" required autocomplete="name"></div>
+          <div class="field"><label for="c-cpf">${t('su.role.company.cpf')}</label><input id="c-cpf" name="cpf" required inputmode="numeric" placeholder="000.000.000-00"></div>
+        </div>` : `<h3 class="su-step">2. ${t('su.s.id')}</h3>
         <div class="grid2">
           <div class="field"><label for="g-cpf">${t('guide.signup.cpf')}</label><input id="g-cpf" name="cpf" required inputmode="numeric" placeholder="000.000.000-00"></div>
           <div class="field"><label for="g-license">${t('guide.signup.license')}</label><input id="g-license" name="license" required inputmode="numeric" placeholder="00.000000.00-0"></div>
@@ -80,74 +118,64 @@ async function loginView() {
           <p class="hint" style="margin:6px 0">${t('su.cnpj.hint')}</p>
           <div class="field"><label for="g-cnpj">${t('guide.signup.cnpj')}</label><input id="g-cnpj" name="cnpj" inputmode="numeric" placeholder="00.000.000/0000-00"></div>
         </details>
-        <p class="hint">${t('su.tax.note')}</p>
+        <p class="hint">${t('su.tax.note')}</p>`}
         <h3 class="su-step">3. ${t('su.s.pix')}</h3>
         <div class="grid2">
-          <div class="field"><label for="g-ptype">${t('pix.type')}</label><select id="g-ptype" name="pixType">${PIX_TYPES.map((k) => `<option value="${k}"${k === 'cpf' ? ' selected' : ''}>${t(`pix.type.${k}`)}</option>`).join('')}</select></div>
-          <div class="field"><label for="g-pix">${t('guide.signup.pix')}</label><input id="g-pix" name="pixKey" required autocomplete="off"></div>
+          <div class="field"><label for="${x}-ptype">${t('pix.type')}</label><select id="${x}-ptype" name="pixType">${PIX_TYPES.map((k) => `<option value="${k}"${k === pixDefault ? ' selected' : ''}>${t(`pix.type.${k}`)}</option>`).join('')}</select></div>
+          <div class="field"><label for="${x}-pix">${t('guide.signup.pix')}</label><input id="${x}-pix" name="pixKey" required autocomplete="off"></div>
         </div>
-        <div class="field"><label for="g-holder">${t('su.pix.holder')}</label><input id="g-holder" name="pixHolder" required minlength="3" maxlength="120" autocomplete="off"></div>
+        <div class="field"><label for="${x}-holder">${t('su.pix.holder')}</label><input id="${x}-holder" name="pixHolder" required minlength="3" maxlength="120" autocomplete="off"></div>
         <p class="hint" style="margin-top:-6px">${t('su.pix.holder.hint')}</p>
         <h3 class="su-step">4. ${t('su.s.access')}</h3>
-        <div class="field"><label for="g-email">${t('auth.email')}</label><input id="g-email" name="email" type="email" required autocomplete="email"></div>
+        <div class="field"><label for="${x}-email">${t('auth.email')}</label><input id="${x}-email" name="email" type="email" required autocomplete="email"></div>
         <div class="grid2">
-          <div class="field"><label for="g-pass">${t('auth.password.new')}</label><input id="g-pass" name="password" type="password" required minlength="8" autocomplete="new-password"></div>
-          <div class="field"><label for="g-pass2">${t('auth.password.confirm')}</label><input id="g-pass2" name="password2" type="password" required minlength="8" autocomplete="new-password"></div>
+          <div class="field"><label for="${x}-pass">${t('auth.password.new')}</label><input id="${x}-pass" name="password" type="password" required minlength="8" autocomplete="new-password"></div>
+          <div class="field"><label for="${x}-pass2">${t('auth.password.confirm')}</label><input id="${x}-pass2" name="password2" type="password" required minlength="8" autocomplete="new-password"></div>
         </div>
         ${refFromUrl() ? `<p class="notice">${t('su.ref.from', { code: refFromUrl() })}</p><input type="hidden" name="refCode" value="${esc(refFromUrl())}">` : ''}
         <p class="hint">${t('guide.signup.hint')}</p>
-        <button class="btn block">${t('guide.signup.submit')}</button>
-      </form>`,
-    mount(root, ctx) {
-      mountForgot(root.querySelector('#login'));
-      // v64 : CPF obligatoire, CNPJ facultatif (paiement en CNPJ si rempli).
-      const taxIn = root.querySelector('#g-cpf'); const cnpjIn = root.querySelector('#g-cnpj');
-      maskTaxId(taxIn, () => 'cpf'); maskTaxId(cnpjIn, () => 'cnpj');
-      maskCadastur(root.querySelector('#g-license'));
-      // v99 : Tour Company ou agence : CNPJ obligatoire (le bloc s'ouvre), libellés adaptés.
-      const su = root.querySelector('#signup');
-      su.querySelectorAll('[name=actorKind]').forEach((r) => { r.onchange = () => {
-        const company = su.actorKind.value !== 'guide';
-        su.querySelectorAll('.bill-case').forEach((l) => l.classList.toggle('on', l.querySelector('input').checked));
-        const box = su.querySelector('.su-cnpj'); box.open = company || box.open; cnpjIn.required = company;
-        su.querySelector('label[for=g-name]').textContent = tRaw(company ? 'su.role.company.name' : 'guide.signup.name');
-        su.querySelector('#su-title').textContent = tRaw(company ? 'su.role.company.title' : 'guide.signup.title');
-        su.querySelector('label[for=g-cpf]').textContent = tRaw(company ? 'su.role.company.cpf' : 'guide.signup.cpf');
-      }; });
-      // Clé Pix CPF / CNPJ : reprise du numéro saisi plus haut (modifiable).
-      const pType = root.querySelector('#g-ptype'); const pKey = root.querySelector('#g-pix');
-      const fillKey = () => { if (!pKey.value) { if (pType.value === 'cpf') pKey.value = taxIn.value; if (pType.value === 'cnpj') pKey.value = cnpjIn.value; } };
-      pType.onchange = () => { pKey.value = ''; fillKey(); pKey.placeholder = tRaw(`su.pix.ph.${pType.value}`); };
-      pKey.placeholder = tRaw('su.pix.ph.cpf');
-      pKey.onfocus = fillKey;
-      root.querySelector('#login').onsubmit = async (e) => {
-        e.preventDefault();
-        const f = Object.fromEntries(new FormData(e.target));
-        try { await store.signIn(f.email.trim(), f.password); ctx.refresh(); } catch { notify(tRaw('auth.err.login')); }
-      };
-      root.querySelector('#signup').onsubmit = async (e) => {
-        e.preventDefault();
-        const f = Object.fromEntries(new FormData(e.target));
-        if (f.password !== f.password2) { notify(tRaw('auth.err.mismatch')); return; }
-        const phone = phoneValue(e.target, 'g-phone');
-        if (!phone) { notify(tRaw('phone.err')); return; }
-        if (!validCpf(f.cpf)) { notify(tRaw('guide.signup.err.cpf')); return; }
-        const cnpj = onlyDigits(f.cnpj || '');
-        if (f.actorKind !== 'guide' && !cnpj) { notify(tRaw('su.role.err.cnpj')); return; }
-        if (cnpj && !validCnpj(cnpj)) { notify(tRaw('guide.signup.err.cnpj')); return; }
-        const lic = onlyDigits(f.license);
-        if (!((lic.length === 11 && lic !== onlyDigits(f.cpf)) || (lic.length === 14 && validCnpj(lic)))) { notify(tRaw('guide.signup.err.license')); return; }
-        if (!validPixKey(f.pixType, f.pixKey)) { notify(tRaw('pix.err.key')); return; }
-        if ((f.pixHolder || '').trim().length < 3) { notify(tRaw('su.pix.holder.err')); return; }
-        try {
-          const ready = await store.signUpGuide({
-            email: f.email.trim(), password: f.password, name: f.name.trim(), phone,
-            license: f.license.trim(), cityId: f.cityId, cpf: onlyDigits(f.cpf), cnpj: cnpj || null, pixKey: f.pixKey.trim(), pixType: f.pixType, pixHolder: f.pixHolder.trim().replace(/\s+/g, ' '), actorKind: f.actorKind || 'guide', refCode: (f.refCode || '').trim(),
-          });
-          ctx.refresh(tRaw(ready ? 'guide.signup.done' : 'auth.confirm'));
-        } catch (err) { notify(tRaw(err.message === 'exists' ? 'auth.err.exists' : err.message === 'cnpj' ? 'su.role.err.cnpj' : 'auth.err.signup')); }
-      };
-    },
+        <button class="btn block">${t(co ? 'su.co.open' : 'guide.signup.submit')}</button>
+      </form>`;
+}
+
+function mountSignup(form, kind, ctx) {
+  if (!form) return;
+  const co = kind === 'company'; const x = co ? 'c' : 'g';
+  const taxIn = form.querySelector(`#${x}-cpf`); const cnpjIn = form.querySelector(`#${x}-cnpj`);
+  maskTaxId(taxIn, () => 'cpf'); if (cnpjIn) maskTaxId(cnpjIn, () => 'cnpj');
+  maskCadastur(form.querySelector(`#${x}-license`));
+  form.querySelectorAll('[name=actorKind][type=radio]').forEach((r) => { r.onchange = () => {
+    form.querySelectorAll('.bill-case').forEach((l) => l.classList.toggle('on', l.querySelector('input').checked));
+  }; });
+  // Clé Pix CPF / CNPJ : reprise du numéro saisi plus haut (modifiable).
+  const pType = form.querySelector(`#${x}-ptype`); const pKey = form.querySelector(`#${x}-pix`);
+  const fillKey = () => { if (!pKey.value) { if (pType.value === 'cpf') pKey.value = taxIn.value; if (pType.value === 'cnpj' && cnpjIn) pKey.value = cnpjIn.value; } };
+  pType.onchange = () => { pKey.value = ''; fillKey(); pKey.placeholder = tRaw(`su.pix.ph.${pType.value}`); };
+  pKey.placeholder = tRaw(`su.pix.ph.${pType.value}`);
+  pKey.onfocus = fillKey;
+  form.onsubmit = async (e) => {
+    e.preventDefault();
+    const f = Object.fromEntries(new FormData(form));
+    if (f.password !== f.password2) { notify(tRaw('auth.err.mismatch')); return; }
+    const phone = phoneValue(form, `${x}-phone`);
+    if (!phone) { notify(tRaw('phone.err')); return; }
+    if (co && (f.contactName || '').trim().length < 3) { notify(tRaw('su.co.err.contact')); return; }
+    if (!validCpf(f.cpf)) { notify(tRaw('guide.signup.err.cpf')); return; }
+    const cnpj = onlyDigits(f.cnpj || '');
+    if (co && !cnpj) { notify(tRaw('su.role.err.cnpj')); return; }
+    if (cnpj && !validCnpj(cnpj)) { notify(tRaw('guide.signup.err.cnpj')); return; }
+    const lic = onlyDigits(f.license);
+    if (!((lic.length === 11 && lic !== onlyDigits(f.cpf)) || (lic.length === 14 && validCnpj(lic)))) { notify(tRaw('guide.signup.err.license')); return; }
+    if (!validPixKey(f.pixType, f.pixKey)) { notify(tRaw('pix.err.key')); return; }
+    if ((f.pixHolder || '').trim().length < 3) { notify(tRaw('su.pix.holder.err')); return; }
+    try {
+      const ready = await store.signUpGuide({
+        email: f.email.trim(), password: f.password, name: f.name.trim(), phone,
+        license: f.license.trim(), cityId: f.cityId, cpf: onlyDigits(f.cpf), cnpj: cnpj || null, pixKey: f.pixKey.trim(), pixType: f.pixType, pixHolder: f.pixHolder.trim().replace(/\s+/g, ' '),
+        actorKind: co ? (f.actorKind === 'agency' ? 'agency' : 'tc') : 'guide', contactName: co ? f.contactName.trim().replace(/\s+/g, ' ') : null, refCode: (f.refCode || '').trim(),
+      });
+      ctx.refresh(tRaw(ready ? 'guide.signup.done' : 'auth.confirm'));
+    } catch (err) { notify(tRaw(err.message === 'exists' ? 'auth.err.exists' : err.message === 'cnpj' ? 'su.role.err.cnpj' : err.message === 'contact' ? 'su.co.err.contact' : 'auth.err.signup')); }
   };
 }
 
@@ -252,6 +280,7 @@ async function dashboardView(me, city, tab = 'inicio') {
   payouts.filter((p) => p.status === 'paid' && ['not_received', 'wrong_amount'].includes(p.receivedStatus)).forEach((p) => {
     banners += `<div class="notice bad">${t(`po.ans.${p.receivedStatus}.banner`, { num: p.num })} <a href="#/repasse/${esc(p.id)}">${t('po.detail')}</a></div>`; });
   if (!pixOk && !openCheck) banners += `<div class="notice bad">${t('pix.suspended')}</div>`;
+  if (me.verifiedAt === null) banners += `<div class="notice">${t('g.verify.pending')}</div>`;   // v103 : actif, virements après validation
   if (!me.cpf) banners += `<div class="notice bad">${t('id.cpf.missing')} <a href="#/conta">${t('g.tab.conta')} →</a></div>`;
   if (cad && cad < today) banners += `<div class="notice bad">${t('g.cad.expired', { date: fmtDay(cad, lang) })}</div>`;
   else if (cad && cad < soon60) banners += `<div class="notice warn">${t('g.cad.soon', { date: fmtDay(cad, lang) })}</div>`;

@@ -128,7 +128,7 @@ function todoCounts({ guides, payoutList, paymentList, visits, adjustments, pixC
     inss: inssTodo.length,
     // v85 : échéances en retard ou dans les 3 jours.
     agenda: agendaTodo(agenda),
-    validations: guides.filter((g) => g.status === 'pending').length,
+    validations: guides.filter(toVerify).length,
     payments: paymentList.filter((p) => p.status === 'submitted').length,
     payouts: payoutList.filter((p) => p.status === 'in_progress').length
       + guides.filter((g) => visits.some((v) => v.guideId === g.id && v.status === 'received') && !blockReason(g, payoutList)).length,
@@ -269,7 +269,7 @@ async function dashboard({ guides, partnerList, visits, adjustments, cur, cityLi
         <div class="stat"><b>${cur(sumOf(live.filter((v) => IN(v, 'paid')), 'guideCents'), cityId)}</b><span>${t('admin.stat.guidepaid')}</span></div>
       </div>
       <div class="card">
-        <p>${t('admin.stat.people', { guides: plural('admin.stat.guides', guides.filter((g) => g.status === 'validated').length), pending: guides.filter((g) => g.status === 'pending').length, partners: plural('admin.stat.partners', partnerList.length) })}</p>
+        <p>${t('admin.stat.people', { guides: plural('admin.stat.guides', guides.filter((g) => g.status === 'validated').length), pending: guides.filter(toVerify).length, partners: plural('admin.stat.partners', partnerList.length) })}</p>
       </div>
       <div class="card"><h2 style="margin:0">${t('dash.6m.admin')}</h2>
         ${barChart(months6.map((m) => { const l = live.filter((v) => monthKeyOf(v.at, tz) === m);
@@ -320,7 +320,7 @@ function openSheet(title, inner) {
 const lastCheck = (cadChecks, gId) => cadChecks.find((c) => c.guideId === gId);
 
 async function validations({ guides, city, cadChecks }) {
-  const pending = guides.filter((g) => g.status === 'pending');
+  const pending = guides.filter(toVerify);
   const lang = getLang();
   const today = new Date().toISOString().slice(0, 10);
   const soon = new Date(Date.now() + 60 * 864e5).toISOString().slice(0, 10);
@@ -346,7 +346,8 @@ async function validations({ guides, city, cadChecks }) {
     html: `<div class="card">
       <h2>${t('admin.val.title')}</h2>
       ${pending.length ? `<ul class="list">${pending.map((g) => `<li>
-        <div class="spread"><b>${esc(g.name)}${g.actorKind && g.actorKind !== 'guide' ? ` <span class="badge warn">${t(`role.${g.actorKind}`)}</span>` : ''}</b><span class="hint">${esc(city(g.cityId)?.name || '')}</span></div>
+        <div class="spread"><b>${esc(g.name)}${g.actorKind && g.actorKind !== 'guide' ? ` <span class="badge warn">${t(`role.${g.actorKind}`)}</span>` : ''}</b><span class="hint">${g.status === 'validated' ? `<span class="badge ok">${t('admin.val.active')}</span>` : `<span class="badge">${t('admin.val.noemail')}</span>`} ${esc(city(g.cityId)?.name || '')}</span></div>
+        ${g.contactName ? `<div class="hint">${t('admin.val.contact')} : <b>${esc(g.contactName)}</b></div>` : ''}
         <div class="hint">${esc(g.email || '')} · ${waLink(g.phone) ? `<a href="${waLink(g.phone)}" target="_blank" rel="noopener">${esc(g.phone)}</a>` : esc(g.phone || '')} · ${esc(city(g.cityId)?.licenseLabel || '')} ${esc(g.license || '')}</div>
         <div class="hint">CPF ${g.cpf ? esc(fmtTaxId(g.cpf)) : `<b>${t('admin.missing')}</b>`}${g.cnpj ? ` · CNPJ ${esc(fmtTaxId(g.cnpj))} (${t('id.paid.short')})` : ''} · ${t('admin.val.pix')} ${g.pixKey ? esc(g.pixKey) : `<b>${t('admin.missing')}</b>`}${g.pixHolder ? ` · ${t('su.pix.holder')} : <b>${esc(g.pixHolder)}</b>` : ''}</div>
         ${(() => { const c = lastCheck(cadChecks, g.id); return c && c.validUntil >= today
@@ -604,7 +605,10 @@ async function referral({ cur, guide }) {
 }
 
 // Pourquoi un virement de commissions est bloqué (même règle que la base, payout_block_reason).
+// v103 : compte actif dès l'e-mail confirmé ; à valider tant que Kombrio ne l'a pas vérifié (virements bloqués).
+const toVerify = (g) => g.status === 'pending' || (g.status === 'validated' && g.verifiedAt === null);
 const blockReason = (g, payoutList) => {
+  if (g.verifiedAt === null) return 'verify';
   if (g.pixStatus === undefined) return null;
   if (!g.cpf) return 'cpf';
   if (g.pixStatus !== 'verified') return 'pix';

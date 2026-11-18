@@ -33,6 +33,8 @@ const toGuide = (r) => r && ({
   id: r.id, cityId: r.city_id, name: r.name, phone: r.phone, license: r.license, photo: r.photo,
   status: r.status, email: r.email, cpf: r.cpf, cnpj: r.cnpj || '', taxKind: r.tax_kind === 'cnpj' ? 'cnpj' : 'cpf', fiscalStatus: r.fiscal_status || (r.tax_kind === 'cnpj' ? 'mei' : 'cpf'), pixKey: r.pix_key, pixHolder: r.pix_holder || '', createdAt: r.created_at, weeklyPayout: !!r.weekly_payout, code: r.code || '',
   referralEnabled: !!r.referral_enabled, actorKind: r.actor_kind || 'guide', // v99 : guide, tc (Tour Company), agency
+  // v103 : compte actif dès l'e-mail confirmé ; verifiedAt = validé par Kombrio (null = virements en attente ; undefined = script 067 pas lancé).
+  verifiedAt: r.verified_at === undefined ? undefined : (r.verified_at || null), contactName: r.contact_name || '',
   // Module Pix (v30) : undefined tant que le script 015 n'est pas lancé.
   pixKeyType: r.pix_key_type || '', pixKeyVersion: r.pix_key_version ?? null, pixStatus: r.pix_status, pixVerifiedAt: r.pix_verified_at || '',
   termsVersion: r.terms_version || '', termsAcceptedAt: r.terms_accepted_at || '',
@@ -219,12 +221,12 @@ export async function setNewPassword(password) {
 }
 
 // Inscription d'un guide. Renvoie false si la base demande d'abord de confirmer l'e-mail.
-export async function signUpGuide({ email, password, name, phone, license, cityId, cpf, cnpj = null, pixKey, pixType = null, pixHolder = null, refCode, actorKind = 'guide' }) {
+export async function signUpGuide({ email, password, name, phone, license, cityId, cpf, cnpj = null, pixKey, pixType = null, pixHolder = null, refCode, actorKind = 'guide', contactName = null }) {
   const { data, error } = await sb.auth.signUp({
     email, password,
-    options: { data: { role: 'guide', name, phone, license, city_id: cityId, cpf, cnpj, pix_key: pixKey, pix_type: pixType, pix_holder: pixHolder, ref_code: refCode || null, actor_kind: actorKind }, emailRedirectTo: location.href.split('#')[0] },
+    options: { data: { role: 'guide', name, phone, license, city_id: cityId, cpf, cnpj, pix_key: pixKey, pix_type: pixType, pix_holder: pixHolder, ref_code: refCode || null, actor_kind: actorKind, contact_name: contactName || null }, emailRedirectTo: location.href.split('#')[0] },
   });
-  if (error) throw new Error(error.message.includes('registered') ? 'exists' : error.message.includes('cnpj_required') ? 'cnpj' : 'auth');
+  if (error) throw new Error(error.message.includes('registered') ? 'exists' : error.message.includes('cnpj_required') ? 'cnpj' : error.message.includes('contact_required') ? 'contact' : 'auth');
   return Boolean(data.session);
 }
 
@@ -292,7 +294,8 @@ export async function listGuides(status) {
   return check(await q).map(toGuide);
 }
 export async function setGuideStatus(guideId, status) {
-  check(await sb.from('guides').update({ status }).eq('id', guideId));
+  // v103 : « validé » par l'admin = compte vérifié (les virements sont débloqués).
+  check(await sb.from('guides').update(status === 'validated' ? { status, verified_at: new Date().toISOString() } : { status }).eq('id', guideId));
   // Guide validé : e-mail « Sua conta foi validada! » (fonction Supabase conta-validada). Un échec ne bloque pas.
   if (status === 'validated') {
     try { await sb.functions.invoke('conta-validada', { body: { guideId } }); } catch { /* rien */ }
