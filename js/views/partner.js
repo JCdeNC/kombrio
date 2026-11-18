@@ -451,8 +451,9 @@ export function scannedView({ partner, city, key, role, visits }, visit, action)
 }
 
 // v63 : « Venda sem QR do cliente » — comme la planilha : le guide et le montant de la vente, pour CETTE boutique.
-function saleButton(key) {
-  return `<div class="card vd-card"><div class="spread" style="align-items:center"><span><b>${t('bill.button')}</b><br><span class="hint">${t('bill.button.hint')}</span></span>
+function saleButton(key, withTabs = false) {
+  // design v2 : avec la barre du bas (gérant), le bouton central « Escanear » remplace cette carte sur téléphone.
+  return `<div class="card vd-card${withTabs ? ' hide-phone' : ''}"><div class="spread" style="align-items:center"><span><b>${t('bill.button')}</b><br><span class="hint">${t('bill.button.hint')}</span></span>
     <a class="btn" href="#/p/${encodeURIComponent(key)}/conta">${t('bill.new')}</a></div></div>`;
 }
 // v66 : message d'erreur d'une saisie (addition ou vente directe).
@@ -949,17 +950,21 @@ export function spaceView(space, tab = 'painel') {
   const inPending = (v) => v.status === 'visited' && Date.now() - new Date(v.at) < 16 * 36e5;
   const open = visits.filter((v) => ['visited', 'declared', 'verifying', 'disputed'].includes(v.status) && !inPending(v));
   const body = {
-    painel: `${saleButton(key)}${pendingCard({ city, visits, key })}${steps}${kpis}<div class="pd-cols">${visitsCard(t('pd.totreat'), open, false)}<div class="pd-side">${chartCard}${todoCard}${adjustmentsCard(adjustments, city, lang)}${lastCard}${shortcuts}</div></div>`,
+    painel: `${saleButton(key, true)}${pendingCard({ city, visits, key })}${steps}${kpis}<div class="pd-cols">${visitsCard(t('pd.totreat'), open, false)}<div class="pd-side">${chartCard}${todoCard}${adjustmentsCard(adjustments, city, lang)}${lastCard}${shortcuts}</div></div>`,
     visitas: visitsCard(t('pd.all'), visits, true),
     pagamentos: `<div class="pd-cols"><div class="pd-side">${visitsCard(t('pd.topay'), toPay, false)}${payHistory}</div><div class="pd-side">${docsCard}${inssCard}${adjustmentsCard(adjustments, city, lang)}</div></div>`,
     equipe: teamHtml(space),
-    config: settings,
+    config: `<a class="card pd-team-link" href="${base}/equipe"><div class="spread" style="align-items:center"><span><b>${t('pd.tab.equipe')}</b><br><span class="hint">${t('pd.team.link.hint')}</span></span><span>›</span></div></a>${settings}`,
   }[tab];
   const counts = { painel: 0, visitas: toDeclare.length, pagamentos: toPay.length + extraDue.length, equipe: 0, config: 0 };
   // v87 : pastilles sur ordinateur, barre fixée en bas sur téléphone (icône + mot court).
   const PD_ICONS = { painel: 'grid', visitas: 'list', pagamentos: 'card', equipe: 'team', config: 'gear' };
-  const tabsNav = appTabs(PD_TABS.map((k) => ({ href: `${base}${k === 'painel' ? '' : `/${k}`}`, label: t(`pd.tab.${k}`), short: t(`pd.tab.${k}.short`),
-    icon: PD_ICONS[k], on: k === tab, count: counts[k] })));
+  const navItems = PD_TABS.map((k) => ({ href: `${base}${k === 'painel' ? '' : `/${k}`}`, label: t(`pd.tab.${k}`), short: t(`pd.tab.${k}.short`),
+    icon: PD_ICONS[k], on: k === tab, count: counts[k], desk: k === 'equipe' }));
+  // design v2 : « Escanear » au centre de la barre (scanner le QR du client, ou saisir une conta) ; sur téléphone,
+  // « Equipe » passe dans « Ajustes » pour garder 5 places.
+  navItems.splice(2, 0, { href: `${base}/conta`, label: t('pd.tab.scan'), short: t('pd.tab.scan'), icon: 'scan', center: true });
+  const tabsNav = appTabs(navItems);
 
   return {
     html: `<div class="dash-wide">

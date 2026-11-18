@@ -594,3 +594,74 @@ main { overflow-wrap: break-word; }
 .faq-item summary::after { content: '+'; float: right; color: var(--muted); font-weight: 400; }
 .faq-item[open] summary::after { content: '–'; }
 .faq-item p { margin: 0 0 12px; color: var(--muted); line-height: 1.5; }
+
+/* ================================================================================================
+   DESIGN V2 (proposition du 18/11/2026, branche design-v2) : plus aéré, plus frais.
+   Tout est ici, en une couche : la retirer remet l'ancien style.
+   ================================================================================================ */
+:root { --bg: #F3F7F8; --line: #E2EBEE; --radius: 20px; --shadow: 0 1px 2px rgba(16,44,56,.04), 0 6px 20px rgba(16,44,56,.06); }
+main { padding: 18px 16px 24px; }
+h1 { font-size: 1.55rem; letter-spacing: -.02em; }
+/* Bandeau clair : le logo sur blanc, plus de bloc sombre en haut de chaque écran. */
+.top { background: rgba(255,255,255,.92); color: var(--ink); border-bottom: 1px solid var(--line); -webkit-backdrop-filter: saturate(1.4) blur(10px); backdrop-filter: saturate(1.4) blur(10px); position: sticky; top: 0; z-index: 800; }
+.top .brand, .top .brand-word { color: var(--ink); }
+.top .brand-app { color: var(--brand); background: var(--ok-bg); border-color: transparent; }
+.top select { background: var(--bg); color: var(--ink); }
+.top .btn.ghost { background: var(--bg); border-color: var(--bg); }
+/* Cartes sans bordure, ombre douce, plus d'espace. */
+.card { border-color: transparent; box-shadow: var(--shadow); padding: 18px; margin-bottom: 14px; }
+.stat, .pd-kpi { border-color: transparent !important; box-shadow: var(--shadow); border-radius: 16px; }
+.notice { border-radius: 16px; }
+.list li { padding: 14px 0; }
+.btn { border-radius: 14px; }
+.btn.ghost { background: #EAF1F3; border-color: #EAF1F3; }
+input, select, textarea { border-radius: 14px; background: #fff; }
+/* Guide : le montant disponible en grand, en tête (carte « héros »). */
+.g-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.g-kpis > .pd-kpi:first-child { grid-column: 1 / -1; padding: 18px 20px; color: #fff; background: linear-gradient(135deg, #00A887 0%, #007F65 70%, #0B6E5C 100%); }
+.g-kpis > .pd-kpi:first-child span, .g-kpis > .pd-kpi:first-child em { color: rgba(255,255,255,.85) !important; }
+.g-kpis > .pd-kpi:first-child b { color: #fff !important; font-size: 2.1rem; margin: 2px 0; }
+.g-kpis > .pd-kpi:not(:first-child) b { font-size: 1.05rem; }
+.g-kpis > .pd-kpi:not(:first-child) em { display: none; }
+@media (max-width: 560px) { .g-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); } .g-kpis > .pd-kpi:not(:first-child) { padding: 10px; } .g-kpis > .pd-kpi:not(:first-child) span { font-size: .72rem; } }
+/* Page d'un client : actions secondaires en grille 2 × 2 au lieu d'une pile. */
+.act-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.act-grid .btn { margin: 0; padding: 12px 8px; font-size: .92rem; }
+.act-grid .btn:first-child { grid-column: 1 / -1; }
+/* Barre du bas : bouton central rond (QR du guide, scanner du partenaire). */
+.apptabs .atc { display: none; }
+.apptabs a.at-center { background: var(--brand); color: #fff; border-color: var(--brand); }
+@media (max-width: 560px) {
+  .tabs.apptabs { border-top: 0; border-radius: 22px 22px 0 0; box-shadow: 0 -8px 30px rgba(16,44,56,.10); padding-top: 4px; }
+  .tabs.apptabs a.at-desk { display: none; }
+  .tabs.apptabs a.at-center { background: none; color: var(--ink); overflow: visible; }
+  .tabs.apptabs a.at-center .atc { display: grid; place-items: center; width: 62px; height: 62px; margin-top: -30px; border-radius: 50%;
+    background: linear-gradient(145deg, #00A887, #007F65); color: #fff; border: 5px solid var(--surface); box-shadow: 0 8px 20px rgba(0,127,101,.35); }
+  .tabs.apptabs a.at-center .atc svg { width: 28px; height: 28px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .tabs.apptabs a.at-center .ats { font-weight: 700; color: var(--ink); }
+  .tabs.apptabs a.at-center:active .atc { transform: scale(.95); }
+}
+/* Écran QR du guide. */
+.qr-home h1 { margin-bottom: 14px; }
+.qr-new { display: flex; gap: 14px; align-items: center; padding: 18px; border-radius: 20px; text-decoration: none; color: #fff; background: linear-gradient(135deg, #00A887, #007F65); box-shadow: 0 10px 24px rgba(0,127,101,.25); margin-bottom: 22px; }
+.qr-new b { display: block; font-size: 1.15rem; } .qr-new small { color: rgba(255,255,255,.85); font-size: .9rem; }
+.qr-new-plus { flex: none; display: grid; place-items: center; width: 48px; height: 48px; border-radius: 14px; background: rgba(255,255,255,.18); font-size: 1.8rem; font-weight: 400; line-height: 1; }
+.qr-sec { font-size: .82rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 6px 4px 8px; }
+.qr-list { display: grid; gap: 8px; margin-bottom: 20px; }
+.qr-pick, .qr-badge { display: flex; gap: 12px; align-items: center; padding: 14px 16px; border-radius: 18px; background: var(--surface); box-shadow: var(--shadow); text-decoration: none; color: var(--ink); }
+.qr-badge { margin-top: 4px; }
+.qr-pick-ico { flex: none; display: grid; place-items: center; width: 42px; height: 42px; border-radius: 12px; background: var(--ok-bg); color: var(--brand); }
+.qr-pick-ico svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+.qr-pick-ico.badge-ico { background: #FDF1DB; color: #8a5a00; }
+.qr-pick-txt { flex: 1; min-width: 0; } .qr-pick-txt b { display: block; } .qr-pick-txt small { color: var(--muted); }
+.qr-pick-go { color: var(--muted); font-size: 1.4rem; }
+.pd-team-link { text-decoration: none; color: inherit; }
+@media (min-width: 561px) { .pd-team-link { display: none; } }
+.top .hdr-help { border-color: var(--line); color: var(--ink); background: var(--bg); }
+.top .hdr-help:hover { background: #E6EEF0; }
+.act-grid .btn { display: flex; align-items: center; justify-content: center; min-height: 50px; line-height: 1.2; }
+.act-grid a.btn.ghost { background: #EAF1F3; }
+@media (max-width: 560px) { .hide-phone { display: none !important; } }
+.pd-team-link .spread { flex-wrap: nowrap; } .pd-team-link .spread > span:last-child { font-size: 1.4rem; color: var(--muted); }
+.act-grid { align-items: stretch; }
+.act-grid > .btn:last-child:nth-child(even) { grid-column: 1 / -1; }

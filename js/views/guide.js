@@ -43,7 +43,8 @@ export async function guideView(params, ctx) {
   if (params[0] === 'repasse') return payoutView(me, city, params[1]);
   if (params[0] === 'indicacao') return referralView(me, city);
   if (params[0] === 'cracha') return badgeView(me, city);
-  if (['clientes', 'ganhos', 'conta'].includes(params[0])) return dashboardView(me, city, params[0]);
+  if (params[0] === 'qr') return qrView(me, city);
+  if (['clientes', 'ganhos', 'conta'].includes(params[0])) return dashboardView(me, city, params[0], params[1]);
   return dashboardView(me, city);
 }
 
@@ -203,8 +204,11 @@ const G_TABS = ['inicio', 'clientes', 'ganhos', 'conta'];
 const G_ICONS = { inicio: 'home', clientes: 'users', ganhos: 'wallet', indicacao: 'gift', conta: 'user' };
 function guideTabs(me, tab, counts = {}) {
   const tabs = me.referralEnabled ? ['inicio', 'clientes', 'ganhos', 'indicacao', 'conta'] : G_TABS;
-  return appTabs(tabs.map((k) => ({ href: `#/${k === 'inicio' ? '' : k}`, label: t(`g.tab.${k}`), short: t(`g.tab.${k}.short`),
-    icon: G_ICONS[k], on: k === tab, count: counts[k] })));
+  const items = tabs.map((k) => ({ href: `#/${k === 'inicio' ? '' : k}`, label: t(`g.tab.${k}`), short: t(`g.tab.${k}.short`),
+    icon: G_ICONS[k], on: k === tab, count: counts[k] }));
+  // design v2 : bouton QR au centre de la barre (montrer un QR, créer un client, crachá) — toujours à un pouce.
+  items.splice(2, 0, { href: '#/qr', label: t('g.tab.qr'), short: t('g.tab.qr'), icon: 'qr', on: tab === 'qr', center: true });
+  return appTabs(items);
 }
 const LATE_DAYS = 7;
 const ageDays = (iso) => (iso ? Math.floor((Date.now() - new Date(iso)) / 864e5) : 0);
@@ -241,7 +245,7 @@ async function loadGuide(me, city) {
   return { stays, visits, adjustments, payouts, pixChecks, partners, alerts, linked };
 }
 
-async function dashboardView(me, city, tab = 'inicio') {
+async function dashboardView(me, city, tab = 'inicio', focus = '') {
   const lang = getLang();
   const d = await loadGuide(me, city);
   const { stays, visits, adjustments, payouts, pixChecks, partners, alerts, linked = [] } = d;
@@ -365,7 +369,7 @@ async function dashboardView(me, city, tab = 'inicio') {
       <p class="hint" style="margin:4px 0 0">${t('g.next.present.hint')}</p>
       <p class="hint" style="margin:6px 0 0">${j1Names.length ? t('g.next.j1.list', { names: j1Names.join(', ') }) : t('g.next.j1.none')}</p></div>`;
 
-  const kpis = `<div class="pd-kpis">
+  const kpis = `<div class="pd-kpis g-kpis">
       <div class="pd-kpi ${sum.available > 0 && !blocked ? 'ok' : ''}"><span>${t('g.k.available')}</span><b>${cur(Math.max(0, sum.available))}</b><em>${t('g.k.available.hint')}</em></div>
       <div class="pd-kpi"><span>${t('g.k.expected')}</span><b>≈ ${cur(sum.expected)}</b><em>${t('g.k.expected.hint')}</em></div>
       <div class="pd-kpi"><span>${t('g.k.paid')}</span><b>${cur(sum.paid)}</b><em>${t('g.k.paid.hint')}</em></div>
@@ -509,6 +513,8 @@ async function dashboardView(me, city, tab = 'inicio') {
       const weekly = root.querySelector('#weekly');
       if (weekly) weekly.onchange = async (e) => { await store.setWeeklyPayout(e.target.checked); ctx.refresh(tRaw('common.saved')); };
       const form = root.querySelector('#new-stay');
+      // design v2 : « Novo cliente » depuis le bouton QR : le formulaire s'ouvre directement, curseur dans le nom.
+      if (form && focus === 'novo') { form.scrollIntoView({ block: 'start' }); window.scrollBy(0, -12); setTimeout(() => form.client.focus(), 250); }
       if (form) form.onsubmit = async (e) => {
         e.preventDefault();
         const f = Object.fromEntries(new FormData(e.target));
@@ -802,7 +808,7 @@ async function stayView(me, city, stayId) {
         ${valid && !stay.direct ? `<button type="button" class="btn block" id="ggopen" style="margin-bottom:10px">${t('gg.open')}</button>
           <div id="ggbox" class="gg-box" hidden><div class="qr" id="ggqr"></div><p class="hint" id="gghint">${t('gg.hint')}</p>
             <button type="button" class="btn ghost small" id="ggclose">${t('gg.close')}</button></div>` : ''}
-        <div class="row">
+        <div class="row act-grid">
           <a class="btn" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent(share)}">${t('guide.stay.whatsapp')}</a>
           <button type="button" class="btn secondary" id="sendqr">${t('guide.stay.sendqr')}</button>
           <button class="btn secondary" id="copy">${t('guide.stay.copy')}</button>
@@ -822,7 +828,8 @@ async function stayView(me, city, stayId) {
           <button type="button" class="btn ghost small" data-unlink="${esc(a.actor_id)}">${t('grp.links.remove')}</button></div></li>`).join('')}</ul>` : `<p class="hint">${t('grp.links.none')}</p>`}
         <form class="row" id="link-form" style="align-items:flex-end;gap:8px;margin-top:8px">
           <div class="field" style="margin:0;flex:1"><label for="lk-code">${t('grp.links.code')}</label><input id="lk-code" name="code" required autocapitalize="characters" placeholder="RIO-KG-12345 / RIO-KT-12345" style="text-transform:uppercase"></div>
-          <button class="btn small">${t('grp.links.add')}</button></form></div>` : ''}`,
+          <button class="btn small">${t('grp.links.add')}</button></form></div>` : ''}
+      ${guideTabs(me, 'clientes')}`,
     mount(root) {
       const lf = root.querySelector('#link-form');
       if (lf) lf.onsubmit = async (e) => {
@@ -881,6 +888,29 @@ function splitCard(split, city, lang) {
       <div class="hint">${fmtMoment(v.at, lang, city.timezone)} · ${t('stay.people', { n: v.people })}${v.invoice_cents != null ? ` · ${cur(Number(v.invoice_cents))}` : ''}</div>
       ${(v.lines || []).length ? `<ul class="split-lines">${v.lines.map(line).join('')}</ul>` : ''}</li>`).join('')}</ul>`
       : `<p class="hint">${t('grp.split.none')}</p>`}</div>`;
+}
+
+// design v2 : écran du bouton QR central. Ce qu'un guide montre ou crée le plus souvent, en un geste :
+// le QR d'un client en séjour, un nouveau client, son crachá.
+async function qrView(me, city) {
+  const lang = getLang();
+  const stays = await store.listStays(me.id);
+  const today = todayIn(city.timezone);
+  const active = stays.filter((s) => !s.direct && !s.archivedAt && s.start <= today && stayIsValid(s, city)).sort((a, b) => (a.end < b.end ? -1 : 1));
+  const soon = stays.filter((s) => !s.direct && !s.archivedAt && s.start > today).sort((a, b) => (a.start < b.start ? -1 : 1)).slice(0, 3);
+  const item = (s, k) => `<a class="qr-pick" href="#/sejour/${encodeURIComponent(s.id)}"><span class="qr-pick-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><path d="M14 14h2v2h-2zM18 18h2v2"/></svg></span>
+      <span class="qr-pick-txt"><b>${esc(s.client)}</b><small>${t('stay.people', { n: s.people })} · ${k === 'soon' ? fmtDay(s.start, lang) : `${t('g.qr.until')} ${fmtDay(s.end, lang)}`}</small></span><span class="qr-pick-go">›</span></a>`;
+  return {
+    html: `<div class="qr-home">
+      <h1>${t('g.qr.title')}</h1>
+      <a class="qr-new" href="#/clientes/novo"><span class="qr-new-plus">+</span><span><b>${t('g.qr.new')}</b><small>${t('g.qr.new.hint')}</small></span></a>
+      <h2 class="qr-sec">${t('g.qr.active')}</h2>
+      ${active.length ? `<div class="qr-list">${active.map((s) => item(s, 'active')).join('')}</div>` : `<p class="hint">${t('g.qr.none')}</p>`}
+      ${soon.length ? `<h2 class="qr-sec">${t('g.qr.soon')}</h2><div class="qr-list">${soon.map((s) => item(s, 'soon')).join('')}</div>` : ''}
+      <a class="qr-badge" href="#/cracha"><span class="qr-pick-ico badge-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2.5"/><circle cx="12" cy="10" r="2.6"/><path d="M8.5 16.5c.6-1.8 1.9-2.8 3.5-2.8s2.9 1 3.5 2.8"/></svg></span>
+        <span class="qr-pick-txt"><b>${t('bdg.card.title')}</b><small>${t('g.qr.badge.hint')}</small></span><span class="qr-pick-go">›</span></a>
+      </div>${guideTabs(me, 'qr')}`,
+  };
 }
 
 // Relevé du guide : chaque transaction, déclaré ≠ encaissé, parts 80/20 seulement sur l'encaissé, reversement.
