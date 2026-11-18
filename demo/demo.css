@@ -95,3 +95,7 @@ body { padding-bottom: 84px; }
 .pub-end .pub-btn.secondary { background: #fff; color: var(--ink); border-color: #fff; }
 .pub.is-end .pub-pause { visibility: hidden; }
 .pub-note { margin: 14px auto 0 !important; max-width: 300px !important; font-size: .92rem !important; color: rgba(255,255,255,.78) !important; animation: pub-up .6s .6s ease both; }
+/* Boutons de fin alignés et de même largeur (annule le décalage « .btn + .btn » de l'app). */
+.pub-end .pub-btn, .pub-end .pub-btn + .pub-btn { display: block; width: 100%; max-width: 340px; margin: 10px auto 0; box-sizing: border-box; }
+.pub-end .pub-btn:first-of-type { margin-top: 24px; }
+.btn.dm-big + .btn.dm-big { margin-left: 0; }
