@@ -57,7 +57,7 @@ end $$;
 -- 3. Inscription : type choisi par l'apporteur ; TC et agence sans CNPJ refusés.
 do $$ declare src text; begin
   select pg_get_functiondef('public.handle_new_user()'::regprocedure) into src;
-  if src like '%actor_kind%' then return; end if;
+  if src like '%cnpj_required%' then return; end if;   -- (corrigé en v101 : « actor_kind » figurait déjà dans le journal)
   if src not like '%pix_holder, referred_by)%' or src not like '%left(v_holder, 120), parrain.id);%'
      or src not like '%    insert into guides (id, city_id%' then
     raise exception 'handle_new_user : inscription du guide introuvable, script arrêté';
@@ -95,5 +95,5 @@ insert into ledger (actor_kind, event, data) values ('system', 'agencies_tc_sign
 
 -- Contrôle : les trois doivent valoir true.
 select exists (select 1 from information_schema.columns where table_name = 'guides' and column_name = 'actor_kind') as type_apporteur,
-       pg_get_functiondef('public.handle_new_user()'::regprocedure) like '%actor_kind%' as inscription,
+       pg_get_functiondef('public.handle_new_user()'::regprocedure) like '%cnpj_required%' as inscription,
        exists (select 1 from information_schema.columns where table_name = 'partners' and column_name = 'rate_agency') as taux_partenaire;
