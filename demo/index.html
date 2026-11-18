@@ -2,10 +2,9 @@
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Kombrio · Demonstração</title>
-  <meta name="description" content="Protótipo demonstrativo da Kombrio: comissões entre estabelecimentos e guias, sem transações reais.">
-  <meta name="robots" content="noindex">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Kombrio · Comissões de guias sem complicação</title>
+  <meta name="description" content="Kombrio registra, calcula e paga as comissões entre estabelecimentos, guias, Tour Companies e agências. Cadastro gratuito.">
   <meta name="theme-color" content="#102C38">
   <link rel="icon" href="../icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="../icon-180.png">
@@ -15,19 +14,16 @@
   <link rel="stylesheet" href="../css/style.css">
   <link rel="stylesheet" href="demo.css">
 </head>
-<body>
-  <!-- KOMBRIO DEMO V0 (17/11/2026) : protótipo de apresentação. Nenhuma ligação com a base de dados, nenhum Pix, nenhum dado guardado. -->
-  <header class="top">
-    <span class="brand"><img src="../icon.svg" alt=""><span class="brand-word">kombrio<i></i></span><span class="brand-app">Demonstração</span></span>
-  </header>
-  <div class="dm-proto">Protótipo demonstrativo · sem transações reais · todos os nomes e valores são exemplos</div>
-  <main id="dm" aria-live="polite"></main>
-  <nav class="dm-nav" aria-label="Navegação da demonstração">
-    <button type="button" class="btn ghost" id="dm-prev">‹ Voltar</button>
-    <span id="dm-step" class="dm-step"></span>
-    <button type="button" class="btn" id="dm-next">Próximo ›</button>
-  </nav>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
-  <script src="demo.js"></script>
+<body class="pub-body">
+  <!-- KOMBRIO DEMO « PUB » (v104, 18/11/2026) : 30 secondes, comme une publicité. Puis : démonstration complète, inscription, FAQ. -->
+  <div class="pub" id="pub" aria-live="polite">
+    <div class="pub-bars" id="pub-bars"></div>
+    <div class="pub-top"><span class="brand"><img src="../icon.svg" alt=""><span class="brand-word">kombrio<i></i></span></span>
+      <button type="button" class="pub-pause" id="pub-pause" aria-label="Pausar">❚❚</button></div>
+    <div class="pub-stage" id="pub-stage"></div>
+    <button type="button" class="pub-tap pub-prev" id="pub-prev" aria-label="Anterior"></button>
+    <button type="button" class="pub-tap pub-next" id="pub-next" aria-label="Próximo"></button>
+  </div>
+  <script src="pub.js"></script>
 </body>
 </html>

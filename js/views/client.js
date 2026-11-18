@@ -2,6 +2,7 @@
 import { t, tRaw, getLang } from '../i18n.js';
 import { esc, fmtDay, stayIsValid, qrSvg, appLink, qrCardBlob, shareOrDownload } from '../util.js';
 import * as store from '../store.js';
+import { faqList } from '../faq.js';
 import { SUPABASE_URL, SUPABASE_KEY, WALLET_GOOGLE } from '../config.js';
 import { guideCard, validity, notFound, partnerShowcase, mountShowcase } from './shared.js';
 
@@ -64,7 +65,8 @@ export async function clientView([token]) {
         ${partnerShowcase(partners, city)}
         <p class="hint" style="margin:12px 0 0;padding:10px 12px;background:var(--bg);border-radius:10px">${t('client.disclosure')}
           ${t('client.data')} <a href="#/privacidade">${t('privacy.link')}</a></p>
-      </div>`,
+      </div>
+      <div class="card"><h2>${t('help.faq.title')}</h2>${faqList('client', lang)}</div>`,
     mount(root) {
       mountShowcase(root);
       const b = root.querySelector('#saveqr');

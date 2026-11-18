@@ -1,10 +1,12 @@
 // Bouton d'aide (v33) commun au guide et au partenaire.
 // 1. La personne décrit son problème ou choisit un sujet : l'assistant répond avec la FAQ (mots-clés, pas d'IA).
 // 2. Si la réponse ne suffit pas, elle envoie une alerte à Kombrio, jamais à l'autre partie.
-import { t, tRaw } from '../i18n.js';
+import { t, tRaw, getLang } from '../i18n.js';
+import { faqList } from '../faq.js';
 import { esc } from '../util.js';
 import * as store from '../store.js';
 
+const FAQ_URL = new URL('../faq/', location.href.split('#')[0]).href;   // page publique, à côté des apps
 export const HELP_TOPICS = {
   guide: ['late', 'amount', 'noqr', 'payout', 'pix', 'offer', 'conduct'],
   partner: ['howpay', 'late', 'wrong', 'noqr', 'rejected', 'disputed', 'guide'],
@@ -43,7 +45,11 @@ export function openHelp({ kind, about = '', visitId = null, send, onSent, findC
     const f = st.topic && HELP_TOPICS[kind].includes(st.topic) ? st.topic : null;
     let body = '';
     if (st.step === 'ask') {
-      body = `<div class="field"><label for="help-q">${t('help.describe')}</label>
+      // v104 : aide générale = d'abord les questions fréquentes (même texte que la FAQ publique), puis le problème.
+      const faq = visitId ? '' : `<h3 style="margin:8px 0 4px">${t('help.faq.title')}</h3>${faqList(kind, getLang())}
+        <p style="margin:6px 0 14px"><a href="${FAQ_URL}?s=${kind}&lang=${getLang()}" target="_blank" rel="noopener">${t('help.faq.all')}</a></p>
+        <h3 style="margin:0 0 4px">${t('help.faq.more')}</h3>`;
+      body = `${faq}<div class="field"><label for="help-q">${t('help.describe')}</label>
           <textarea id="help-q" rows="2" maxlength="500" placeholder="${t(`help.ph.${kind}`)}">${esc(st.q)}</textarea></div>
         <button class="btn block" data-h="search">${t('help.search')}</button>
         <p class="hint" style="margin:10px 0 6px">${t('help.or')}</p>

@@ -58,3 +58,39 @@ body { padding-bottom: 84px; }
 .dm-ok .dm-ico { background: var(--brand); color: #fff; }
 .dm-muted { color: var(--muted); font-size: .9rem; }
 @media (max-width: 380px) { .dm-nav .btn { min-width: 90px; padding-left: 10px; padding-right: 10px; } .dm-table { font-size: .82rem; } }
+
+/* v104 : version courte « pub » (demo/index.html). Plein écran, comme une story. */
+.pub-body { margin: 0; background: #0b2029; }
+.pub { position: relative; min-height: 100vh; min-height: 100dvh; max-width: 520px; margin: 0 auto; color: #fff; overflow: hidden;
+  background: radial-gradient(120% 80% at 80% 0%, #00A887 0%, rgba(0,168,135,0) 55%), linear-gradient(160deg, #102C38 0%, #0b2029 100%);
+  display: flex; flex-direction: column; padding: max(14px, env(safe-area-inset-top)) 18px max(18px, env(safe-area-inset-bottom)); box-sizing: border-box; }
+.pub-bars { display: flex; gap: 4px; }
+.pub-bars span { flex: 1; height: 3px; border-radius: 3px; background: rgba(255,255,255,.28); overflow: hidden; }
+.pub-bars i { display: block; height: 100%; width: 0; background: #fff; }
+.pub-top { display: flex; justify-content: space-between; align-items: center; margin-top: 12px; position: relative; z-index: 3; }
+.pub-top .brand-word { color: #fff; }
+.pub-pause { background: rgba(255,255,255,.14); color: #fff; border: 0; border-radius: 999px; width: 36px; height: 36px; font-size: .8rem; cursor: pointer; }
+.pub-stage { flex: 1; display: flex; align-items: center; }
+.pub-slide { width: 100%; text-align: center; animation: pub-in .45s ease both; }
+.pub-slide h1 { color: #fff; font-size: clamp(1.7rem, 7.5vw, 2.4rem); line-height: 1.15; margin: 14px 0 10px; }
+.pub-slide p { color: rgba(255,255,255,.86); font-size: 1.12rem; line-height: 1.45; margin: 0 auto; max-width: 26ch; }
+.pub-ico { font-size: 4.2rem; line-height: 1; animation: pub-pop .6s .1s ease both; }
+.pub-phone { margin: 26px auto 0; max-width: 280px; background: #fff; color: var(--ink); border-radius: 18px; padding: 14px 16px; text-align: left;
+  box-shadow: 0 18px 40px rgba(0,0,0,.35); animation: pub-up .6s .35s ease both; }
+.pub-line { display: flex; justify-content: space-between; padding: 6px 0; border-top: 1px solid var(--line); font-size: .95rem; }
+.pub-line:first-child { border-top: 0; }
+.pub-line.big b { color: var(--brand); font-size: 1.25rem; }
+.pub-ok { background: var(--ok-bg); color: var(--ok); font-weight: 700; border-radius: 10px; padding: 8px 10px; margin-bottom: 6px; }
+.pub-end .pub-logo { width: 64px; height: 64px; }
+.pub-btn { display: block; text-align: center; text-decoration: none; margin: 10px auto 0; max-width: 340px; padding: 14px; font-size: 1.02rem; }
+.pub-end .pub-btn:first-of-type { margin-top: 24px; background: var(--accent); color: var(--ink); }
+.pub-link { display: inline-block; margin: 14px 10px 0; color: #fff; background: none; border: 0; font: inherit; text-decoration: underline; cursor: pointer; }
+.pub-tap { position: absolute; top: 70px; bottom: 0; width: 38%; background: transparent; border: 0; z-index: 2; cursor: pointer; }
+.pub-prev { left: 0; width: 30%; } .pub-next { right: 0; width: 70%; }
+.pub.is-end .pub-tap { display: none; }
+@keyframes pub-in { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+@keyframes pub-pop { from { opacity: 0; transform: scale(.6); } to { opacity: 1; transform: none; } }
+@keyframes pub-up { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .pub-slide, .pub-ico, .pub-phone { animation: none; } }
+.pub-end .pub-btn.secondary { background: #fff; color: var(--ink); border-color: #fff; }
+.pub.is-end .pub-pause { visibility: hidden; }

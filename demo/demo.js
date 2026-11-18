@@ -1,4 +1,5 @@
-// KOMBRIO DEMO V0 (17/11/2026) : démonstration commerciale de 5 minutes, en portugais du Brésil.
+// KOMBRIO DEMO COMPLETA (v104, 18/11/2026) : présentation aux établissements (3 min), en portugais du Brésil,
+// qui se termine sur l'inscription. La version courte (« pub ») est demo/index.html + pub.js.
 // Tout est fictif et calculé dans la page : aucune connexion à Supabase, aucun Pix, aucune donnée enregistrée.
 // Mêmes règles de calcul que l'application : commission = addition × taux ; guide = 80 % arrondi au centavo
 // inférieur, Kombrio = le reste ; INSS du guide CPF = 11 % de sa part, arrondi (comme le script 028).
@@ -6,10 +7,9 @@
 (function () {
   'use strict';
 
-  // Numéro WhatsApp de Kombrio pour l'écran final (format international sans « + », ex. 5521999999999).
-  // Vide : le bouton propose l'e-mail contato@kombrio.com.br.
-  var WHATSAPP = '5521971115575';
-  var EMAIL = 'contato@kombrio.com.br';
+  // Fin de la démonstration : inscription de l'établissement et FAQ (pas de numéro de téléphone).
+  var SIGNUP = '../partner/#/parceria';
+  var FAQ = '../faq/?s=partner';
 
   var GUIDE_SHARE = 0.8;
   var INSS_RATE = 0.11;
@@ -66,8 +66,8 @@
       + '<li><span class="dm-ico">✓</span><span><b>A comissão é calculada sozinha</b> com a taxa que você combinou.</span></li>'
       + '<li><span class="dm-ico">✓</span><span><b>Um único Pix por mês</b> para todos os guias: a Kombrio repassa a cada um.</span></li>'
       + '</ul>'
-      + '<button type="button" class="btn dm-big" data-go="2">Começar a demonstração (5 min)</button>'
-      + '<p class="dm-muted" style="margin-top:12px">Ainda estamos em fase de validação. Esta demonstração usa apenas exemplos: nenhum pagamento é feito.</p>';
+      + '<button type="button" class="btn dm-big" data-go="2">Começar a demonstração (3 min)</button>'
+      + '<p class="dm-muted" style="margin-top:12px">Esta demonstração usa apenas exemplos: nenhum pagamento é feito.</p>';
   };
 
   screens[2] = function () {
@@ -123,7 +123,7 @@
       + '<input type="range" id="dm-rate" min="1" max="30" step="1" value="' + state.rate + '"></div>'
       + '</div>'
       + '<div class="card" id="dm-calc">' + calcBox(c, g, k, pct) + '</div>'
-      + '<p class="dm-muted">A taxa é combinada livremente com cada estabelecimento. Os 20 % da Kombrio saem da comissão, não da conta: <b>o restaurante não paga nada a mais.</b></p>';
+      + '<p class="dm-muted">Você escolhe a sua taxa. Os 20 % da Kombrio saem da comissão, não da conta: <b>o cliente e o restaurante não pagam nada a mais.</b></p>';
   };
   function calcBox(c, g, k, pct) {
     return '<div class="dm-row"><span>Conta</span><b>' + brl(state.bill) + '</b></div>'
@@ -131,7 +131,6 @@
       + '<div class="dm-split" aria-hidden="true"><span style="width:' + pct + '%"></span><span style="width:' + (100 - pct) + '%"></span></div>'
       + '<div class="dm-row sub"><span>Para o guia (80 %)</span><b>' + brl(g) + ' bruto</b></div>'
       + '<div class="dm-row sub"><span>Para a Kombrio (20 %)</span><b>' + brl(k) + '</b></div>'
-      + (k < 100 && c > 0 ? '<p class="dm-muted" style="margin:8px 0 0">Valor mínimo por transação para a Kombrio: parâmetro em estudo.</p>' : '')
       + '<p class="dm-muted" style="margin:8px 0 0">Do valor do guia são retidos os impostos previstos em lei (INSS): veja no painel do guia.</p>';
   }
 
@@ -193,32 +192,32 @@
       + '<p class="dm-muted" style="margin:8px 0 0">Para cada guia, a Kombrio soma as comissões de todos os estabelecimentos e faz um único Pix.</p></div>';
   };
 
+  // Agências e Tour Companies : chaque rôle a son taux, tout est payé en un seul Pix.
   screens[9] = function () {
-    return '<p class="dm-kicker">Sua opinião</p>'
-      + '<h1>Qual formato seria justo para você?</h1>'
-      + '<p>A comissão comercial continua combinada com cada estabelecimento. Estamos estudando se o <b>serviço de gestão</b> (controle, comprovantes, repasses) deve ter um custo à parte. <b>Nada está decidido.</b></p>'
-      + '<div class="dm-opt"><span class="dm-hyp">Hipótese A</span><h3>Sem taxa de gestão</h3><p class="dm-muted" style="margin:0">Só a comissão combinada com os guias.</p></div>'
-      + '<div class="dm-opt"><span class="dm-hyp">Hipótese B</span><h3>Mensalidade de gestão</h3><p class="dm-muted" style="margin:0">Um valor fixo por mês, qualquer que seja o movimento.</p></div>'
-      + '<div class="dm-opt"><span class="dm-hyp">Hipótese C</span><h3>Taxa por transação</h3><p class="dm-muted" style="margin:0">Por exemplo, 3 % da comissão, com um teto por mês.</p></div>'
-      + '<div class="notice"><b>Para conversar:</b> em que condições você escolheria cada uma? O que esperaria em troca?</div>';
+    var bill = 100000, roles = [['Guia', 10, 'Ana Souza'], ['Tour Company', 5, 'Rio Tours'], ['Agência', 5, 'Viagens Sol']];
+    var tot = 0;
+    var rows = roles.map(function (r) { var c = commission(bill, r[1]); tot += c; return '<div class="dm-row"><span>' + r[0] + ' · ' + esc(r[2]) + ' (' + r[1] + ' %)</span><b>' + brl(c) + '</b></div>'; }).join('');
+    return '<p class="dm-kicker">Guias, Tour Companies e agências ' + EX + '</p>'
+      + '<h1>Um grupo, vários parceiros, um só Pix</h1>'
+      + '<p>Uma agência traz um grupo com uma Tour Company e um guia. <b>Você define uma taxa para cada função</b>; a Kombrio reparte.</p>'
+      + '<div class="card"><div class="dm-row"><span>Conta (loja de joias)</span><b>' + brl(bill) + '</b></div>' + rows
+      + '<div class="dm-row total"><span>Você paga em um só Pix</span><b>' + brl(tot) + '</b></div></div>'
+      + '<p class="dm-muted">Restaurante onde o guia nunca vem? Coloque 0 % para o guia: só a Tour Company ou a agência recebe.</p>';
   };
 
   screens[10] = function () {
-    var href = WHATSAPP
-      ? 'https://wa.me/' + WHATSAPP + '?text=' + encodeURIComponent('Olá! Vi a demonstração da Kombrio e quero saber mais sobre o piloto.')
-      : 'mailto:' + EMAIL + '?subject=' + encodeURIComponent('Piloto Kombrio');
     return '<p class="dm-kicker">Próximo passo</p>'
-      + '<h1>Participe do piloto</h1>'
+      + '<h1>Cadastre o seu estabelecimento</h1>'
       + '<ul class="dm-points">'
-      + '<li><span class="dm-ico">📅</span><span><b>30 dias</b>, com poucos restaurantes e guias.</span></li>'
-      + '<li><span class="dm-ico">📝</span><span><b>Condições combinadas por escrito</b> antes de começar.</span></li>'
-      + '<li><span class="dm-ico">🤝</span><span><b>Sem compromisso automático</b> depois do piloto.</span></li>'
-      + '<li><span class="dm-ico">💬</span><span>Sua opinião decide a próxima etapa.</span></li>'
+      + '<li><span class="dm-ico">✓</span><span><b>Cadastro gratuito</b>, em poucos minutos, pelo celular.</span></li>'
+      + '<li><span class="dm-ico">✓</span><span><b>Você escolhe a sua taxa</b> e pode mudar quando quiser.</span></li>'
+      + '<li><span class="dm-ico">✓</span><span><b>Um único Pix</b> para todas as comissões, com comprovante e relatório para o contador.</span></li>'
+      + '<li><span class="dm-ico">✓</span><span>Seu estabelecimento aparece na página dos turistas trazidos pelos guias.</span></li>'
       + '</ul>'
-      + '<a class="btn dm-big" style="display:block;text-align:center;text-decoration:none" href="' + href + '" target="_blank" rel="noopener">'
-      + (WHATSAPP ? 'Falar com a Kombrio no WhatsApp' : 'Falar com a Kombrio: ' + EMAIL) + '</a>'
+      + '<a class="btn dm-big" style="display:block;text-align:center;text-decoration:none" href="' + SIGNUP + '">Cadastrar meu estabelecimento</a>'
+      + '<a class="btn secondary dm-big" style="display:block;text-align:center;text-decoration:none;margin-top:8px" href="' + FAQ + '">Perguntas frequentes</a>'
       + '<button type="button" class="btn ghost dm-big" id="dm-reset" style="margin-left:0">Recomeçar a demonstração</button>'
-      + '<p class="dm-muted" style="margin-top:12px">Protótipo demonstrativo: nenhum dado foi guardado e nenhum pagamento foi feito.</p>';
+      + '<p class="dm-muted" style="margin-top:12px">Demonstração: nenhum dado foi guardado e nenhum pagamento foi feito.</p>';
   };
 
   // ---------- Affichage et navigation ----------

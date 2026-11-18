@@ -585,3 +585,12 @@ main { overflow-wrap: break-word; }
 .pd-row.pd-child .pd-who { padding-left: 12px; border-left: 2px solid var(--line); }
 .split-lines { list-style: none; margin: 8px 0 0; padding: 0 0 0 12px; border-left: 2px solid var(--line); }
 .split-line { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; padding: 4px 0; font-size: .92rem; }
+
+/* v104 : questions fréquentes (Aide des apps et page publique /faq/). */
+.faq { display: grid; gap: 6px; }
+.faq-item { border: 1px solid var(--line); border-radius: 12px; background: var(--surface); padding: 0 12px; }
+.faq-item summary { cursor: pointer; padding: 10px 0; font-weight: 600; list-style: none; }
+.faq-item summary::-webkit-details-marker { display: none; }
+.faq-item summary::after { content: '+'; float: right; color: var(--muted); font-weight: 400; }
+.faq-item[open] summary::after { content: '–'; }
+.faq-item p { margin: 0 0 12px; color: var(--muted); line-height: 1.5; }
