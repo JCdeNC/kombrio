@@ -16,7 +16,7 @@ begin
   insert into auth.users (id, instance_id, aud, role, email, raw_user_meta_data, created_at, updated_at) values
     (g, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'test-clot@kombrio.test',
      '{"role":"guide","name":"Guia Fechamento","city_id":"rio","cpf":"44444444421","pix_key":"clot@kombrio.test"}', now(), now());
-  update guides set status = 'validated', pix_status = 'verified' where id = g;
+  update guides set verified_at = now(), status = 'validated', pix_status = 'verified' where id = g;
   insert into partners (id, city_id, type, name, token, manager_token, report_token, commission_rate) values
     (p1, 'rio', 'restaurant', 'Parceiro Fechamento', 'P-CLOT1', 'G-CLOT1', 'R-CLOT1', 0.10);
   insert into stays (guide_id, client, people, start_day, end_day, token) values

@@ -18,7 +18,7 @@ begin
   insert into auth.users (id, instance_id, aud, role, email, raw_user_meta_data, created_at, updated_at) values
     (gc, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'test-decl1@kombrio.test',
      '{"role":"guide","name":"Guia Decl","city_id":"rio","cpf":"44444444431","pix_key":"decl1@kombrio.test"}', now(), now());
-  update guides set status = 'validated', pix_status = 'verified', cpf = '44444444431' where id = gc;
+  update guides set verified_at = now(), status = 'validated', pix_status = 'verified', cpf = '44444444431' where id = gc;
   insert into partners (id, city_id, type, name, token, manager_token, report_token, commission_rate, tax_id) values
     (p1, 'rio', 'restaurant', 'Parceiro Decl 1', 'P-DECL1', 'G-DECL1', 'R-DECL1', 0.10, '11222333000181'),
     (p2, 'rio', 'shop', 'Parceiro Decl 2', 'P-DECL2', 'G-DECL2', null, 0.10, null);

@@ -20,7 +20,7 @@ begin
     (tc, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'cr-tc@kombrio.test', '{"role":"guide","actor_kind":"tc","name":"TC CR","city_id":"rio","cpf":"39053344705","cnpj":"11222333000181","pix_key":"cr-tc@kombrio.test"}', now(), now()),
     (g1, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'cr-g1@kombrio.test', '{"role":"guide","name":"Guia CR Um","city_id":"rio","cpf":"11144477735","pix_key":"cr-g1@kombrio.test"}', now(), now()),
     (g2, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'cr-g2@kombrio.test', '{"role":"guide","name":"Guia CR Dois","city_id":"rio","cpf":"12345678909","pix_key":"cr-g2@kombrio.test"}', now(), now());
-  update guides set status = 'validated', pix_status = 'verified' where id in (ag, tc, g1, g2);
+  update guides set verified_at = now(), status = 'validated', pix_status = 'verified' where id in (ag, tc, g1, g2);
   insert into partners (id, city_id, type, name, token, manager_token, commission_rate, rate_tc, rate_agency) values
     (hs, 'rio', 'shop', 'Joalheria CR', 'P-CRH', 'G-CRH', 0.10, 0.05, 0.05),
     (rs, 'rio', 'restaurant', 'Restaurante CR', 'P-CRR', 'G-CRR', 0.10, 0.10, 0);

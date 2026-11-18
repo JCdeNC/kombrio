@@ -18,7 +18,7 @@ begin
      '{"role":"guide","name":"Guia Relatorio","city_id":"rio","cpf":"44444444431","pix_key":"rel1@kombrio.test"}', now(), now()),
     (g2, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'test-rel2@kombrio.test',
      '{"role":"guide","name":"Outro Guia","city_id":"rio","cpf":"44444444432","pix_key":"rel2@kombrio.test"}', now(), now());
-  update guides set status = 'validated', pix_status = 'verified' where id in (g, g2);
+  update guides set verified_at = now(), status = 'validated', pix_status = 'verified' where id in (g, g2);
   insert into partners (id, city_id, type, name, token, manager_token, commission_rate, tax_id) values
     (p1, 'rio', 'restaurant', 'Parceiro Relatorio', 'P-REL1', 'G-REL1', 0.10, '11444777000161');
   insert into stays (guide_id, client, people, start_day, end_day, token) values

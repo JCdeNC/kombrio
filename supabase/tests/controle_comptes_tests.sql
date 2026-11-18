@@ -18,7 +18,7 @@ begin
   insert into auth.users (id, instance_id, aud, role, email, raw_user_meta_data, created_at, updated_at) values
     (g, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'test-books@kombrio.test',
      '{"role":"guide","name":"Guia Contas","city_id":"rio","cpf":"44444444441","pix_key":"books@kombrio.test"}', now(), now());
-  update guides set status = 'validated', pix_status = 'verified' where id = g;
+  update guides set verified_at = now(), status = 'validated', pix_status = 'verified' where id = g;
   insert into partners (id, city_id, type, name, token, manager_token, commission_rate) values (p1, 'rio', 'restaurant', 'Parceiro Contas', 'P-BOOK1', 'G-BOOK1', 0.10);
   insert into stays (guide_id, client, people, start_day, end_day, token) values
     (g, 'Grupo B1', 2, today, today + 2, 'C-BOOK1'), (g, 'Grupo B2', 2, today, today + 2, 'C-BOOK2');

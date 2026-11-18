@@ -27,7 +27,7 @@ begin
      '{"role":"guide","name":"Guia Teto","city_id":"rio","cpf":"44444444413","pix_key":"inss3@kombrio.test"}', now(), now()),
     (gf, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'test-inss4@kombrio.test',
      '{"role":"guide","name":"Guia Afilhado","city_id":"rio","cpf":"44444444414","pix_key":"inss4@kombrio.test"}', now(), now());
-  update guides set status = 'validated', pix_status = 'verified' where id in (gc, gj, gk, gf);
+  update guides set verified_at = now(), status = 'validated', pix_status = 'verified' where id in (gc, gj, gk, gf);
   insert into partners (id, city_id, type, name, token, manager_token, commission_rate) values
     (p1, 'rio', 'restaurant', 'Parceiro INSS 1', 'P-INSS1', 'G-INSS1', 0.10),
     (p2, 'rio', 'shop', 'Parceiro INSS 2', 'P-INSS2', 'G-INSS2', 0.10);

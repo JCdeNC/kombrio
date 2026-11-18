@@ -22,7 +22,7 @@ begin
   insert into auth.users (id, instance_id, aud, role, email, raw_user_meta_data, created_at, updated_at)
   values (g, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'test-guide@kombrio.test',
           '{"role":"guide","name":"Guia Teste","city_id":"rio"}', now(), now());
-  update guides set status = 'validated' where id = g;
+  update guides set verified_at = now(), status = 'validated' where id = g;
   -- Depuis le module Pix (v30) : un virement exige CPF et clé Pix vérifiée.
   -- Depuis v53 (retenue INSS des guides CPF) : guide CNPJ, pour garder des montants sans retenue dans ces tests.
   update guides set tax_kind = 'cnpj', cpf = '11222333000181', pix_key = 'teste@kombrio.test', pix_status = 'verified' where id = g;

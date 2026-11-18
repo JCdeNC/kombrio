@@ -23,7 +23,7 @@ begin
     (g3, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'ir3@kombrio.test', '{"role":"guide","name":"IR Tres","city_id":"rio","cpf":"12345678909","pix_key":"ir3@kombrio.test"}', now(), now()),
     (g4, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'ir4@kombrio.test', '{"role":"guide","name":"IR Empresa","city_id":"rio","cpf":"98765432100","cnpj":"11444777000161","pix_key":"ir4@kombrio.test"}', now(), now()),
     (g5, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'ir5@kombrio.test', '{"role":"guide","name":"IR Mei","city_id":"rio","cpf":"15350946056","cnpj":"11222333000181","pix_key":"ir5@kombrio.test"}', now(), now());
-  update guides set status = 'validated', pix_status = 'verified' where id in (g0, g1, g2, g3, g4, g5);
+  update guides set verified_at = now(), status = 'validated', pix_status = 'verified' where id in (g0, g1, g2, g3, g4, g5);
   update guides set fiscal_status = 'company' where id = g4;
   insert into partners (id, city_id, type, name, token, manager_token) values (pa, 'rio', 'restaurant', 'Parceiro IR', 'P-IRA', 'G-IRA');
   insert into stays (guide_id, client, people, start_day, end_day, token)
