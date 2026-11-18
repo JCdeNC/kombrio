@@ -52,9 +52,12 @@ begin
 
   -- 5. Taux du partenaire par rôle : enregistrés, bornés à 50 %.
   insert into partners (id, city_id, type, name, token, manager_token) values (pa, 'rio', 'shop', 'Loja Joias', 'P-AGT', 'G-AGT');
-  if set_partner_role_rates('G-AGT', 0.05, 0.05) and not set_partner_role_rates('G-AGT', 0.6, 0)
+  ok := set_partner_role_rates('G-AGT', 0.05, 0.05);
+  if ok and not set_partner_role_rates('G-AGT', 0.6, 0)
      and (select rate_tc = 0.05 and rate_agency = 0.05 from partners where id = pa)
-    then pass := pass + 1; else fail := fail + 1; out := out || ' [5 taux] '; end if;
+    then pass := pass + 1; else fail := fail + 1;
+      out := out || format(' [5 taux ok=%s statut=%s tc=%s agence=%s] ', ok, (select status from partners where id = pa),
+                           (select rate_tc from partners where id = pa), (select rate_agency from partners where id = pa)); end if;
 
   raise exception 'RÉSULTATS : % réussi(s), % échec(s).%', pass, fail, case when out = '' then ' Tout est conforme.' else ' Échecs :' || out end;
 end $$;

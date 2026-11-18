@@ -36,8 +36,9 @@ begin
     then pass := pass + 1; else fail := fail + 1; out := out || ' [1 tc ' || r::text || '] '; end if;
 
   -- 2. L'agence rattache deux guides (5 chiffres seuls, puis code avec tirets en minuscules).
-  if (link_actor(sa, right(c_g1, 5))->>'ok')::boolean and (link_actor(sa, lower(c_g2))->>'ok')::boolean
-     and (select count(*) from stay_links where stay_id = sa) = 3
+  ok := (link_actor(sa, right(c_g1, 5))->>'ok')::boolean;
+  ok := ok and (link_actor(sa, lower(c_g2))->>'ok')::boolean;
+  if ok and (select count(*) from stay_links where stay_id = sa) = 3
     then pass := pass + 1; else fail := fail + 1; out := out || ' [2 guides] '; end if;
 
   -- 3. Refus : son propre code, un code inconnu, une autre agence, un groupe qui n'est pas le sien.
@@ -62,17 +63,15 @@ begin
 
   -- 7. L'agence retire un guide.
   perform set_config('request.jwt.claims', json_build_object('sub', ag, 'role', 'authenticated')::text, true);
-  if unlink_actor(sa, g2) and (select count(*) from stay_links where stay_id = sa) = 2
+  ok := unlink_actor(sa, g2);
+  if ok and (select count(*) from stay_links where stay_id = sa) = 2
     then pass := pass + 1; else fail := fail + 1; out := out || ' [7 retrait] '; end if;
 
-  -- 8. Garde-fou : pas de visite sur un groupe d'agence (lot 3 pas installé) ; un groupe de guide marche.
-  begin
-    insert into visits (stay_id, partner_id, guide_id, people) values (sa, pa, ag, 2);
-    ok := false;
-  exception when others then ok := sqlerrm like '%actor_not_ready%';
-  end;
+  -- 8. Depuis le lot 3 (063) : une visite sur un groupe d'agence passe, au taux et au rôle de l'agence ; un groupe de guide marche.
+  insert into visits (stay_id, partner_id, guide_id, people) values (sa, pa, ag, 2);
+  ok := exists (select 1 from visits where stay_id = sa and guide_id = ag and actor_role = 'agency' and parent_visit_id is null);
   insert into visits (stay_id, partner_id, guide_id, people) values (sg, pa, g1, 2);
-  if ok then pass := pass + 1; else fail := fail + 1; out := out || ' [8 garde-fou] '; end if;
+  if ok then pass := pass + 1; else fail := fail + 1; out := out || ' [8 visite agence] '; end if;
 
   raise exception 'RÉSULTATS : % réussi(s), % échec(s).%', pass, fail, case when out = '' then ' Tout est conforme.' else ' Échecs :' || out end;
 end $$;
