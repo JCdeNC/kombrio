@@ -209,7 +209,7 @@
     return '<p class="dm-kicker">Próximo passo</p>'
       + '<h1>Cadastre o seu estabelecimento</h1>'
       + '<ul class="dm-points">'
-      + '<li><span class="dm-ico">✓</span><span><b>Cadastro gratuito</b>, em poucos minutos, pelo celular.</span></li>'
+      + '<li><span class="dm-ico">✓</span><span><b>Cadastro gratuito</b>, em poucos minutos, pelo celular ou pelo computador.</span></li>'
       + '<li><span class="dm-ico">✓</span><span><b>Você escolhe a sua taxa</b> e pode mudar quando quiser.</span></li>'
       + '<li><span class="dm-ico">✓</span><span><b>Um único Pix</b> para todas as comissões, com comprovante e relatório para o contador.</span></li>'
       + '<li><span class="dm-ico">✓</span><span>Seu estabelecimento aparece na página dos turistas trazidos pelos guias.</span></li>'
