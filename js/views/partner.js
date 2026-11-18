@@ -877,7 +877,7 @@ export function spaceView(space, tab = 'painel') {
           <label style="font-weight:400;display:flex;gap:10px;align-items:center"><input type="radio" name="model" value="per_person" style="width:auto"${partner.commissionModel === 'per_person' ? ' checked' : ''}> ${t('partner.model.per_person')}</label></div>
         <div id="m-percent"${partner.commissionModel === 'per_person' ? ' hidden' : ''}>
         <p class="hint">${t('partner.rate.hint')}</p>
-        <div class="field"><select name="rate">${[0, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 20].map((n) => `<option value="${n / 100}"${rate === n ? ' selected' : ''}>${n} %${n === 10 ? ` (${t('partner.rate.suggested')})` : n === 0 ? ` (${t('partner.rate.zero')})` : ''}</option>`).join('')}</select></div></div>
+        <div class="field"><select name="rate">${[...(rate === 0 || partner.rateTc > 0 || partner.rateAgency > 0 ? [0] : []), 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 20].map((n) => `<option value="${n / 100}"${rate === n ? ' selected' : ''}>${n} %${n === 10 ? ` (${t('partner.rate.suggested')})` : n === 0 ? ` (${t('partner.rate.zero')})` : ''}</option>`).join('')}</select></div></div>
         <div id="m-pp"${partner.commissionModel === 'per_person' ? '' : ' hidden'}>
           <div class="field"><label for="m-amount">${t('partner.model.amount')}</label>
             <input id="m-amount" name="pp" inputmode="decimal" placeholder="${esc(city.currency)} 10,00" value="${partner.perPersonCents ? (partner.perPersonCents / 100).toFixed(2).replace('.', ',') : ''}"></div>
@@ -954,15 +954,15 @@ export function spaceView(space, tab = 'painel') {
     visitas: visitsCard(t('pd.all'), visits, true),
     pagamentos: `<div class="pd-cols"><div class="pd-side">${visitsCard(t('pd.topay'), toPay, false)}${payHistory}</div><div class="pd-side">${docsCard}${inssCard}${adjustmentsCard(adjustments, city, lang)}</div></div>`,
     equipe: teamHtml(space),
-    config: `<a class="card pd-team-link" href="${base}/equipe"><div class="spread" style="align-items:center"><span><b>${t('pd.tab.equipe')}</b><br><span class="hint">${t('pd.team.link.hint')}</span></span><span>›</span></div></a>${settings}`,
+    config: settings,
   }[tab];
   const counts = { painel: 0, visitas: toDeclare.length, pagamentos: toPay.length + extraDue.length, equipe: 0, config: 0 };
   // v87 : pastilles sur ordinateur, barre fixée en bas sur téléphone (icône + mot court).
   const PD_ICONS = { painel: 'grid', visitas: 'list', pagamentos: 'card', equipe: 'team', config: 'gear' };
   const navItems = PD_TABS.map((k) => ({ href: `${base}${k === 'painel' ? '' : `/${k}`}`, label: t(`pd.tab.${k}`), short: t(`pd.tab.${k}.short`),
-    icon: PD_ICONS[k], on: k === tab, count: counts[k], desk: k === 'equipe' }));
+    icon: PD_ICONS[k], on: k === tab, count: counts[k], desk: k === 'config' }));
   // design v2 : « Escanear » au centre de la barre (scanner le QR du client, ou saisir une conta) ; sur téléphone,
-  // « Equipe » passe dans « Ajustes » pour garder 5 places.
+  // « Ajustes » passe en roue dentée dans l'en-tête pour garder 5 places (Equipe reste à un pouce).
   navItems.splice(2, 0, { href: `${base}/conta`, label: t('pd.tab.scan'), short: t('pd.tab.scan'), icon: 'scan', center: true });
   const tabsNav = appTabs(navItems);
 
@@ -971,7 +971,7 @@ export function spaceView(space, tab = 'painel') {
       ${groupBar(space)}
       <div class="spread"><div><h1 style="margin-bottom:2px">${esc(partner.name)}</h1>
         <p class="hint" style="margin:0">${t(`ptype.${partner.type}`)}${partner.area ? ` · ${esc(partner.area)}` : ''} · ${t('pd.k.rate', { rate: rateLbl })}${partner.managerName ? ` · ${t('pm.hello', { name: partner.managerName })}` : ''}</p></div>
-        <div class="row" style="gap:6px">${helpButton()}${loggedIn ? `<button class="btn ghost small no-print" id="logout">${t('common.logout')}</button>` : ''}</div></div>
+        <div class="row" style="gap:6px"><a class="btn ghost small no-print gear-phone${tab === 'config' ? ' on' : ''}" href="${base}/config" aria-label="${esc(tRaw('pd.tab.config'))}"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7"/></svg></a>${helpButton()}${loggedIn ? `<button class="btn ghost small no-print" id="logout">${t('common.logout')}</button>` : ''}</div></div>
       ${tabsNav}${banner}${body}</div>`,
     mount(root, ctx) {
       mountGroupBar(root);
@@ -1651,8 +1651,8 @@ function staffView({ partner, city, visits, key, staff }) {
     html: `
       <div class="spread"><div><h1 style="margin-bottom:2px">${esc(partner.name)}</h1>
         <p class="hint" style="margin:0">${t('staff.hello', { name: me.name, post: tRaw(`staff.post.${me.post}`) })}</p></div>${helpButton()}</div>
-      <div class="notice ok">${t('counter.ready')}</div>
-      ${saleButton(key)}
+      <a class="staff-scan" href="#/p/${encodeURIComponent(key)}/conta"><span class="staff-scan-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8V5.5A1.5 1.5 0 0 1 5.5 4H8M16 4h2.5A1.5 1.5 0 0 1 20 5.5V8M20 16v2.5a1.5 1.5 0 0 1-1.5 1.5H16M8 20H5.5A1.5 1.5 0 0 1 4 18.5V16"/><path d="M4 12h16"/></svg></span>
+        <span><b>${t('staff.scan.big')}</b><small>${t('staff.scan.big.hint')}</small></span></a>
       ${pendingCard({ city, visits, key })}
       ${offerOn(partner, city) && partner.offerPromoCents ? `<div class="card"><h2>${t('counter.offer')}</h2><div class="offer">${esc(priceLine(partner, (n) => cents(n, city.currency, getLang())))}</div></div>` : ''}
       ${offerOn(partner, city) && partner.offer ? `<div class="card"><h2>${t('counter.offer')}</h2><div class="offer">${esc(partner.offer)}</div><p class="hint" style="margin-top:8px">${t('counter.offer.hint')}</p></div>` : ''}
@@ -1665,7 +1665,11 @@ function staffView({ partner, city, visits, key, staff }) {
           : `<p class="hint">${t('partner.visits.none')}</p>`}
       </div>
       <p class="hint">${t('staff.manager')}</p>
-      <p class="hint">${t('partner.linked', { name: partner.name })} <a href="#" id="unlink">${t('partner.unlink')}</a></p>`,
+      <p class="hint">${t('partner.linked', { name: partner.name })} <a href="#" id="unlink">${t('partner.unlink')}</a></p>
+      ${appTabs([
+        { href: `#/p/${encodeURIComponent(key)}`, label: t('staff.tab.today'), icon: 'today', on: true },
+        { href: `#/p/${encodeURIComponent(key)}/conta`, label: t('pd.tab.scan'), icon: 'scan', center: true },
+        { href: '#', label: t('staff.tab.help'), icon: 'help', attrs: 'data-help-open=""' }])}`,
     mount(r, ctx) {
       mountPending(root(), ctx, key);
       mountHelp(root(), { kind: 'partner', send: (topic, msg, vId) => store.partnerCreateAlert(key, topic, msg, vId),

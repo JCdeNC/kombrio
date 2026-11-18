@@ -665,3 +665,14 @@ input, select, textarea { border-radius: 14px; background: #fff; }
 .pd-team-link .spread { flex-wrap: nowrap; } .pd-team-link .spread > span:last-child { font-size: 1.4rem; color: var(--muted); }
 .act-grid { align-items: stretch; }
 .act-grid > .btn:last-child:nth-child(even) { grid-column: 1 / -1; }
+/* Gérant : roue dentée « Ajustes » dans l'en-tête sur téléphone (la barre garde Equipe). */
+.gear-phone { display: none; }
+.gear-phone svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; vertical-align: -3px; }
+.gear-phone.on { background: var(--ok-bg); color: var(--brand); }
+@media (max-width: 560px) { .gear-phone { display: inline-flex; align-items: center; } }
+/* Équipier : un grand bouton Escanear, la liste du jour, rien d'autre. */
+.staff-scan { display: flex; gap: 16px; align-items: center; padding: 22px 20px; margin-bottom: 16px; border-radius: 22px; text-decoration: none; color: #fff;
+  background: linear-gradient(135deg, #00A887, #007F65); box-shadow: 0 10px 24px rgba(0,127,101,.25); }
+.staff-scan b { display: block; font-size: 1.25rem; line-height: 1.2; } .staff-scan small { color: rgba(255,255,255,.85); font-size: .92rem; }
+.staff-scan-ico { flex: none; display: grid; place-items: center; width: 60px; height: 60px; border-radius: 18px; background: rgba(255,255,255,.18); }
+.staff-scan-ico svg { width: 32px; height: 32px; fill: none; stroke: #fff; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }

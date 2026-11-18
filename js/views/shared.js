@@ -198,10 +198,12 @@ const ICON_PATHS = {
   // design v2 : bouton central (QR du guide, scanner du partenaire).
   qr: '<rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><path d="M14 14h2v2h-2zM18 14h2M14 18h2M18 18h2v2M16 16h2v2"/>',
   scan: '<path d="M4 8V5.5A1.5 1.5 0 0 1 5.5 4H8M16 4h2.5A1.5 1.5 0 0 1 20 5.5V8M20 16v2.5a1.5 1.5 0 0 1-1.5 1.5H16M8 20H5.5A1.5 1.5 0 0 1 4 18.5V16"/><path d="M4 12h16"/>',
+  help: '<circle cx="12" cy="12" r="8.5"/><path d="M9.6 9.4a2.5 2.5 0 0 1 4.8.9c0 1.6-2.4 2.1-2.4 3.6"/><path d="M12 17h.01"/>',
+  today: '<rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 9.5h17M8 3v4M16 3v4"/><path d="m9 14.5 2 2 4-4"/>',
 };
-// items : [{ href, label, short, icon, on, count, center }]
+// items : [{ href, label, short, icon, on, count, center, desk, attrs }] (attrs : attributs en plus, ex. data-help-open)
 // design v2 : center = gros bouton rond au milieu de la barre (comme « Pagar » des apps de transport) pour l'action QR.
 export function appTabs(items) {
-  return `<nav class="tabs apptabs no-print">${items.map((x) => `<a href="${x.href}" class="${x.on ? 'on' : ''}${x.center ? ' at-center' : ''}${x.desk ? ' at-desk' : ''}"${x.on ? ' aria-current="page"' : ''}>
+  return `<nav class="tabs apptabs no-print">${items.map((x) => `<a href="${x.href}" class="${x.on ? 'on' : ''}${x.center ? ' at-center' : ''}${x.desk ? ' at-desk' : ''}"${x.on ? ' aria-current="page"' : ''}${x.attrs ? ` ${x.attrs}` : ''}>
     ${x.center ? `<span class="atc"><svg viewBox="0 0 24 24" aria-hidden="true">${ICON_PATHS[x.icon] || ''}</svg></span>` : `<svg class="ati" viewBox="0 0 24 24" aria-hidden="true">${ICON_PATHS[x.icon] || ''}</svg>`}<span class="atl">${x.label}</span><span class="ats">${x.short || x.label}</span>${x.count ? `<span class="todo">${x.count}</span>` : ''}</a>`).join('')}</nav>`;
 }
