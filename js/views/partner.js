@@ -10,6 +10,7 @@ import { statusBadge, notFound, termsGateView, forgotLink, mountForgot, resetVie
 import { readPendingStay, clearPendingStay } from './scan.js';
 import { helpButton, problemLink, mountHelp, topicLabel, alertStatus } from './help.js';
 import { installCard, mountInstallCard, installEnv } from './install.js';
+import { startCard, mountStartCard, partnerSteps } from './start.js';
 
 const MAX_RECEIPT = 1.5 * 1024 * 1024;
 export const TERMS_VERSION = 'P-2 · 16/11/2026';   // v74 (v1 · 30/10/2026 avant)
@@ -813,9 +814,11 @@ export function spaceView(space, tab = 'painel') {
       : `<p class="hint" style="padding:0 14px 14px">${t('pd.empty')}</p>`}
     </div>`;
 
+  // v113 : la liste « Para começar » reprend l'offre, le QR et le taux : pas de doublon dans « A fazer ».
+  const startHtml = tab === 'painel' ? startCard('partner', partner.id, partnerSteps({ partner, visits, base })) : '';
   const todo = [];
-  if (fresh || !partner.offer) todo.push(['offer', t('pd.todo.offer')]);
-  if (fresh) todo.push(['qr', t('pd.todo.qr')], ['rate', t('pd.todo.rate', { rate: rateLbl })]);
+  if (!startHtml && (fresh || !partner.offer)) todo.push(['offer', t('pd.todo.offer')]);
+  if (fresh && !startHtml) todo.push(['qr', t('pd.todo.qr')], ['rate', t('pd.todo.rate', { rate: rateLbl })]);
   if (toDeclare.length) todo.push([`decl-${toDeclare.length}`, t('pd.todo.declare', { n: toDeclare.length })]);
   if (payCents > 0) todo.push([`pay-${payCents}`, t('pd.todo.pay', { amount: c(payCents) })]);
   adjustments.filter((a) => a.partnerStatus === 'refund_due').forEach((a) => todo.push([`ref-${a.num}`, t('pd.todo.refund', { amount: c(-a.deltaCents), num: store.adjNum(a.num) })]));
@@ -950,7 +953,7 @@ export function spaceView(space, tab = 'painel') {
   const inPending = (v) => v.status === 'visited' && Date.now() - new Date(v.at) < 16 * 36e5;
   const open = visits.filter((v) => ['visited', 'declared', 'verifying', 'disputed'].includes(v.status) && !inPending(v));
   const body = {
-    painel: `${saleButton(key, true)}${pendingCard({ city, visits, key })}${steps}${kpis}<div class="pd-cols">${visitsCard(t('pd.totreat'), open, false)}<div class="pd-side">${chartCard}${todoCard}${adjustmentsCard(adjustments, city, lang)}${lastCard}${shortcuts}</div></div>`,
+    painel: `${saleButton(key, true)}${pendingCard({ city, visits, key })}${startHtml}${steps}${kpis}<div class="pd-cols">${visitsCard(t('pd.totreat'), open, false)}<div class="pd-side">${chartCard}${todoCard}${adjustmentsCard(adjustments, city, lang)}${lastCard}${shortcuts}</div></div>`,
     visitas: visitsCard(t('pd.all'), visits, true),
     pagamentos: `<div class="pd-cols"><div class="pd-side">${visitsCard(t('pd.topay'), toPay, false)}${payHistory}</div><div class="pd-side">${docsCard}${inssCard}${adjustmentsCard(adjustments, city, lang)}</div></div>`,
     equipe: teamHtml(space),
@@ -972,10 +975,11 @@ export function spaceView(space, tab = 'painel') {
       <div class="spread"><div><h1 style="margin-bottom:2px">${esc(partner.name)}</h1>
         <p class="hint" style="margin:0">${t(`ptype.${partner.type}`)}${partner.area ? ` · ${esc(partner.area)}` : ''} · ${t('pd.k.rate', { rate: rateLbl })}${partner.managerName ? ` · ${t('pm.hello', { name: partner.managerName })}` : ''}</p></div>
         <div class="row" style="gap:6px"><a class="btn ghost small no-print gear-phone${tab === 'config' ? ' on' : ''}" href="${base}/config" aria-label="${esc(tRaw('pd.tab.config'))}"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7"/></svg></a>${helpButton()}${loggedIn ? `<button class="btn ghost small no-print" id="logout">${t('common.logout')}</button>` : ''}</div></div>
-      ${tabsNav}${banner}${tab === 'painel' ? installCard('partner') : ''}${body}</div>`,
+      ${tabsNav}${banner}${tab === 'painel' && !startHtml ? installCard('partner') : ''}${body}</div>`,
     mount(root, ctx) {
       mountGroupBar(root);
       mountInstallCard(root);
+      mountStartCard(root);
       root.querySelectorAll('[data-nfse]').forEach((b) => { b.onclick = async () => {
         const f = await store.partnerNfseFile(key, b.dataset.nfse).catch(() => null);
         if (!f || !f.data) { notify(tRaw('err.generic')); return; }

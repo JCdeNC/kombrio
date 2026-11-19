@@ -6,6 +6,7 @@ import { validity, statusBadge, guideAmounts, notFound, termsGateView, forgotLin
 import { maskTaxId, fmtTaxId, qrCardBlob, shareOrDownload, photoToJpeg, weekdayList } from '../util.js';
 import { helpButton, problemLink, mountHelp, topicLabel, alertStatus } from './help.js';
 import { installView, installCard, mountInstallCard, installEnv } from './install.js';
+import { startCard, mountStartCard, guideSteps } from './start.js';
 import { WEEKLY_OPTION } from '../config.js';
 // Durée maximale d'un séjour (K-15, décidé le 06/11/2026) : les clients restent au plus une semaine. Même règle dans la base (script 014).
 const MAX_STAY_DAYS = 7;
@@ -348,12 +349,13 @@ async function dashboardView(me, city, tab = 'inicio', focus = '') {
 
   // À faire (cases à cocher gardées sur l'appareil).
   const dk = gDoneKey(me.id); const done = readDone(dk);
+  const startHtml = tab === 'inicio' ? startCard('guide', me.id, guideSteps({ me, stays, pixOk })) : '';   // v113
   const todo = [];
   if (!pixOk) todo.push([`pix-${me.pixKeyVersion}`, t(openCheck ? 'g.todo.pixconfirm' : 'g.todo.pix')]);
   toConfirm.forEach((p) => todo.push([`po-${p.id}`, t('g.todo.payout', { amount: cur(p.cents) })]));
   // v96 : guide payé en CNPJ : envoyer les NFS-e du virement en préparation.
   if (me.taxKind === 'cnpj') payouts.filter((p) => p.status === 'in_progress').forEach((p) => todo.push([`nf-${p.id}`, `<a href="#/repasse/${esc(p.id)}">${t('g.todo.nf', { num: p.num })}</a>`]));
-  if (!stays.some((s) => !s.direct)) todo.push(['firstqr', t('g.todo.firstqr')]);
+  if (!startHtml && !stays.some((s) => !s.direct)) todo.push(['firstqr', t('g.todo.firstqr')]);
   soonStays.forEach((s) => todo.push([`send-${s.id}`, t('g.todo.send', { client: s.client, date: fmtDay(s.start, lang) })]));
   if (cad && cad < soon60) todo.push([`cad-${cad}`, t('g.todo.cad')]);
   const left = todo.filter(([k]) => !done.has(k)).length;
@@ -479,9 +481,10 @@ async function dashboardView(me, city, tab = 'inicio', focus = '') {
       <div class="spread"><div><h1 style="margin-bottom:2px">${t('guide.hello', { name: me.name })}</h1>
         <p class="hint" style="margin:0">${me.actorKind && me.actorKind !== 'guide' ? `<span class="badge">${t(`role.${me.actorKind}`)}</span> ` : ''}${esc(city.name || '')}${me.code ? ` · ${esc(me.code)}` : ''}</p></div>
         <div class="row" style="gap:6px">${helpButton()}</div></div>
-      ${nav}${banners}${tab === 'inicio' ? installCard('guide') : ''}${body}</div>`,
+      ${nav}${banners}${tab === 'inicio' ? (startHtml || installCard('guide')) : ''}${body}</div>`,
     mount(root, ctx) {
       mountInstallCard(root);
+      mountStartCard(root);
       mountLogout(root, ctx);
       mountPix(root, ctx);
       mountStayActions(root, ctx);

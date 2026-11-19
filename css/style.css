@@ -744,3 +744,18 @@ input, select, textarea { border-radius: 14px; background: #fff; }
 .ia-homelink { display: flex; gap: 12px; align-items: center; text-decoration: none; color: var(--ink); font-weight: 600; }
 .ia-homelink img { width: 32px; height: 32px; border-radius: 9px; } .ia-homelink span { flex: 1; } .ia-homelink b { color: var(--muted); font-size: 1.3rem; }
 .ia-bar > * { white-space: nowrap; }
+
+/* v113 : liste « Para começar » */
+.st-card { border: 1px solid var(--brand-soft, #CDEBE2); }
+.st-bar { height: 6px; border-radius: 99px; background: #E6EEF0; margin: 10px 0 4px; overflow: hidden; }
+.st-bar i { display: block; height: 100%; background: var(--brand, #007F65); border-radius: 99px; transition: width .3s; }
+.st-list { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 2px; }
+.st-list li { display: flex; gap: 12px; align-items: flex-start; padding: 8px 0; border-bottom: 1px solid #EEF3F4; }
+.st-list li:last-child { border-bottom: 0; }
+.st-list a { flex: 1; min-width: 0; text-decoration: none; color: inherit; }
+.st-list a b { display: block; } .st-list a small { display: block; color: var(--muted); }
+.st-tick { flex: 0 0 auto; width: 24px; height: 24px; margin-top: 1px; border-radius: 50%; border: 2px solid #B9C9CE; background: #fff; padding: 0; cursor: pointer; position: relative; }
+span.st-tick { cursor: default; }
+.st-ok .st-tick { background: var(--brand, #007F65); border-color: var(--brand, #007F65); }
+.st-ok .st-tick::after { content: ''; position: absolute; left: 7px; top: 3px; width: 6px; height: 11px; border: solid #fff; border-width: 0 2px 2px 0; transform: rotate(45deg); }
+.st-ok a b { color: var(--muted); text-decoration: line-through; }
