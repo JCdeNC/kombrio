@@ -9,6 +9,7 @@ import { inssBadge, inssTimeline, inssLinesTable, inssCsv, downloadText, openDat
 import { statusBadge, notFound, termsGateView, forgotLink, mountForgot, resetView, lastMonths, shortMonth, delta, barChart, appTabs } from './shared.js';
 import { readPendingStay, clearPendingStay } from './scan.js';
 import { helpButton, problemLink, mountHelp, topicLabel, alertStatus } from './help.js';
+import { installCard, mountInstallCard, installEnv } from './install.js';
 
 const MAX_RECEIPT = 1.5 * 1024 * 1024;
 export const TERMS_VERSION = 'P-2 · 16/11/2026';   // v74 (v1 · 30/10/2026 avant)
@@ -68,6 +69,7 @@ export async function partnerHome(params, ctx) {
         <p class="hint">${t('ps.home.hint')}</p>
         <a class="btn secondary block" href="#/parceria">${t('ps.home.button')}</a>
       </div>
+      ${(() => { const e = installEnv(); return !e.standalone && (e.os === 'ios' || e.os === 'android') ? `<a class="card ia-homelink" href="#/instalar"><img src="../icon.svg" alt=""><span>${t('ia.home.link')}</span><b>›</b></a>` : ''; })()}
       <div class="card">
         <h2>${t('team.home.title')}</h2>
         <p class="hint">${t('team.home.hint')}</p>
@@ -972,9 +974,10 @@ export function spaceView(space, tab = 'painel') {
       <div class="spread"><div><h1 style="margin-bottom:2px">${esc(partner.name)}</h1>
         <p class="hint" style="margin:0">${t(`ptype.${partner.type}`)}${partner.area ? ` · ${esc(partner.area)}` : ''} · ${t('pd.k.rate', { rate: rateLbl })}${partner.managerName ? ` · ${t('pm.hello', { name: partner.managerName })}` : ''}</p></div>
         <div class="row" style="gap:6px"><a class="btn ghost small no-print gear-phone${tab === 'config' ? ' on' : ''}" href="${base}/config" aria-label="${esc(tRaw('pd.tab.config'))}"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7"/></svg></a>${helpButton()}${loggedIn ? `<button class="btn ghost small no-print" id="logout">${t('common.logout')}</button>` : ''}</div></div>
-      ${tabsNav}${banner}${body}</div>`,
+      ${tabsNav}${banner}${tab === 'painel' ? installCard('partner') : ''}${body}</div>`,
     mount(root, ctx) {
       mountGroupBar(root);
+      mountInstallCard(root);
       root.querySelectorAll('[data-nfse]').forEach((b) => { b.onclick = async () => {
         const f = await store.partnerNfseFile(key, b.dataset.nfse).catch(() => null);
         if (!f || !f.data) { notify(tRaw('err.generic')); return; }
@@ -1653,6 +1656,7 @@ function staffView({ partner, city, visits, key, staff }) {
         <p class="hint" style="margin:0">${t('staff.hello', { name: me.name, post: tRaw(`staff.post.${me.post}`) })}</p></div>${helpButton()}</div>
       <a class="staff-scan" href="#/p/${encodeURIComponent(key)}/conta"><span class="staff-scan-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8V5.5A1.5 1.5 0 0 1 5.5 4H8M16 4h2.5A1.5 1.5 0 0 1 20 5.5V8M20 16v2.5a1.5 1.5 0 0 1-1.5 1.5H16M8 20H5.5A1.5 1.5 0 0 1 4 18.5V16"/><path d="M4 12h16"/></svg></span>
         <span><b>${t('staff.scan.big')}</b><small>${t('staff.scan.big.hint')}</small></span></a>
+      ${installCard('partner')}
       ${pendingCard({ city, visits, key })}
       ${offerOn(partner, city) && partner.offerPromoCents ? `<div class="card"><h2>${t('counter.offer')}</h2><div class="offer">${esc(priceLine(partner, (n) => cents(n, city.currency, getLang())))}</div></div>` : ''}
       ${offerOn(partner, city) && partner.offer ? `<div class="card"><h2>${t('counter.offer')}</h2><div class="offer">${esc(partner.offer)}</div><p class="hint" style="margin-top:8px">${t('counter.offer.hint')}</p></div>` : ''}
@@ -1672,6 +1676,7 @@ function staffView({ partner, city, visits, key, staff }) {
         { href: '#', label: t('staff.tab.help'), icon: 'help', attrs: 'data-help-open=""' }])}`,
     mount(r, ctx) {
       mountPending(root(), ctx, key);
+      mountInstallCard(root());
       mountHelp(root(), { kind: 'partner', send: (topic, msg, vId) => store.partnerCreateAlert(key, topic, msg, vId),
         findCode: (code) => visits.find((x) => x.code === code)?.id || null });
       root().querySelector('#unlink').onclick = (e) => {
