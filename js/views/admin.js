@@ -1136,7 +1136,7 @@ async function partners({ partnerList, cityList, city }) {
             : `<p class="hint" style="margin-top:8px">${t('admin.part.access.hint')}</p>
               ${p.activationCode ? `<p style="font-size:1.4rem;font-weight:700;letter-spacing:.04em;margin:6px 0">${esc(p.activationCode)}</p>
                 <div class="row">
-                  <a class="btn small" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent(tRaw('admin.part.access.text', { name: p.name, link: appLink('partner', ''), code: p.activationCode }))}">WhatsApp</a>
+                  <a class="btn small" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent(tRaw('admin.part.access.text', { name: p.name, link: appLink('partner', `ativar/${encodeURIComponent(p.activationCode)}`), code: p.activationCode }))}">WhatsApp</a>
                   <button type="button" class="btn ghost small" data-code="${esc(p.id)}">${t('admin.part.code.new')}</button>
                 </div>`
               : `<button type="button" class="btn small" data-code="${esc(p.id)}">${t('admin.part.code.create')}</button>`}`}

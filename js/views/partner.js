@@ -60,11 +60,6 @@ export async function partnerHome(params, ctx) {
         ${forgotLink()}
       </form>
       <div class="card">
-        <h2>${t('pm.first')}</h2>
-        <p class="hint">${t('pm.first.hint')}</p>
-        <a class="btn secondary block" href="#/ativar">${t('pm.first.button')}</a>
-      </div>
-      <div class="card">
         <h2>${t('ps.home.title')}</h2>
         <p class="hint">${t('ps.home.hint')}</p>
         <a class="btn secondary block" href="#/parceria">${t('ps.home.button')}</a>
@@ -89,13 +84,16 @@ export async function partnerHome(params, ctx) {
 
 // Premier accès : code d'activation, responsable, e-mail, mot de passe, conditions générales.
 export async function activateView([code = ''], ctx) {
+  // v111 : plus de code à taper. Sans code dans le lien → inscription du partenaire (#/parceria) ;
+  // avec le lien envoyé par l'admin (#/ativar/RIO-KP-…), le code est déjà là et reste caché.
+  if (!code) return { html: '', mount: () => ctx.replace('parceria') };
   return {
     html: `
       <p><a href="#/">← ${t('pm.title')}</a></p>
       <form class="card" id="activate">
         <h1>${t('pm.first')}</h1>
         <p class="hint">${t('pm.activate.hint')}</p>
-        <div class="field"><label for="a-code">${t('pm.code')}</label><input id="a-code" name="code" required value="${esc(code)}" placeholder="RIO-KP-12345 / 12345" autocapitalize="characters" style="text-transform:uppercase"></div>
+        <input type="hidden" id="a-code" name="code" value="${esc(code)}">
         <div class="grid2">
           <div class="field"><label for="a-name">${t('pm.name')}</label><input id="a-name" name="name" required autocomplete="name"></div>
           ${phoneField('a-phone', t('guide.signup.phone'), t('phone.other'))}
