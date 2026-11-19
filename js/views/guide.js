@@ -5,6 +5,7 @@ import * as store from '../store.js';
 import { validity, statusBadge, guideAmounts, notFound, termsGateView, forgotLink, mountForgot, resetView, lastMonths, shortMonth, monthKeyOf, delta, barChart, appTabs } from './shared.js';
 import { maskTaxId, fmtTaxId, qrCardBlob, shareOrDownload, photoToJpeg, weekdayList } from '../util.js';
 import { helpButton, problemLink, mountHelp, topicLabel, alertStatus } from './help.js';
+import { installView, installCard, mountInstallCard, installEnv } from './install.js';
 import { WEEKLY_OPTION } from '../config.js';
 // Durée maximale d'un séjour (K-15, décidé le 06/11/2026) : les clients restent au plus une semaine. Même règle dans la base (script 014).
 const MAX_STAY_DAYS = 7;
@@ -12,6 +13,7 @@ const MAX_STAY_DAYS = 7;
 export const GUIDE_TERMS_VERSION = 'G-2 · 16/11/2026';
 
 export async function guideView(params, ctx) {
+  if (params[0] === 'instalar') return installView(params, ctx, 'guide');   // v112 : assistant d'installation
   // Lien « nouveau mot de passe » : il suffit d'être connecté par le lien, même sans fiche guide complète.
   if (store.inRecovery() && await store.hasSession()) return resetView();
   const me = await store.currentGuide();
@@ -60,6 +62,7 @@ async function loginView() {
         <button class="btn block">${t('auth.login')}</button>
         ${forgotLink()}
       </form>
+      ${(() => { const e = installEnv(); return !e.standalone && (e.os === 'ios' || e.os === 'android') ? `<a class="card ia-homelink" href="#/instalar"><img src="../icon.svg" alt=""><span>${t('ia.home.link')}</span><b>›</b></a>` : ''; })()}
       ${signupForm('guide', cities)}
       <div class="card" id="co-card"><h2>${t('su.co.card.title')}</h2><p class="hint">${t('su.co.card.text')}</p>
         <button type="button" class="btn secondary block" id="co-open">${t('su.co.open')}</button></div>
@@ -476,8 +479,9 @@ async function dashboardView(me, city, tab = 'inicio', focus = '') {
       <div class="spread"><div><h1 style="margin-bottom:2px">${t('guide.hello', { name: me.name })}</h1>
         <p class="hint" style="margin:0">${me.actorKind && me.actorKind !== 'guide' ? `<span class="badge">${t(`role.${me.actorKind}`)}</span> ` : ''}${esc(city.name || '')}${me.code ? ` · ${esc(me.code)}` : ''}</p></div>
         <div class="row" style="gap:6px">${helpButton()}</div></div>
-      ${nav}${banners}${body}</div>`,
+      ${nav}${banners}${tab === 'inicio' ? installCard('guide') : ''}${body}</div>`,
     mount(root, ctx) {
+      mountInstallCard(root);
       mountLogout(root, ctx);
       mountPix(root, ctx);
       mountStayActions(root, ctx);

@@ -18,8 +18,8 @@ const HIDE_KEY = (kind) => `kombrio-install-hide-${kind}`;
 
 export function installEnv() {
   const ua = navigator.userAgent || '';
-  const ios = /iPhone|iPad|iPod/i.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
   const android = /Android/i.test(ua);
+  const ios = !android && (/iPhone|iPad|iPod/i.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
   const standalone = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
   const inapp = /FBAN|FBAV|Instagram|Line\/|WhatsApp|\bwv\b|GSA\//i.test(ua);
   let browser = 'other';
