@@ -869,3 +869,12 @@ span.st-tick { cursor: default; }
 .tu-btn.tu-xs { display: inline-block; padding: 4px 8px; font-size: 8.5px; }
 .tu-green { color: #007F65; white-space: nowrap; }
 .tu-which .list a { display: grid; gap: 2px; text-decoration: none; color: inherit; } .tu-which .list a b { color: var(--brand, #007F65); font-size: .92rem; }
+
+/* v116 : contact à deux niveaux */
+.help-contact { border-top: 1px solid var(--line, #E2EBEE); padding-top: 12px; }
+.help-levels { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.help-level { display: grid; gap: 3px; align-content: start; text-align: left; padding: 10px 12px; border-radius: 14px; border: 1.5px solid var(--line, #DCE5E8); background: var(--surface, #fff); color: inherit; font: inherit; cursor: pointer; min-height: 0; }
+.help-level b { font-size: .98rem; } .help-level small { color: var(--muted); line-height: 1.35; font-weight: 400; }
+.help-level.urgent b { color: #B03A2E; } .help-level.wait b { color: var(--brand, #007F65); }
+.help-level.urgent.on { border-color: #B03A2E; background: #FDF0EE; } .help-level.wait.on { border-color: var(--brand, #007F65); background: #EEF8F4; }
+@media (max-width: 380px) { .help-levels { grid-template-columns: 1fr; } }

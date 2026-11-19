@@ -38,7 +38,7 @@ export const problemLink = (visitId) => `<button type="button" class="link-btn n
 // Ouvre la fenêtre d'aide. send(topic, message, visitId) renvoie { ok, num, reason }.
 // findCode(code) renvoie l'id du passage qui porte ce code (KTR-BMX), ou null.
 export function openHelp({ kind, about = '', visitId = null, send, onSent, findCode = null }) {
-  const st = { step: 'ask', q: '', topic: null, num: null };
+  const st = { step: 'ask', q: '', topic: null, num: null, urgent: null };   // v116 : urgent = true / false (deux niveaux)
   const o = document.createElement('div');
   o.className = 'overlay';
   const close = () => { o.remove(); if (st.step === 'sent' && onSent) onSent(); };
@@ -55,7 +55,9 @@ export function openHelp({ kind, about = '', visitId = null, send, onSent, findC
           <textarea id="help-q" rows="2" maxlength="500" placeholder="${t(`help.ph.${kind}`)}">${esc(st.q)}</textarea></div>
         <button class="btn block" data-h="search">${t('help.search')}</button>
         <p class="hint" style="margin:10px 0 6px">${t('help.or')}</p>
-        <div class="help-chips">${HELP_TOPICS[kind].map((k) => `<button type="button" data-topic="${k}">${t(`${pre(kind)}${k}.l`)}</button>`).join('')}</div>`;
+        <div class="help-chips">${HELP_TOPICS[kind].map((k) => `<button type="button" data-topic="${k}">${t(`${pre(kind)}${k}.l`)}</button>`).join('')}</div>
+        ${visitId ? '' : `<div class="help-contact"><h3 style="margin:0 0 2px">${t('help.contact.title')}</h3><p class="hint" style="margin:0 0 8px">${t('help.contact.hint')}</p>
+          ${levelButtons(kind, null, 'h')}</div>`}`;
     } else if (st.step === 'answer') {
       const auto = f && !HUMAN.includes(f);
       body = `<div class="help-ai"><b>${auto ? `${t('help.ai')} · ` : ''}${f ? t(`${pre(kind)}${f}.l`) : t('help.noanswer')}</b>
@@ -63,16 +65,17 @@ export function openHelp({ kind, about = '', visitId = null, send, onSent, findC
         <div class="row" style="gap:6px">${auto ? `<button class="btn" data-h="ok">${t('help.ok')}</button><button class="btn secondary" data-h="form">${t('help.no')}</button>`
           : `<button class="btn" data-h="form">${t('help.notify')}</button>`}</div>`;
     } else if (st.step === 'form') {
-      body = `<div class="field"><label for="help-topic">${t('help.subject')}</label><select id="help-topic">
+      body = `<div class="field"><label>${t('help.level')}</label>${levelButtons(kind, st.urgent, 'lv')}</div>
+        <div class="field"><label for="help-topic">${t('help.subject')}</label><select id="help-topic">
           ${HELP_TOPICS[kind].map((k) => `<option value="${k}"${k === f ? ' selected' : ''}>${t(`${pre(kind)}${k}.l`)}</option>`).join('')}
           <option value="other"${f ? '' : ' selected'}>${t('help.topic.other')}</option></select></div>
         <div class="field"><label for="help-msg">${t('help.message')}</label><textarea id="help-msg" rows="3" maxlength="1000" placeholder="${t('help.msg.ph')}">${esc(st.q)}</textarea></div>
         ${!visitId && findCode ? `<div class="field"><label for="help-code">${t('help.code')}</label>
           <input id="help-code" maxlength="9" autocapitalize="characters" autocomplete="off" spellcheck="false" placeholder="KTR-BMX" style="text-transform:uppercase;letter-spacing:1px"></div>` : ''}
-        <p class="hint">${t(`help.only.${kind}`)}</p>
+        <p class="hint">${t(st.urgent ? `help.only.${kind}.urgent` : `help.only.${kind}`)}</p>
         <button class="btn block" data-h="send">${t('help.send')}</button>`;
     } else {
-      body = `<div class="notice ok"><b>${t('help.sent', { num: st.num })}</b><br>${t('help.sent.text')}</div>
+      body = `<div class="notice ${st.urgent ? 'warn' : 'ok'}"><b>${t(st.urgent ? 'help.sent.urgent' : 'help.sent', { num: st.num })}</b><br>${t(st.urgent ? 'help.sent.urgent.text' : 'help.sent.text')}</div>
         <button class="btn block" data-h="close">${t('help.close')}</button>`;
     }
     o.innerHTML = `<div class="sheet help-sheet" role="dialog" aria-modal="true" aria-labelledby="help-title">
@@ -85,12 +88,20 @@ export function openHelp({ kind, about = '', visitId = null, send, onSent, findC
     if (e.target.closest('a[data-tuto]')) { o.remove(); return; }   // v114 : un tutoriel ouvert depuis l'aide ferme la fenêtre
     const b = e.target.closest('button'); if (!b) return;
     if (b.dataset.topic) { st.topic = b.dataset.topic; st.step = 'answer'; draw(); return; }
+    // v116 : niveau choisi depuis l'accueil (va au formulaire) ou dans le formulaire (garde le texte déjà tapé).
+    if (b.dataset.h === 'lvl' || b.dataset.lv) {
+      const keep = st.step === 'form' ? { topic: o.querySelector('#help-topic')?.value, msg: o.querySelector('#help-msg')?.value } : null;
+      st.urgent = (b.dataset.lv || b.dataset.level) === 'urgent'; st.step = 'form';
+      if (keep) { st.topic = keep.topic === 'other' ? null : keep.topic; st.q = keep.msg ?? st.q; }
+      draw(); return;
+    }
     const h = b.dataset.h;
     if (h === 'close') close();
     else if (h === 'search') { st.q = o.querySelector('#help-q').value.trim(); st.topic = findTopic(kind, st.q) || null; st.step = 'answer'; draw(); }
     else if (h === 'ok') { store.countFaqSolved(kind, st.topic); o.remove(); }
     else if (h === 'form') { st.step = 'form'; draw(); }
     else if (h === 'send') {
+      if (st.urgent == null) { alertBox(o, 'help.level.err'); return; }
       b.disabled = true;
       const topic = o.querySelector('#help-topic').value; const msg = o.querySelector('#help-msg').value.trim();
       let vId = visitId;
@@ -100,7 +111,7 @@ export function openHelp({ kind, about = '', visitId = null, send, onSent, findC
         if (!vId) { b.disabled = false; alertBox(o, 'help.code.bad'); return; }
       }
       try {
-        const r = await send(topic, msg, vId);
+        const r = await send(topic, msg, vId, st.urgent);
         if (!r || !r.ok) { b.disabled = false; alertBox(o, r && r.reason === 'quota' ? 'help.quota' : 'err.generic'); return; }
         st.num = r.num; st.step = 'sent'; draw();
       } catch { b.disabled = false; alertBox(o, 'err.generic'); }
@@ -109,6 +120,14 @@ export function openHelp({ kind, about = '', visitId = null, send, onSent, findC
   document.addEventListener('keydown', function esc_(e) { if (e.key === 'Escape') { close(); document.removeEventListener('keydown', esc_); } });
   draw();
   document.body.appendChild(o);
+}
+// v116 : les deux niveaux de contact. `sel` = niveau déjà choisi (true / false / null) ; `mode` 'h' (accueil) ou 'lv' (formulaire).
+function levelButtons(kind, sel, mode) {
+  return `<div class="help-levels">${['urgent', 'wait'].map((k) => {
+    const on = sel != null && (k === 'urgent') === sel;
+    const attr = mode === 'h' ? `data-h="lvl" data-level="${k}"` : `data-lv="${k}"`;
+    return `<button type="button" class="help-level ${k}${on ? ' on' : ''}" ${attr} aria-pressed="${on}">
+      <b>${t(`help.level.${k}`)}</b><small>${t(`help.level.${k}.${kind}`)}</small></button>`; }).join('')}</div>`;
 }
 function alertBox(o, key) {
   o.querySelector('.help-err')?.remove();

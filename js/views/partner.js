@@ -987,7 +987,7 @@ export function spaceView(space, tab = 'painel') {
       }; });
       if (tab === 'painel') mountPending(root, ctx, key);
       if (tab === 'equipe') mountTeam(root, ctx, key);
-      mountHelp(root, { kind: 'partner', send: (topic, msg, vId) => store.partnerCreateAlert(key, topic, msg, vId),
+      mountHelp(root, { kind: 'partner', send: (topic, msg, vId, urgent) => store.partnerCreateAlert(key, topic, msg, vId, urgent),
         findCode: (c) => visits.find((x) => x.code === c)?.id || null,
         label: (vId) => { const v = visits.find((x) => x.id === vId); return v ? `${v.client || ''} · ${fmtDay(v.at.slice(0, 10), getLang())} · ${store.visitRef(v)}` : ''; },
         onSent: () => ctx.refresh() });
@@ -1633,7 +1633,7 @@ function counterView({ partner, city, visits, key }) {
       <p class="hint">${t('partner.linked', { name: partner.name })} <a href="#" id="unlink">${t('partner.unlink')}</a></p>`,
     mount(r, ctx) {
       mountPending(root(), ctx, key);
-      mountHelp(root(), { kind: 'partner', send: (topic, msg, vId) => store.partnerCreateAlert(key, topic, msg, vId),
+      mountHelp(root(), { kind: 'partner', send: (topic, msg, vId, urgent) => store.partnerCreateAlert(key, topic, msg, vId, urgent),
         findCode: (c) => visits.find((x) => x.code === c)?.id || null });
       root().querySelector('#unlink').onclick = (e) => {
         e.preventDefault();
@@ -1679,7 +1679,7 @@ function staffView({ partner, city, visits, key, staff }) {
     mount(r, ctx) {
       mountPending(root(), ctx, key);
       mountInstallCard(root());
-      mountHelp(root(), { kind: 'partner', send: (topic, msg, vId) => store.partnerCreateAlert(key, topic, msg, vId),
+      mountHelp(root(), { kind: 'partner', send: (topic, msg, vId, urgent) => store.partnerCreateAlert(key, topic, msg, vId, urgent),
         findCode: (code) => visits.find((x) => x.code === code)?.id || null });
       root().querySelector('#unlink').onclick = (e) => {
         e.preventDefault();

@@ -829,14 +829,21 @@ export async function setReferralReward(id, action, text = null) {
 const toAlert = (r) => r && ({
   id: r.id, num: num(r.num), authorKind: r.author_kind, guideId: r.guide_id, partnerId: r.partner_id, visitId: r.visit_id,
   topic: r.topic, message: r.message || '', status: r.status, answer: r.answer || '', createdAt: r.created_at, resolvedAt: r.resolved_at || '',
-  internal: !!r.internal, partnerLang: r.partners?.lang || 'pt',
+  internal: !!r.internal, urgent: r.urgent !== false, partnerLang: r.partners?.lang || 'pt',
   guideName: r.guides?.name || '', partnerName: r.partners?.name || '', visitNum: num(r.visits?.num), visitCode: r.visits?.code || '',
 });
-export async function guideCreateAlert(topic, message, visitId = null) {
-  return check(await sb.rpc('guide_create_alert', { p_topic: topic, p_message: message, p_visit: visitId }));
+// v116 : niveau choisi (urgent = e-mail tout de suite ; sinon la demande attend dans l'admin, script 068).
+// Tant que le script 068 n'est pas lancé, l'ancienne fonction (sans niveau) est appelée : tout reste urgent, comme avant.
+async function alertRpc(fn, args, urgent) {
+  const r = await sb.rpc(fn, { ...args, p_urgent: urgent !== false });
+  if (r.error && /p_urgent|function|schema cache/i.test(r.error.message || '')) return check(await sb.rpc(fn, args));
+  return check(r);
 }
-export async function partnerCreateAlert(token, topic, message, visitId = null) {
-  return check(await sb.rpc('partner_create_alert', { p_token: token, p_topic: topic, p_message: message, p_visit: visitId }));
+export async function guideCreateAlert(topic, message, visitId = null, urgent = true) {
+  return alertRpc('guide_create_alert', { p_topic: topic, p_message: message, p_visit: visitId }, urgent);
+}
+export async function partnerCreateAlert(token, topic, message, visitId = null, urgent = true) {
+  return alertRpc('partner_create_alert', { p_token: token, p_topic: topic, p_message: message, p_visit: visitId }, urgent);
 }
 // Tant que le script 017 n'est pas lancé, ces lectures renvoient une liste vide (l'app reste utilisable).
 export async function listMyAlerts() {

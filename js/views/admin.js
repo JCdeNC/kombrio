@@ -159,12 +159,13 @@ async function alertas({ alerts }) {
   const c = (st) => alerts.filter((a) => a.status === st).length;
   const resolvedMonth = alerts.filter((a) => a.status === 'resolved' && a.resolvedAt && new Date(a.resolvedAt) >= monthStart).length;
   const order = { new: 0, in_progress: 1, resolved: 2 };
-  const list = [...alerts].sort((a, b) => order[a.status] - order[b.status] || new Date(b.createdAt) - new Date(a.createdAt));
+  // v116 : parmi les alertes du même statut, les urgentes d'abord.
+  const list = [...alerts].sort((a, b) => order[a.status] - order[b.status] || (b.urgent - a.urgent) || new Date(b.createdAt) - new Date(a.createdAt));
   const item = (a) => {
     const kind = a.authorKind;
     return `<li><div class="spread"><b>nº ${a.num} · ${esc(topicLabel(kind, a.topic))}</b>
         <span class="badge ${a.status === 'resolved' ? 'ok' : a.status === 'new' ? 'bad' : 'warn'}">${esc(alertStatus(a.status))}</span></div>
-      <div class="hint"><span class="badge">${t(kind === 'guide' ? 'admin.al.guide' : 'admin.al.partner')}</span>
+      <div class="hint">${a.internal ? '' : `<span class="badge ${a.urgent ? 'bad' : 'ok'}">${t(a.urgent ? 'admin.al.urgent' : 'admin.al.wait')}</span> `}<span class="badge">${t(kind === 'guide' ? 'admin.al.guide' : 'admin.al.partner')}</span>
         ${esc(kind === 'guide' ? a.guideName : a.partnerName)} · ${fmtMoment(a.createdAt, lang, 'America/Sao_Paulo')}${a.visitNum ? ` · ${esc(store.fmtCode(a.visitCode) || store.txNum(a.visitNum))}` : ''}</div>
       <p style="margin:6px 0">${a.message ? esc(a.message) : `<span class="hint">${t('admin.al.empty')}</span>`}</p>
       ${a.internal ? `<form class="al-form" data-id="${esc(a.id)}"><p class="hint" style="margin:0 0 6px"><span class="badge">${t('admin.al.internal')}</span> ${t('admin.al.internal.hint')}</p>

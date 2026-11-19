@@ -509,7 +509,7 @@ async function dashboardView(me, city, tab = 'inicio', focus = '') {
           } catch { notify(tRaw('err.generic')); }
         };
       }
-      mountHelp(root, { kind: 'guide', send: (topic, msg, vId) => store.guideCreateAlert(topic, msg, vId),
+      mountHelp(root, { kind: 'guide', send: (topic, msg, vId, urgent) => store.guideCreateAlert(topic, msg, vId, urgent),
         findCode: (c) => visits.find((x) => x.code === c)?.id || null,
         label: (vId) => { const v = visits.find((x) => x.id === vId); return v ? `${pname(v.partnerId)} · ${stayOf(v.stayId)?.client || ''} · ${store.visitRef(v)}` : ''; },
         onSent: () => ctx.refresh() });
