@@ -5,6 +5,7 @@ import { t, tRaw, getLang } from '../i18n.js';
 import { faqList } from '../faq.js';
 import { esc } from '../util.js';
 import * as store from '../store.js';
+import { tutoLinks } from './tuto.js';
 
 const FAQ_URL = new URL('../faq/', location.href.split('#')[0]).href;   // page publique, à côté des apps
 export const HELP_TOPICS = {
@@ -46,7 +47,8 @@ export function openHelp({ kind, about = '', visitId = null, send, onSent, findC
     let body = '';
     if (st.step === 'ask') {
       // v104 : aide générale = d'abord les questions fréquentes (même texte que la FAQ publique), puis le problème.
-      const faq = visitId ? '' : `<h3 style="margin:8px 0 4px">${t('help.faq.title')}</h3>${faqList(kind, getLang())}
+      const faq = visitId ? '' : `<h3 style="margin:8px 0 6px">${t('tu.help')}</h3>${tutoLinks(kind)}
+        <h3 style="margin:14px 0 4px">${t('help.faq.title')}</h3>${faqList(kind, getLang())}
         <p style="margin:6px 0 14px"><a href="${FAQ_URL}?s=${kind}&lang=${getLang()}" target="_blank" rel="noopener">${t('help.faq.all')}</a></p>
         <h3 style="margin:0 0 4px">${t('help.faq.more')}</h3>`;
       body = `${faq}<div class="field"><label for="help-q">${t('help.describe')}</label>
@@ -80,6 +82,7 @@ export function openHelp({ kind, about = '', visitId = null, send, onSent, findC
   };
   o.addEventListener('click', async (e) => {
     if (e.target === o) { close(); return; }
+    if (e.target.closest('a[data-tuto]')) { o.remove(); return; }   // v114 : un tutoriel ouvert depuis l'aide ferme la fenêtre
     const b = e.target.closest('button'); if (!b) return;
     if (b.dataset.topic) { st.topic = b.dataset.topic; st.step = 'answer'; draw(); return; }
     const h = b.dataset.h;

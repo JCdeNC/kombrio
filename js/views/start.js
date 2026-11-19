@@ -23,10 +23,10 @@ export function guideSteps({ me, stays, pixOk }) {
   const company = me.actorKind && me.actorKind !== 'guide';
   const firstGroup = stays.find((s) => !s.direct);
   const s = [installStep(),
-    { id: 'pix', label: 'st.g.pix', hint: 'st.g.pix.hint', href: '#/conta', done: !!me.pixKey && pixOk },
+    { id: 'pix', label: 'st.g.pix', hint: 'st.g.pix.hint', href: '#/conta', tuto: 'pix', done: !!me.pixKey && pixOk },
     company ? { id: 'cnpj', label: 'st.c.cnpj', hint: 'st.c.cnpj.hint', href: '#/conta', done: !!me.cnpj }
       : { id: 'cpf', label: 'st.g.cpf', hint: 'st.g.cpf.hint', href: '#/conta', done: !!me.cpf },
-    { id: 'client', label: company ? 'st.c.group' : 'st.g.client', hint: company ? 'st.c.group.hint' : 'st.g.client.hint', href: '#/clientes', done: !!firstGroup },
+    { id: 'client', label: company ? 'st.c.group' : 'st.g.client', hint: company ? 'st.c.group.hint' : 'st.g.client.hint', href: '#/clientes', tuto: 'client', done: !!firstGroup },
     company ? { id: 'link', label: me.actorKind === 'agency' ? 'st.c.link.agency' : 'st.c.link.tc', hint: 'st.c.link.hint',
       href: firstGroup ? `#/sejour/${encodeURIComponent(firstGroup.id)}` : '#/clientes', manual: true }
       : { id: 'badge', label: 'st.g.badge', hint: 'st.g.badge.hint', href: '#/cracha', manual: true },
@@ -41,8 +41,8 @@ export function partnerSteps({ partner, visits, base }) {
     { id: 'offer', label: 'st.p.offer', hint: 'st.p.offer.hint', href: `${base}/config`, done: !!(partner.offer || partner.offerPromoCents) },
     { id: 'rate', label: 'st.p.rate', hint: 'st.p.rate.hint', href: `${base}/config`, manual: true },
     { id: 'qr', label: 'st.p.qr', hint: 'st.p.qr.hint', href: `${base}/config`, manual: true },
-    { id: 'team', label: 'st.p.team', hint: 'st.p.team.hint', href: `${base}/equipe`, manual: true },
-    { id: 'scan', label: 'st.p.scan', hint: 'st.p.scan.hint', href: `${base}/conta`, done: visits.length > 0 },
+    { id: 'team', label: 'st.p.team', hint: 'st.p.team.hint', href: `${base}/equipe`, tuto: 'team', manual: true },
+    { id: 'scan', label: 'st.p.scan', hint: 'st.p.scan.hint', href: `${base}/conta`, tuto: 'scan', done: visits.length > 0 },
   ].filter(Boolean);
 }
 
@@ -59,7 +59,7 @@ export function startCard(kind, id, steps) {
       <div class="st-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><i style="width:${pct}%"></i></div>
       <ol class="st-list">${list.map((x) => `<li class="${x.done ? 'st-ok' : ''}">
         ${x.manual ? `<button type="button" class="st-tick" data-st-tick="${esc(x.id)}" aria-pressed="${x.done}" aria-label="${esc(tRaw('st.mark'))}"></button>` : '<span class="st-tick" aria-hidden="true"></span>'}
-        <a href="${esc(x.href)}"${x.manual ? ` data-st-go="${esc(x.id)}"` : ''}><b>${t(x.label)}</b><small>${t(x.hint)}</small></a></li>`).join('')}</ol>
+        <a href="${esc(x.href)}"${x.manual ? ` data-st-go="${esc(x.id)}"` : ''}><b>${t(x.label)}</b><small>${t(x.hint)}</small></a>${x.tuto && !x.done ? `<a class="st-tuto" href="#/tuto/${esc(x.tuto)}"><span class="tu-play" aria-hidden="true"></span>${t('tu.see')}</a>` : ''}</li>`).join('')}</ol>
       <p style="margin:6px 0 0;text-align:right"><button type="button" class="btn ghost small" data-st-hide>${t('st.hide')}</button></p></div>`;
 }
 

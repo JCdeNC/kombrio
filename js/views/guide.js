@@ -7,6 +7,7 @@ import { maskTaxId, fmtTaxId, qrCardBlob, shareOrDownload, photoToJpeg, weekdayL
 import { helpButton, problemLink, mountHelp, topicLabel, alertStatus } from './help.js';
 import { installView, installCard, mountInstallCard, installEnv } from './install.js';
 import { startCard, mountStartCard, guideSteps } from './start.js';
+import { tutoView } from './tuto.js';
 import { WEEKLY_OPTION } from '../config.js';
 // Durée maximale d'un séjour (K-15, décidé le 06/11/2026) : les clients restent au plus une semaine. Même règle dans la base (script 014).
 const MAX_STAY_DAYS = 7;
@@ -15,6 +16,7 @@ export const GUIDE_TERMS_VERSION = 'G-2 · 16/11/2026';
 
 export async function guideView(params, ctx) {
   if (params[0] === 'instalar') return installView(params, ctx, 'guide');   // v112 : assistant d'installation
+  if (params[0] === 'tuto') return tutoView(params, ctx, 'guide');   // v114 : tutoriels animés
   // Lien « nouveau mot de passe » : il suffit d'être connecté par le lien, même sans fiche guide complète.
   if (store.inRecovery() && await store.hasSession()) return resetView();
   const me = await store.currentGuide();
