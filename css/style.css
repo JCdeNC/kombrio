@@ -851,3 +851,21 @@ span.st-tick { cursor: default; }
 .st-tuto { flex: none !important; display: inline-flex; align-items: center; gap: 5px; font-size: .82rem; font-weight: 600; color: var(--brand, #007F65) !important; white-space: nowrap; align-self: center; }
 .st-tuto .tu-play { width: 22px; height: 22px; } .st-tuto .tu-play::after { left: 8px; top: 6px; border-width: 5px 0 5px 7px; }
 .help-sheet .tu-links a { padding: 9px 12px; box-shadow: none; border: 1px solid #E2EBEE; }
+/* v115 : scènes d'encaissement */
+.tu-case { display: block; background: #fff; border: 1.5px solid #DCE5E8; border-radius: 10px; padding: 8px; }
+.tu-case small { display: block; color: #5B6F78; font-size: 8px; } .tu-case.on { border-color: #007F65; background: #F1FAF6; }
+.tu-badge { display: grid; justify-items: center; gap: 2px; width: 84px; padding: 8px 6px; background: #fff; color: #102C38; border-radius: 10px; border-top: 6px solid #007F65; }
+.tu-badge b { font-size: 10px; } .tu-badge small { font-size: 7px; color: #5B6F78; } .tu-badge i { display: block; width: 26px; height: 26px; margin-top: 3px; background: repeating-linear-gradient(90deg, #102C38 0 3px, #fff 3px 5px); border-radius: 2px; }
+.tu-av { width: 26px; height: 26px; border-radius: 50%; background: #CFE3DD; }
+.tu-ok-line { color: #007F65; font-weight: 700; }
+.tu-pend { background: #fff; border-radius: 10px; padding: 7px; display: grid; gap: 6px; border-left: 3px solid #E08A2E; }
+.tu-pend-h { display: flex; justify-content: space-between; align-items: center; } .tu-pend-h span { background: #FCE9D4; color: #B4571A; border-radius: 99px; padding: 0 6px; font-weight: 700; }
+.tu-pend-r { display: flex; justify-content: space-between; align-items: center; gap: 6px; background: #fff; border-radius: 8px; padding: 6px; } .tu-pend-r small { display: block; color: #5B6F78; font-size: 8px; }
+.tu-pend .tu-btn { padding: 6px 4px; font-size: 8.5px; }
+.tu-more { display: grid; gap: 5px; background: #fff; border-radius: 10px; padding: 7px; } .tu-more small { color: #5B6F78; font-size: 8px; }
+.tu-more .tu-chk { animation: none; background: #F1FAF6; }
+.tu-link.strong { display: block; text-decoration: none; color: #007F65; font-weight: 700; text-align: left; padding: 3px 0; }
+.tu-drop-zone.tu-small { padding: 8px; } .tu-drop-zone.tu-small svg { width: 18px; height: 18px; }
+.tu-btn.tu-xs { display: inline-block; padding: 4px 8px; font-size: 8.5px; }
+.tu-green { color: #007F65; white-space: nowrap; }
+.tu-which .list a { display: grid; gap: 2px; text-decoration: none; color: inherit; } .tu-which .list a b { color: var(--brand, #007F65); font-size: .92rem; }
