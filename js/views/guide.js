@@ -8,6 +8,7 @@ import { helpButton, problemLink, mountHelp, topicLabel, alertStatus } from './h
 import { installView, installCard, mountInstallCard, installEnv } from './install.js';
 import { startCard, mountStartCard, guideSteps } from './start.js';
 import { tutoView } from './tuto.js';
+import { broadcastGate, broadcastBanners, mountBroadcastBanners } from './broadcast.js';
 import { WEEKLY_OPTION } from '../config.js';
 // Durée maximale d'un séjour (K-15, décidé le 06/11/2026) : les clients restent au plus une semaine. Même règle dans la base (script 014).
 const MAX_STAY_DAYS = 7;
@@ -42,6 +43,12 @@ export async function guideView(params, ctx) {
       accept: () => store.acceptGuideTerms(GUIDE_TERMS_VERSION), signOut: () => store.signOut() });
   }
   if (me.status !== 'validated') return pendingView(me);
+  // v117 : avisos de Kombrio — langue gardée pour l'e-mail, aviso légal à confirmer avant tout, bandeaux à l'accueil.
+  if (me.lang !== getLang()) store.guideSetLang(getLang());
+  const bcs = await store.guideBroadcasts();
+  const gate = broadcastGate(bcs, (id) => store.guideBroadcastMark(id, true));
+  if (gate) return gate;
+  me.bcHtml = broadcastBanners(bcs);
   const city = await store.getCity(me.cityId);
   if (params[0] === 'sejour') return stayView(me, city, params[1]);
   if (params[0] === 'releve') return statementView(me, city);
@@ -483,10 +490,11 @@ async function dashboardView(me, city, tab = 'inicio', focus = '') {
       <div class="spread"><div><h1 style="margin-bottom:2px">${t('guide.hello', { name: me.name })}</h1>
         <p class="hint" style="margin:0">${me.actorKind && me.actorKind !== 'guide' ? `<span class="badge">${t(`role.${me.actorKind}`)}</span> ` : ''}${esc(city.name || '')}${me.code ? ` · ${esc(me.code)}` : ''}</p></div>
         <div class="row" style="gap:6px">${helpButton()}</div></div>
-      ${nav}${banners}${tab === 'inicio' ? (startHtml || installCard('guide')) : ''}${body}</div>`,
+      ${nav}${tab === 'inicio' ? me.bcHtml || '' : ''}${banners}${tab === 'inicio' ? (startHtml || installCard('guide')) : ''}${body}</div>`,
     mount(root, ctx) {
       mountInstallCard(root);
       mountStartCard(root);
+      mountBroadcastBanners(root, (id) => store.guideBroadcastMark(id, false));
       mountLogout(root, ctx);
       mountPix(root, ctx);
       mountStayActions(root, ctx);

@@ -6,6 +6,7 @@ import { todayIn, esc, money, cents, parseCents, fmtMoment, fmtDay, qrSvg, appLi
 import * as store from '../store.js';
 import { readReceiptImage } from '../receipt.js';
 import { inssBadge, inssTimeline, inssLinesTable, inssCsv, downloadText, openDataUrl } from './admin-inss.js';
+import { broadcastGate, broadcastBanners, mountBroadcastBanners } from './broadcast.js';
 import { statusBadge, notFound, termsGateView, forgotLink, mountForgot, resetView, lastMonths, shortMonth, delta, barChart, appTabs } from './shared.js';
 import { readPendingStay, clearPendingStay } from './scan.js';
 import { helpButton, problemLink, mountHelp, topicLabel, alertStatus } from './help.js';
@@ -219,6 +220,15 @@ export async function partnerView([token, action, visitId], ctx) {
     return termsGateView({ kind: 'partner', version: TERMS_VERSION, title: 'Termos de uso · Parceiro Kombrio',
       accept: () => store.acceptPartnerTerms(token, TERMS_VERSION) });
   }
+  // v117 : avisos de Kombrio — aviso légal à confirmer avant tout (gérant, équipe, caisse), bandeaux sur l'accueil.
+  const bcs = await store.partnerBroadcasts(token);
+  const gate = broadcastGate(bcs, (id) => store.partnerBroadcastMark(token, id, true));
+  if (gate) return gate;
+  const withBc = (view) => {
+    const html = broadcastBanners(bcs);
+    if (!html) return view;
+    return { ...view, html: view.html.includes('<!--bc-->') ? view.html.replace('<!--bc-->', html) : html + view.html, mount(root, ctx) { mountBroadcastBanners(root, (id) => store.partnerBroadcastMark(token, id, false)); if (view.mount) view.mount(root, ctx); } };
+  };
 
   if (!action) {
     const pending = readPendingStay();
@@ -232,7 +242,7 @@ export async function partnerView([token, action, visitId], ctx) {
       const view = spaceView(space);
       return { ...view, html: `<div class="notice bad">${t(`visit.err.${res.reason}`)}</div>${view.html}` };
     }
-    return spaceView(space);
+    return withBc(spaceView(space));
   }
 
   // La caisse n'a accès qu'aux passages qu'elle vient d'enregistrer.
@@ -975,7 +985,7 @@ export function spaceView(space, tab = 'painel') {
       <div class="spread"><div><h1 style="margin-bottom:2px">${esc(partner.name)}</h1>
         <p class="hint" style="margin:0">${t(`ptype.${partner.type}`)}${partner.area ? ` · ${esc(partner.area)}` : ''} · ${t('pd.k.rate', { rate: rateLbl })}${partner.managerName ? ` · ${t('pm.hello', { name: partner.managerName })}` : ''}</p></div>
         <div class="row" style="gap:6px"><a class="btn ghost small no-print gear-phone${tab === 'config' ? ' on' : ''}" href="${base}/config" aria-label="${esc(tRaw('pd.tab.config'))}"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7"/></svg></a>${helpButton()}${loggedIn ? `<button class="btn ghost small no-print" id="logout">${t('common.logout')}</button>` : ''}</div></div>
-      ${tabsNav}${banner}${tab === 'painel' && !startHtml ? installCard('partner') : ''}${body}</div>`,
+      ${tabsNav}<!--bc-->${banner}${tab === 'painel' && !startHtml ? installCard('partner') : ''}${body}</div>`,
     mount(root, ctx) {
       mountGroupBar(root);
       mountInstallCard(root);
@@ -1656,7 +1666,7 @@ function staffView({ partner, city, visits, key, staff }) {
     html: `
       <div class="spread"><div><h1 style="margin-bottom:2px">${esc(partner.name)}</h1>
         <p class="hint" style="margin:0">${t('staff.hello', { name: me.name, post: tRaw(`staff.post.${me.post}`) })}</p></div>${helpButton()}</div>
-      <a class="staff-scan" href="#/p/${encodeURIComponent(key)}/conta"><span class="staff-scan-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8V5.5A1.5 1.5 0 0 1 5.5 4H8M16 4h2.5A1.5 1.5 0 0 1 20 5.5V8M20 16v2.5a1.5 1.5 0 0 1-1.5 1.5H16M8 20H5.5A1.5 1.5 0 0 1 4 18.5V16"/><path d="M4 12h16"/></svg></span>
+      <!--bc--><a class="staff-scan" href="#/p/${encodeURIComponent(key)}/conta"><span class="staff-scan-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8V5.5A1.5 1.5 0 0 1 5.5 4H8M16 4h2.5A1.5 1.5 0 0 1 20 5.5V8M20 16v2.5a1.5 1.5 0 0 1-1.5 1.5H16M8 20H5.5A1.5 1.5 0 0 1 4 18.5V16"/><path d="M4 12h16"/></svg></span>
         <span><b>${t('staff.scan.big')}</b><small>${t('staff.scan.big.hint')}</small></span></a>
       ${installCard('partner')}
       ${pendingCard({ city, visits, key })}

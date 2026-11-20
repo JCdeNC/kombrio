@@ -720,4 +720,15 @@ export default {
   'st.c.link.agency': "Link the Tour Company and the guide to the group",
   'st.c.link.hint': "On the group page: each one gets their share of the commission.",
   'ia.home.link': "Install the app on your phone",
+  // v117 : avisos
+  "bc.level.info": "Information",
+  "bc.level.important": "Important",
+  "bc.level.legal": "Legal notice",
+  "bc.from": "Notice from Kombrio · {date}",
+  "bc.ack.check": "I have read and understood this notice.",
+  "bc.ack.btn": "I have read and understood",
+  "bc.ack.more": "{n} more notice(s) to read after this one.",
+  "bc.close": "Close",
+  "bc.read": "read all",
+  "bc.ok": "Got it",
 };

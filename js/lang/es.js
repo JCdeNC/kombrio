@@ -720,4 +720,15 @@ export default {
   'st.c.link.agency': "Vincular la Tour Company y el guía al grupo",
   'st.c.link.hint': "En la página del grupo: cada uno recibe su parte de la comisión.",
   'ia.home.link': "Instalar la app en el celular",
+  // v117 : avisos
+  "bc.level.info": "Información",
+  "bc.level.important": "Importante",
+  "bc.level.legal": "Aviso legal",
+  "bc.from": "Aviso de Kombrio · {date}",
+  "bc.ack.check": "Leí y entendí este aviso.",
+  "bc.ack.btn": "Leí y entendí",
+  "bc.ack.more": "Quedan {n} aviso(s) por leer después de este.",
+  "bc.close": "Cerrar",
+  "bc.read": "leer todo",
+  "bc.ok": "Entendido",
 };

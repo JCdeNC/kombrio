@@ -105,6 +105,27 @@ function build(kind: string, p: Record<string, unknown>): { subject: string; htm
         .replace('Kombrio · e-mail automático, não responda. Dúvidas: contato@kombrio.com.br', w.f),
     };
   }
+  if (kind === 'broadcast') {
+    // v117 : aviso de Kombrio (script 069), déjà dans la langue du destinataire (sinon en portugais).
+    const L: Record<string, { hi: string; open: string; legal: string; imp: string; lgl: string; f: string }> = {
+      pt: { hi: 'Olá', open: 'Abrir o aplicativo', legal: 'Abra o aplicativo para confirmar a leitura (« Li e entendi »).', imp: 'Importante', lgl: 'Aviso legal', f: 'Kombrio · e-mail automático, não responda. Dúvidas: contato@kombrio.com.br' },
+      fr: { hi: 'Bonjour', open: 'Ouvrir l’application', legal: 'Ouvrez l’application pour confirmer la lecture (« J’ai lu et compris »).', imp: 'Important', lgl: 'Avis légal', f: 'Kombrio · e-mail automatique, ne pas répondre. Questions : contato@kombrio.com.br' },
+      en: { hi: 'Hello', open: 'Open the app', legal: 'Open the app to confirm you have read it (“I have read and understood”).', imp: 'Important', lgl: 'Legal notice', f: 'Kombrio · automatic e-mail, do not reply. Questions: contato@kombrio.com.br' },
+      es: { hi: 'Hola', open: 'Abrir la aplicación', legal: 'Abra la aplicación para confirmar la lectura (« Leí y entendí »).', imp: 'Importante', lgl: 'Aviso legal', f: 'Kombrio · e-mail automático, no responda. Dudas: contato@kombrio.com.br' },
+      de: { hi: 'Hallo', open: 'App öffnen', legal: 'Öffnen Sie die App, um das Lesen zu bestätigen („Gelesen und verstanden“).', imp: 'Wichtig', lgl: 'Rechtlicher Hinweis', f: 'Kombrio · automatische E-Mail, bitte nicht antworten. Fragen: contato@kombrio.com.br' },
+    };
+    const w = L[String(p.lang)] || L.pt;
+    const legal = p.level === 'legal';
+    const paras = String(p.body ?? '').trim().split(/\n{2,}/).map((x) => `<p style="margin:0 0 12px;line-height:1.5">${esc(x).replace(/\n/g, '<br>')}</p>`).join('');
+    const link = p.app === 'partner' ? 'https://app.kombrio.com.br/partner/' : 'https://app.kombrio.com.br/guide/';
+    return {
+      subject: `Kombrio · ${legal ? w.lgl : w.imp}: ${String(p.title ?? '')}`,
+      html: box(esc(String(p.title ?? '')),
+        `${p.name ? `<p style="margin:0 0 12px">${w.hi} ${esc(p.name)},</p>` : ''}${paras}
+         ${legal ? `<p style="margin:12px 0 0;padding:10px 14px;background:#FDECEC;border-radius:10px"><b>${w.legal}</b></p>` : ''}`,
+        link, w.open).replace('Kombrio · e-mail automático, não responda. Dúvidas: contato@kombrio.com.br', w.f),
+    };
+  }
   if (kind === 'admin_report') {
     // v66 : bilan hebdomadaire pour l'administration (en français), envoyé par la routine du lundi.
     const items = Array.isArray(p.items) ? (p.items as Record<string, unknown>[]) : [];

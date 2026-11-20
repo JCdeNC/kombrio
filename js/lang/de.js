@@ -710,4 +710,15 @@ export default {
   'st.c.link.agency': "Tour Company und Guide mit der Gruppe verknüpfen",
   'st.c.link.hint': "Auf der Gruppenseite: Jeder erhält seinen Anteil der Provision.",
   'ia.home.link': "App auf dem Handy installieren",
+  // v117 : avisos
+  "bc.level.info": "Information",
+  "bc.level.important": "Wichtig",
+  "bc.level.legal": "Rechtlicher Hinweis",
+  "bc.from": "Hinweis von Kombrio · {date}",
+  "bc.ack.check": "Ich habe diesen Hinweis gelesen und verstanden.",
+  "bc.ack.btn": "Gelesen und verstanden",
+  "bc.ack.more": "Danach noch {n} Hinweis(e) zu lesen.",
+  "bc.close": "Schließen",
+  "bc.read": "alles lesen",
+  "bc.ok": "Verstanden",
 };

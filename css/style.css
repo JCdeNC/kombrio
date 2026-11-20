@@ -878,3 +878,52 @@ span.st-tick { cursor: default; }
 .help-level.urgent b { color: #B03A2E; } .help-level.wait b { color: var(--brand, #007F65); }
 .help-level.urgent.on { border-color: #B03A2E; background: #FDF0EE; } .help-level.wait.on { border-color: var(--brand, #007F65); background: #EEF8F4; }
 @media (max-width: 380px) { .help-levels { grid-template-columns: 1fr; } }
+
+/* v117 : avisos de Kombrio (bandeaux, aviso légal, Admin › Avisos) */
+.bc-banners { display: grid; gap: 10px; margin: 0 0 14px; }
+.bc-banner { border-radius: 16px; padding: 12px 14px; background: var(--info-bg); border: 1.5px solid transparent; }
+.bc-banner.bc-important { background: var(--warn-bg); border-color: #F6B73C; }
+.bc-head { display: flex; gap: 10px; align-items: flex-start; }
+.bc-ico { flex: none; width: 26px; height: 26px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-weight: 800; color: #fff; background: #3B7EA1; font-size: 15px; }
+.bc-important .bc-ico { background: #D9891A; }
+.bc-main { flex: 1; min-width: 0; display: grid; gap: 2px; }
+.bc-main b { font-size: 1rem; line-height: 1.3; }
+.bc-close { flex: none; width: 30px; height: 30px; min-height: 0; padding: 0; border: 0; border-radius: 50%; background: rgba(0,0,0,.06); color: inherit; font-size: 20px; line-height: 1; cursor: pointer; }
+.bc-text { margin-top: 8px; line-height: 1.5; overflow-wrap: anywhere; }
+.bc-text p { margin: 0 0 8px; }
+.bc-text p:last-child { margin-bottom: 0; }
+.bc-more { margin-top: 8px; }
+.bc-more summary { cursor: pointer; line-height: 1.5; list-style: none; }
+.bc-more summary::-webkit-details-marker { display: none; }
+.bc-more[open] summary { display: none; }
+.bc-foot { margin: 10px 0 0; text-align: right; }
+.bc-gate h1 { margin: 6px 0 10px; }
+.bc-kicker { margin: 0; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.bc-check { display: flex; gap: 8px; align-items: flex-start; margin-bottom: 12px; }
+.bc-check input { width: auto; margin-top: 4px; }
+.bc-fs { border: 0; padding: 0; margin: 0 0 14px; }
+.bc-fs legend { font-weight: 700; margin-bottom: 6px; padding: 0; }
+.bc-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.bc-chip { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 99px; border: 1.5px solid var(--line, #DCE5E8); cursor: pointer; }
+.bc-chip input { width: auto; margin: 0; }
+.bc-levels { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+@media (max-width: 560px) { .bc-levels { grid-template-columns: 1fr; } }
+.bc-lv { display: flex; gap: 8px; align-items: flex-start; padding: 10px 12px; border-radius: 14px; border: 1.5px solid var(--line, #DCE5E8); cursor: pointer; }
+.bc-lv input { width: auto; margin-top: 3px; }
+.bc-lv span { display: grid; gap: 2px; }
+.bc-lv small { color: var(--muted); line-height: 1.35; }
+.bc-lv-legal b { color: var(--bad); }
+.bc-tr { margin: 4px 0 8px; }
+.bc-tr summary { cursor: pointer; font-weight: 600; }
+.bc-trl { display: grid; gap: 6px; margin: 10px 0; }
+.bc-preview { margin-top: 12px; }
+.bc-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
+.bc-row { border: 1px solid var(--line, #E2EBEE); border-radius: 14px; padding: 10px 12px; }
+.bc-stats { display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; align-items: center; margin-top: 8px; font-size: .9rem; }
+.bc-bar { display: block; height: 6px; border-radius: 99px; background: rgba(0,0,0,.08); overflow: hidden; }
+.bc-bar > i { display: block; height: 100%; background: #3B7EA1; }
+.bc-bar.ok > i { background: #007F65; }
+.bc-det { margin-top: 8px; }
+.bc-det summary { cursor: pointer; }
+.bc-tbl { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: .92rem; }
+.bc-tbl td { padding: 6px 4px; border-top: 1px solid var(--line, #E2EBEE); vertical-align: top; }

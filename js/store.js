@@ -37,7 +37,7 @@ const toGuide = (r) => r && ({
   verifiedAt: r.verified_at === undefined ? undefined : (r.verified_at || null), contactName: r.contact_name || '',
   // Module Pix (v30) : undefined tant que le script 015 n'est pas lancé.
   pixKeyType: r.pix_key_type || '', pixKeyVersion: r.pix_key_version ?? null, pixStatus: r.pix_status, pixVerifiedAt: r.pix_verified_at || '',
-  termsVersion: r.terms_version || '', termsAcceptedAt: r.terms_accepted_at || '',
+  termsVersion: r.terms_version || '', termsAcceptedAt: r.terms_accepted_at || '', lang: r.lang || '',
   isTest: !!r.is_test, badgeName: r.badge_name || '', cadasturValidUntil: r.cadastur_valid_until || '', cadasturNumber: r.cadastur_number || '', cadasturCategory: r.cadastur_category || '',
 });
 const toPartner = (r) => r && ({
@@ -854,6 +854,45 @@ export async function partnerAlerts(token) {
   const { data, error } = await sb.rpc('partner_alerts', { p_token: token });
   return error ? [] : (data || []).map(toAlert);
 }
+/* ---------- v117 : avisos (script 069) — messages de Kombrio aux groupes ---------- */
+// Tant que le script 069 n'est pas lancé, les lectures renvoient une liste vide (l'app reste utilisable).
+const toBroadcast = (r) => ({
+  id: r.id, num: r.num, level: r.level, title: r.title || {}, body: r.body || {}, createdAt: r.created_at,
+  seenAt: r.seen_at || null, ackedAt: r.acked_at || null, audience: r.audience || [], emails: r.emails || 0,
+  archivedAt: r.archived_at || null, targets: r.targets ?? null, seen: r.seen ?? null, acked: r.acked ?? null,
+});
+export async function guideBroadcasts() {
+  const { data, error } = await sb.rpc('guide_broadcasts');
+  return error ? [] : (data || []).map(toBroadcast);
+}
+export async function guideBroadcastMark(id, ack = false) {
+  return check(await sb.rpc('guide_broadcast_mark', { p_id: id, p_ack: ack }));
+}
+export async function guideSetLang(lang) {
+  try { await sb.rpc('guide_set_lang', { p_lang: lang }); } catch { /* script 069 pas lancé */ }
+}
+export async function partnerBroadcasts(token) {
+  const { data, error } = await sb.rpc('partner_broadcasts', { p_token: token });
+  return error ? [] : (data || []).map(toBroadcast);
+}
+export async function partnerBroadcastMark(token, id, ack = false) {
+  return check(await sb.rpc('partner_broadcast_mark', { p_token: token, p_id: id, p_ack: ack }));
+}
+export async function adminBroadcasts() {
+  const { data, error } = await sb.rpc('admin_broadcasts');
+  if (error) return null;   // null = script 069 pas encore lancé
+  return (data || []).map(toBroadcast);
+}
+export async function adminBroadcastSend(audience, level, title, body) {
+  return check(await sb.rpc('admin_broadcast_send', { p_audience: audience, p_level: level, p_title: title, p_body: body }));
+}
+export async function adminBroadcastReaders(id) {
+  return check(await sb.rpc('admin_broadcast_readers', { p_id: id })) || [];
+}
+export async function adminBroadcastArchive(id, archived = true) {
+  return check(await sb.rpc('admin_broadcast_archive', { p_id: id, p_archived: archived }));
+}
+
 export async function countFaqSolved(kind, topic) {
   try { await sb.rpc('count_faq_solved', { p_kind: kind, p_topic: topic }); } catch { /* simple compteur */ }
 }
