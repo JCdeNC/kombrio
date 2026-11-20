@@ -162,7 +162,7 @@ export default {
   'bdg.photo.title': 'My photo',
   'bdg.print': 'Print or save as PDF',
   'bdg.print.hint': 'For a durable badge, take the PDF to a print shop that prints PVC cards (CR80 format, 54 × 86 mm), or print it on paper and laminate it.',
-  'bdg.test': 'Test the QR',
+  'bdg.test': 'See what the shop sees',
   'bdg.title': 'My Kombrio badge',
   'bdg.unavailable': 'The badge is available once your account is validated by Kombrio.',
   'bdg.until': 'valid until {date}',

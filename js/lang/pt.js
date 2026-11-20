@@ -1389,7 +1389,7 @@ export default {
   'bdg.back': 'Verso do crachá',
   'bdg.until': 'válido até {date}',
   'bdg.print': 'Imprimir ou salvar em PDF',
-  'bdg.test': 'Testar o QR',
+  'bdg.test': 'Ver o que a loja vê',
   'bdg.print.hint': 'Para um crachá durável, leve o PDF a uma gráfica que imprime cartões em PVC (formato CR80, 54 × 86 mm), ou imprima em papel e plastifique.',
   'bdg.photo.title': 'Minha foto',
   'bdg.photo.hint': 'Uma foto de rosto, de frente, sem óculos escuros. Ela aparece no crachá e na página de verificação.',

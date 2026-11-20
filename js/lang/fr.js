@@ -1389,7 +1389,7 @@ export default {
   'bdg.back': 'Verso du badge',
   'bdg.until': "valide jusqu'au {date}",
   'bdg.print': 'Imprimer ou enregistrer en PDF',
-  'bdg.test': 'Tester le QR',
+  'bdg.test': 'Voir ce que voit la boutique',
   'bdg.print.hint': 'Pour un badge solide, apportez le PDF à un imprimeur de cartes PVC (format CR80, 54 × 86 mm), ou imprimez sur papier et plastifiez.',
   'bdg.photo.title': 'Ma photo',
   'bdg.photo.hint': 'Une photo du visage, de face, sans lunettes de soleil. Elle apparaît sur le badge et sur la page de vérification.',

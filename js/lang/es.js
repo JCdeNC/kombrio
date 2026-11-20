@@ -162,7 +162,7 @@ export default {
   'bdg.photo.title': 'Mi foto',
   'bdg.print': 'Imprimir o guardar en PDF',
   'bdg.print.hint': 'Para una credencial duradera, lleve el PDF a una imprenta que imprima tarjetas de PVC (formato CR80, 54 × 86 mm), o imprímala en papel y plastifíquela.',
-  'bdg.test': 'Probar el QR',
+  'bdg.test': 'Ver lo que ve la tienda',
   'bdg.title': 'Mi credencial Kombrio',
   'bdg.unavailable': 'La credencial está disponible cuando Kombrio valida su cuenta.',
   'bdg.until': 'válida hasta {date}',

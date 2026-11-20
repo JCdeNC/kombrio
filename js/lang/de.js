@@ -56,7 +56,7 @@ export default {
   'bdg.photo.title': 'Mein Foto',
   'bdg.print': 'Drucken oder als PDF speichern',
   'bdg.print.hint': 'Für einen haltbaren Ausweis bringen Sie das PDF in eine Druckerei, die PVC-Karten druckt (Format CR80, 54 × 86 mm), oder drucken Sie es auf Papier und laminieren Sie es.',
-  'bdg.test': 'QR-Code testen',
+  'bdg.test': 'Ansicht des Geschäfts zeigen',
   'bdg.title': 'Mein Kombrio-Ausweis',
   'bdg.unavailable': 'Der Ausweis ist verfügbar, sobald Ihr Konto von Kombrio bestätigt wurde.',
   'bdg.until': 'gültig bis {date}',
