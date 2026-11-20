@@ -1,4 +1,5 @@
 // App Client : son QR à montrer, son guide, et les partenaires (avec leur offre s'ils en ont une).
+import { stayBlackoutCard } from './blackouts.js';
 import { t, tRaw, getLang } from '../i18n.js';
 import { esc, fmtDay, stayIsValid, qrSvg, appLink, qrCardBlob, shareOrDownload } from '../util.js';
 import * as store from '../store.js';
@@ -55,6 +56,7 @@ export async function clientView([token]) {
           ${showIosHome() ? iosHomeHtml() : ''}`
           : `<p>${t('client.expired')}</p>`}
       </div>
+      ${valid ? stayBlackoutCard(partners, stay.start, stay.end) : ''}
       <div class="card">
         <p class="hint">${t('client.yourguide')}</p>
         ${guideCard(guide, city)}

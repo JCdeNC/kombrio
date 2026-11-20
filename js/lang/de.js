@@ -721,4 +721,17 @@ export default {
   "bc.close": "Schließen",
   "bc.read": "alles lesen",
   "bc.ok": "Verstanden",
+  // v118 : franchises et jours sans commission
+  "bo.today": "Heute",
+  "bo.default": "Kombrio-Angebot an diesem Tag nicht gültig",
+  "bo.default.guide": "An diesem Tag keine Provision",
+  "bo.guide.nocom": "keine Provision",
+  "bo.more": "+ {n} weitere(r) Tag(e)",
+  "bo.g.title": "Tage ohne Provision",
+  "bo.g.hint": "An diesen Tagen zahlt der Partner keine Provision und das Kombrio-Angebot gilt nicht. Der Besuch wird trotzdem erfasst, mit Provision null.",
+  "bo.tag": "Ohne Provision",
+  "bo.c.title": "Hinweis für Ihren Aufenthalt",
+  "bo.c.hint": "An diesen Tagen gilt das Kombrio-Angebot bei diesen Partnern nicht:",
+  "bo.s.title": "Tage ohne Provision während dieses Aufenthalts",
+  "bo.s.hint": "Informieren Sie Ihre Kunden: An diesen Tagen gilt das Kombrio-Angebot nicht und es gibt keine Provision.",
 };

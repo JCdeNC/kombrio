@@ -1,4 +1,5 @@
 // Morceaux d'écran communs à plusieurs pages.
+import { blackoutLines } from './blackouts.js';
 import { t, tRaw, getLang } from '../i18n.js';
 import { esc, initials, fmtDay, money, cents, notify, mapsLink, locale, appLink, weekdayList } from '../util.js';
 import * as store from '../store.js';
@@ -143,6 +144,7 @@ export function partnerShowcase(partners, city) {
         ${p.offer ? `<div class="offer"><b>${t('client.offer')}</b> ${esc(p.offer)}</div>` : ''}
         ${p.offerDays && p.offerDays.length && (p.offer || p.offerPromoCents) ? `<div class="hint"><b>${t('client.offer.days', { days: weekdayList(p.offerDays, getLang()) })}</b></div>` : ''}
         ${p.offerEnd && (p.offer || p.offerPromoCents) ? `<div class="hint">${t('client.offer.until', { day: fmtDay(p.offerEnd, getLang()) })}</div>` : ''}
+        ${blackoutLines(p, 3)}
         <a class="btn ghost small" target="_blank" rel="noopener" href="${esc(mapsLink(p, city.name))}">${t('client.directions')}</a>
       </div>
     </article>`).join('')}</div>`;

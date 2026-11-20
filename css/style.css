@@ -927,3 +927,26 @@ span.st-tick { cursor: default; }
 .bc-det summary { cursor: pointer; }
 .bc-tbl { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: .92rem; }
 .bc-tbl td { padding: 6px 4px; border-top: 1px solid var(--line, #E2EBEE); vertical-align: top; }
+
+/* v118 : jours sans commission (calendrier du gérant, lignes client / guide) */
+.bo-cal { margin: 8px 0 12px; max-width: 360px; }
+.bo-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.bo-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.bo-grid i { font-style: normal; text-align: center; font-size: .75rem; color: var(--muted); }
+.bo-d { min-height: 0; height: 38px; padding: 0; border-radius: 10px; border: 1.5px solid var(--line, #DCE5E8); background: var(--surface, #fff); color: inherit; font: inherit; cursor: pointer; }
+.bo-d:disabled { opacity: .35; cursor: default; }
+.bo-d.bo-now { font-weight: 800; }
+.bo-d.bo-on, .bo-k.bo-on { background: #FDECEC; border-color: #D64545; color: #9E2B2B; }
+.bo-d.bo-sel, .bo-k.bo-sel { background: #E5F4FA; border-color: #3B7EA1; box-shadow: inset 0 0 0 1.5px #3B7EA1; }
+.bo-legend { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: 8px 0 0; }
+.bo-k { display: inline-block; width: 14px; height: 14px; border-radius: 4px; border: 1.5px solid; }
+.bo-all { display: flex; gap: 8px; align-items: flex-start; margin: 0 0 12px; }
+.bo-all input { width: auto; margin-top: 3px; }
+.bo-flash { background: #FFF6DD; transition: background .3s; }
+.bo-lines { display: grid; gap: 4px; margin: 6px 0; }
+.bo-line { display: flex; gap: 8px; align-items: flex-start; font-size: .9rem; line-height: 1.35; padding: 6px 8px; border-radius: 10px; background: #FFF6DD; }
+.bo-line.bo-today { background: #FDECEC; }
+.bo-ico { flex: none; width: 18px; height: 18px; border-radius: 50%; background: #D9891A; color: #fff; font-weight: 800; font-size: 12px; display: inline-flex; align-items: center; justify-content: center; margin-top: 1px; }
+.bo-today .bo-ico { background: #D64545; }
+.bo-tag { color: #9E2B2B; }
+.bo-stay { border: 1.5px solid #F6B73C; }

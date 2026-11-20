@@ -731,4 +731,17 @@ export default {
   "bc.close": "Close",
   "bc.read": "read all",
   "bc.ok": "Got it",
+  // v118 : franchises et jours sans commission
+  "bo.today": "Today",
+  "bo.default": "Kombrio offer not valid on this day",
+  "bo.default.guide": "No commission on this day",
+  "bo.guide.nocom": "no commission",
+  "bo.more": "+ {n} more day(s)",
+  "bo.g.title": "Days without commission",
+  "bo.g.hint": "On these days the partner pays no commission and the Kombrio offer does not apply. The visit is still recorded, with zero commission.",
+  "bo.tag": "No commission",
+  "bo.c.title": "Please note during your stay",
+  "bo.c.hint": "On these days, the Kombrio offer does not apply at these partners:",
+  "bo.s.title": "Days without commission during this stay",
+  "bo.s.hint": "Let your clients know: on these days the Kombrio offer does not apply and there is no commission.",
 };

@@ -43,7 +43,7 @@ const toGuide = (r) => r && ({
 const toPartner = (r) => r && ({
   id: r.id, cityId: r.city_id, type: r.type, name: r.name, area: r.area, offer: r.offer || '', token: r.token, status: r.status, taxId: r.tax_id,
   photo: r.photo || '', address: r.address || '', reportToken: r.report_token || '', managerToken: r.manager_token || '',
-  lang: r.lang || 'pt', validatedAt: r.validated_at || '', rateTc: Number(r.rate_tc) || 0, rateAgency: Number(r.rate_agency) || 0, groupId: r.group_id || null,
+  lang: r.lang || 'pt', validatedAt: r.validated_at || '', rateTc: Number(r.rate_tc) || 0, rateAgency: Number(r.rate_agency) || 0, groupId: r.group_id || null, ownership: r.ownership === 'franchise' ? 'franchise' : 'own',
   activationCode: r.activation_code || '', managerName: r.manager_name || '', managerEmail: r.manager_email || '',
   managerPhone: r.manager_phone || '', commissionRate: r.commission_rate == null ? 0.1 : Number(r.commission_rate), termsVersion: r.terms_version || '', termsAcceptedAt: r.terms_accepted_at || '', termsSha: r.terms_sha256 || '', circleEnabled: !!r.circle_enabled, founderUntil: r.founder_until || '',
   // v66 : ancien QR caisse actif ou coupé ; photo de l'addition obligatoire (personnel) à partir de ce montant.
@@ -84,6 +84,7 @@ const toVisit = (r) => r && ({
   // v67 : mode 1 (clients seuls, 80/20) ou 2 (guide présent : 100 % guide + frais payés par le partenaire). À payer = commission + frais.
   bonusEvery: num(r.bonus_every) || 0, bonusCents: num(r.bonus_cents) || 0, mealEvery: num(r.meal_every) || 0, meals: num(r.meals) || 0, // v69
   children: num(r.children) || 0, childCents: num(r.child_cents), // v71 : enfants du groupe et forfait enfant figé
+  noCommission: !!r.no_commission, noCommissionNote: r.no_commission_note || '', // v118 : jour sans commission
   perPersonCents: num(r.per_person_cents), // v68 : forfait figé sur le passage (null = % de l'addition)
   mode: r.mode == null ? 1 : Number(r.mode), feeCents: num(r.fee_cents) || 0, feeRate: r.fee_rate == null ? null : Number(r.fee_rate),
   dueCents: r.declared_cents == null ? null : Number(r.declared_cents) + (Number(r.fee_cents) || 0),
@@ -327,6 +328,7 @@ export async function groupSpace(managerToken) {
       verifyingCents: Number(m.verifying_cents) || 0, monthVisits: Number(m.month_visits) || 0 })),
     toPay: (d.to_pay || []).map((v) => ({ ...toVisit(v), partnerName: v.partner_name })),
     payments: (d.payments || []).map((y) => ({ id: y.id, num: num(y.num), cents: num(y.amount_cents), status: y.status, submittedAt: y.submitted_at, note: y.note || '' })),
+    franchises: (d.franchises || []).map((f) => ({ name: f.name, area: f.area || '' })),   // v118
   };
 }
 export async function submitGroupPayment(managerToken, { visitIds, method, pixRef, receipt }) {
@@ -345,8 +347,26 @@ export async function listPartners() {
 }
 // Version publique, sans code secret (page du client, noms pour le guide).
 export async function publicPartners(cityId) {
-  return check(await sb.rpc('public_partners', { p_city: cityId })).map((r) => ({
-    ...r, offer: r.offer || '', offerPriceCents: num(r.offer_price_cents), offerPromoCents: num(r.offer_promo_cents), offerEnd: r.offer_end || '', offerDays: (r.offer_days || []).map(Number), j1Enabled: !!r.j1_enabled }));
+  const [rows, bl] = await Promise.all([sb.rpc('public_partners', { p_city: cityId }), sb.rpc('public_blackouts', { p_city: cityId })]);
+  // v118 : jours sans commission à venir (liste vide tant que le script 070 n'est pas lancé).
+  const black = bl.error ? [] : (bl.data || []);
+  return check(rows).map((r) => ({
+    ...r, offer: r.offer || '', offerPriceCents: num(r.offer_price_cents), offerPromoCents: num(r.offer_promo_cents), offerEnd: r.offer_end || '', offerDays: (r.offer_days || []).map(Number), j1Enabled: !!r.j1_enabled,
+    blackouts: black.filter((b) => b.partner_id === r.id).map((b) => ({ day: b.day, note: b.note || '' })) }));
+}
+// v118 : jours sans commission (ex. jours de match), choisis par le gérant.
+export async function partnerBlackouts(token) {
+  const { data, error } = await sb.rpc('partner_blackouts_list', { p_token: token });
+  return error ? null : (data || []).map((b) => ({ day: b.day, note: b.note || '' }));   // null = script 070 pas lancé
+}
+export async function addBlackouts(managerToken, days, note, allGroup = false) {
+  return check(await sb.rpc('partner_blackouts_add', { p_manager_token: managerToken, p_days: days, p_note: note, p_all_group: allGroup }));
+}
+export async function removeBlackout(managerToken, day, allGroup = false) {
+  return check(await sb.rpc('partner_blackouts_remove', { p_manager_token: managerToken, p_day: day, p_all_group: allGroup }));
+}
+export async function setPartnerOwnership(partnerId, ownership) {
+  check(await sb.from('partners').update({ ownership }).eq('id', partnerId));
 }
 export async function addPartner(p) {
   check(await sb.from('partners').insert({

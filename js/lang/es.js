@@ -731,4 +731,17 @@ export default {
   "bc.close": "Cerrar",
   "bc.read": "leer todo",
   "bc.ok": "Entendido",
+  // v118 : franchises et jours sans commission
+  "bo.today": "Hoy",
+  "bo.default": "Oferta Kombrio no válida este día",
+  "bo.default.guide": "Sin comisión este día",
+  "bo.guide.nocom": "sin comisión",
+  "bo.more": "+ {n} día(s) más",
+  "bo.g.title": "Días sin comisión",
+  "bo.g.hint": "Estos días el socio no paga comisión y la oferta Kombrio no vale. La visita queda registrada, con comisión cero.",
+  "bo.tag": "Sin comisión",
+  "bo.c.title": "Atención durante su estadía",
+  "bo.c.hint": "Estos días, la oferta Kombrio no vale en estos socios:",
+  "bo.s.title": "Días sin comisión durante esta estadía",
+  "bo.s.hint": "Avise a sus clientes: estos días la oferta Kombrio no vale y no hay comisión.",
 };

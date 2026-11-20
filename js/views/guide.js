@@ -8,6 +8,7 @@ import { helpButton, problemLink, mountHelp, topicLabel, alertStatus } from './h
 import { installView, installCard, mountInstallCard, installEnv } from './install.js';
 import { startCard, mountStartCard, guideSteps } from './start.js';
 import { tutoView } from './tuto.js';
+import { blackoutLines, stayBlackoutCard } from './blackouts.js';
 import { broadcastGate, broadcastBanners, mountBroadcastBanners } from './broadcast.js';
 import { WEEKLY_OPTION } from '../config.js';
 // Durée maximale d'un séjour (K-15, décidé le 06/11/2026) : les clients restent au plus une semaine. Même règle dans la base (script 014).
@@ -311,7 +312,7 @@ async function dashboardView(me, city, tab = 'inicio', focus = '') {
     const sh = shareOf(v); const a = alertOf(v.id);
     return `<div class="g-tx" data-p="${esc(v.partnerId)}" data-s="${esc(v.status)}">
       <div class="spread"><span><b>${esc(pname(v.partnerId))}</b> · ${esc(stayOf(v.stayId)?.client || '')}${v.parentVisitId && stayOf(v.stayId)?.owner ? ` <span class="hint">(${t('g.line.via', { name: esc(stayOf(v.stayId).owner) })})</span>` : ''}<br>
-        <span class="hint">${fmtDay(v.at.slice(0, 10), lang)} · ${esc(store.visitRef(v))} · ${t('stay.people', { n: v.peopleServed })}${v.direct ? ` · ${t('vd.tag')}` : ''}${v.guidePresent ? ` · ${t('rs.present')}` : ''}${v.guideMeal ? ` · ${t('rs.meal.tag')}` : ''}${v.computedCents != null && v.declaredCents != null && v.declaredCents < v.computedCents ? ` · ${t('g.reduced')}` : ''}</span></span>
+        <span class="hint">${fmtDay(v.at.slice(0, 10), lang)} · ${esc(store.visitRef(v))} · ${t('stay.people', { n: v.peopleServed })}${v.direct ? ` · ${t('vd.tag')}` : ''}${v.guidePresent ? ` · ${t('rs.present')}` : ''}${v.guideMeal ? ` · ${t('rs.meal.tag')}` : ''}${v.noCommission ? ` · <b class="bo-tag">${t('bo.tag')}</b>${v.noCommissionNote ? ` (${esc(v.noCommissionNote)})` : ''}` : ''}${v.computedCents != null && v.declaredCents != null && v.declaredCents < v.computedCents ? ` · ${t('g.reduced')}` : ''}</span></span>
         <span class="g-amt">${sh == null ? `<span class="hint">${t('g.amt.none')}</span>` : CASHED.includes(v.status) ? `<b>${cur(sh)}</b>` : `<b>≈ ${cur(sh)}</b><br><span class="hint">${t('g.amt.est')}</span>`}</span></div>
       ${tracker(v)}
       <div class="g-tx-f">${a ? `<span class="badge">${t('alert.short', { num: a.num, status: alertStatus(a.status) })}</span>` : problemLink(v.id)}</div>
@@ -416,6 +417,10 @@ async function dashboardView(me, city, tab = 'inicio', focus = '') {
         ${p.offer ? `<div class="offer"><b>${t('client.offer')}</b> ${esc(p.offer)}</div>` : ''}
         <div class="hint"><b>${p.offerDays && p.offerDays.length ? t('client.offer.days', { days: weekdayList(p.offerDays, lang) }) : t('g.offers.everyday')}</b>${p.offerEnd ? ` · ${t('client.offer.until', { day: fmtDay(p.offerEnd, lang) })}` : ''}</div></li>`).join('')}</ul>`
         : `<p class="hint" style="margin:0">${t('g.offers.none')}</p>`}</div>`;
+  // v118 : jours sans commission à venir chez les partenaires (le guide le sait avant d'y emmener ses clients).
+  const blackList = partners.filter((p) => (p.blackouts || []).length).sort((a, b) => a.blackouts[0].day.localeCompare(b.blackouts[0].day));
+  const blackCard = blackList.length ? `<div class="card bo-gcard"><h2 style="margin:0 0 4px">${t('bo.g.title')}</h2><p class="hint">${t('bo.g.hint')}</p>
+      <ul class="list">${blackList.map((p) => `<li><b>${esc(p.name)}</b><span class="hint">${p.area ? ` · ${esc(p.area)}` : ''}</span>${blackoutLines(p, 4, true)}</li>`).join('')}</ul></div>` : '';
 
   // v100 : groupes d'une agence ou d'un TC auxquels ce compte est rattaché.
   const linkedCard = linked.length ? `<div class="card"><h2 style="margin:0 0 6px">${t('grp.mine.title')}</h2><ul class="list">${linked.map((x) => `<li>
@@ -473,8 +478,8 @@ async function dashboardView(me, city, tab = 'inicio', focus = '') {
   const body = {
     inicio: `${kpis}<div class="pd-cols"><div class="pd-side">${txCard(t('g.recent'), recent, visits.length > 5 ? `<a href="#/ganhos">${t('g.seeall')}</a>` : '')}
         ${staysCard(stays.filter((s) => stayState(s) !== 'done' && !s.archivedAt).slice(0, 4), false)}</div>
-      <div class="pd-side">${todoCard}${nextCard}${chartCard}${partnersCard}${me.referralEnabled ? `<a class="card" href="#/indicacao" style="display:block;text-decoration:none;color:inherit"><b>${t('ref.card.title')}</b><span class="hint" style="display:block">${t('ref.card.hint')}</span></a>` : ''}</div></div>`,
-    clientes: `<div class="pd-cols"><div class="pd-side">${staysCard(stays, true)}${linkedCard}</div><div class="pd-side">${newStayForm}${offersCard}</div></div>`,
+      <div class="pd-side">${todoCard}${blackCard}${nextCard}${chartCard}${partnersCard}${me.referralEnabled ? `<a class="card" href="#/indicacao" style="display:block;text-decoration:none;color:inherit"><b>${t('ref.card.title')}</b><span class="hint" style="display:block">${t('ref.card.hint')}</span></a>` : ''}</div></div>`,
+    clientes: `<div class="pd-cols"><div class="pd-side">${staysCard(stays, true)}${linkedCard}</div><div class="pd-side">${newStayForm}${blackCard}${offersCard}</div></div>`,
     ganhos: `${kpis}<div class="pd-cols"><div class="pd-side"><div class="card g-card"><div class="spread"><h2 style="margin:0">${t('g.all')}</h2>
         <span class="hint">${t('guide.sum.note', { pct })}</span></div>${filters}<div id="g-list">${visits.length ? visits.map(txRow).join('') : `<p class="hint">${t('g.tx.none')}</p>`}</div></div></div>
       <div class="pd-side">${nextCard}${adjCard}${payoutsCard}<a class="card" href="#/releve" style="display:block;text-decoration:none;color:inherit"><b>${t('guide.statement.title')}</b><span class="hint" style="display:block">${t('g.statement.hint')}</span></a></div></div>`,
@@ -817,6 +822,7 @@ async function stayView(me, city, stayId) {
   return {
     html: `
       <p><a href="#/">← ${t('guide.back')}</a></p>
+      ${stayBlackoutCard(partners, stay.start, stay.end, true)}
       <div class="card">
         <div class="spread"><h1>${esc(stay.client)}</h1>${validity(stay, valid, lang)}</div>
         <p class="hint">${t('stay.people', { n: stay.people })} · ${fmtDay(stay.start, lang)} → ${fmtDay(stay.end, lang)}</p>

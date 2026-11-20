@@ -12,6 +12,7 @@ import { readPendingStay, clearPendingStay } from './scan.js';
 import { helpButton, problemLink, mountHelp, topicLabel, alertStatus } from './help.js';
 import { installCard, mountInstallCard, installEnv } from './install.js';
 import { startCard, mountStartCard, partnerSteps } from './start.js';
+import { blackoutCard, mountBlackoutCard, blackoutToday } from './blackouts.js';
 
 const MAX_RECEIPT = 1.5 * 1024 * 1024;
 export const TERMS_VERSION = 'P-2 · 16/11/2026';   // v74 (v1 · 30/10/2026 avant)
@@ -199,7 +200,17 @@ export async function signupView(params, ctx) {
   };
 }
 
-export async function partnerView([token, action, visitId], ctx) {
+// v118 : un jour sans commission, le motif s'affiche en haut des écrans de scan et d'accueil (gérant, caisse, équipe),
+// pour que la personne qui scanne informe le client.
+let todayBo = '';
+export async function partnerView(params, ctx) {
+  todayBo = '';
+  const view = await partnerViewCore(params, ctx);
+  const action = params[1] || '';
+  if (!todayBo || !view || !view.html || !['', 'venda', 'conta', 'passage', 'deja', 'lancar', 'corrigir'].includes(action)) return view;
+  return { ...view, html: view.html.includes('<!--bc-->') ? view.html.replace('<!--bc-->', `${todayBo}<!--bc-->`) : todayBo + view.html };
+}
+async function partnerViewCore([token, action, visitId], ctx) {
   let space = token && await store.partnerSpace(token);
   if (!space) {
     try { if (localStorage.getItem(ME_KEY) === token) localStorage.removeItem(ME_KEY); } catch { /* rien */ }
@@ -212,6 +223,8 @@ export async function partnerView([token, action, visitId], ctx) {
   space.closings = space.role === 'manager' ? await store.partnerClosings(token) : [];
   space.nfse = space.role === 'manager' ? await store.partnerNfseList(token) : [];   // v97 : Document B
   if (space.role === 'manager' && action === 'equipe') space.team = await store.staffList(token).catch(() => []);
+  space.blackouts = await store.partnerBlackouts(token).catch(() => null);   // v118 : jours sans commission
+  todayBo = blackoutToday(space.blackouts, todayIn(space.city.timezone));
   // v95 : loja d'un groupe (ex. Pierim) : tableau du groupe, changement de loja, Pix unique.
   space.group = space.role === 'manager' && space.partner.groupId ? await store.groupSpace(token).catch(() => null) : null;
 
@@ -948,6 +961,7 @@ export function spaceView(space, tab = 'painel') {
         <p class="hint" style="margin:0 0 8px">${t('offer.days.hint')}</p>
         <button class="btn secondary">${t('common.save')}</button>
       </form>
+      ${tab === 'config' ? blackoutCard(space) : ''}
       <div class="card" style="text-align:center">
         <h2>${t('partner.qr.title')}</h2>
         ${partner.counterEnabled ? '' : `<div class="notice warn">${t('team.counter.off')}</div>`}
@@ -1100,6 +1114,7 @@ export function spaceView(space, tab = 'painel') {
         if (!(await store.setPartnerExtras(key, be && bc ? be : 0, be && bc ? bc : 0, me))) { notify(tRaw('err.generic')); return; }
         ctx.refresh(tRaw('common.saved'));
       };
+      mountBlackoutCard(root, ctx, space);   // v118 : jours sans commission
       const j1b = root.querySelector('#j1-toggle');
       if (j1b) j1b.onclick = async () => {
         const on = !!j1b.dataset.on;
@@ -1226,6 +1241,8 @@ function groupView(space) {
           : `<p class="hint" style="margin-top:12px">${t('grp.each.hint')}</p>`}
         ${sumOf('toDeclare') ? `<p class="hint">${t('grp.declare.hint')}</p>` : ''}
       </div>
+      ${(group.franchises || []).length ? `<div class="card"><h2>${t('grp.fr.title')}</h2><p class="hint">${t('grp.fr.hint')}</p>
+        <ul class="list">${group.franchises.map((f) => `<li><b>${esc(f.name)}</b>${f.area ? ` <span class="hint">· ${esc(f.area)}</span>` : ''} <span class="badge">${t('grp.fr.badge')}</span></li>`).join('')}</ul></div>` : ''}
       ${group.payments.length ? `<div class="card"><h2>${t('grp.payments')}</h2><ul class="list">${group.payments.map((y) => `<li><div class="spread"><span>${t('grp.pay.num', { num: y.num })} · ${fmtDay(String(y.submittedAt).slice(0, 10), lang)}</span><b>${c(y.cents)}</b></div>
         <div class="hint">${t(`payment.${y.status}`)}${y.note ? ` · ${esc(y.note)}` : ''}</div></li>`).join('')}</ul></div>` : ''}
     </div>`,
