@@ -89,6 +89,16 @@ const SCENES = {
       <div class="tu-more"><b>${esc(tRaw('rs.split'))}</b>${hl('<div class="tu-chk"><i></i>Grupo Silva · 6</div>', 'row')}<small>${esc(tRaw('tu.s.split'))}</small></div>${btn(tRaw('rs.save'))}</div>`,
   'p-staff-bill': () => `${head('Lucas · ' + tRaw('staff.post.waiter'))}<div class="tu-body">${field(tRaw('bill.amount'), 'R$ 240,00', true)}${hl(`<div class="tu-drop-zone tu-small">${ico('photo')}<small>${esc(tRaw('bill.photo').replace(/^📷\s*/u, ''))}</small></div>`, 'row')}${btn(tRaw('bill.save'))}<small class="tu-cap dark">${esc(tRaw('tu.s.nocom'))}</small></div>`,
   'p-staff-fix': () => `${head('Lucas')}<div class="tu-body"><b>${esc(tRaw('staff.today'))}</b><div class="tu-pend-r"><div><b>Família Martin</b><small>${esc(tRaw('staff.bill.done', { bill: 'R$ 240,00' }))}</small></div>${hl(`<span class="tu-btn sec tu-xs">${esc(tRaw('staff.fix'))}</span>`)}</div>${lines(2)}</div>`,
+  // ---- v124 : règles de commission (assistant) ----
+  'p-rw1': () => `${head(tRaw('rw.title'))}<div class="tu-body"><small class="tu-cap dark">${esc(tRaw('rw.q1'))}</small>
+      ${hl(`<div class="tu-case on"><b>${esc(tRaw('partner.model.percent'))}</b><small>10 %</small></div>`, 'row')}<div class="tu-case"><b>${esc(tRaw('partner.model.per_person'))}</b><small>R$ 10,00</small></div></div>`,
+  'p-rw2': () => `${head(tRaw('rw.title'))}<div class="tu-body"><small class="tu-cap dark">${esc(tRaw('rw.q2'))}</small>${field(tRaw('rules.excluded'), 'Bebidas', true)}${hl(btn(tRaw('rw.next')), 'row')}</div>`,
+  'p-rw3': () => `${head(tRaw('rw.title'))}<div class="tu-body"><small class="tu-cap dark">${esc(tRaw('rw.q5'))}</small>
+      <div class="tu-row2">${field(tRaw('bst.p.wdays'), tRaw('tu.s.rw.days'))}${field(tRaw('bst.p.rate'), '15 %', true)}</div>${field(tRaw('tu.s.rw.hours'), '12:00 – 15:00')}${hl(btn(tRaw('rw.next')), 'row')}</div>`,
+  'p-rw4': () => `${head(tRaw('rw.sum'))}<div class="tu-body"><div class="tu-notice"><small>${esc(tRaw('tu.s.rw.sentence'))}</small></div>
+      <div class="tu-com tu-late">${esc(tRaw('tu.s.com'))} <b>R$ 36,00</b> · turbo</div>${hl(btn(tRaw('rw.save')), 'row')}</div>`,
+  'p-rw5': () => `${head(`${tRaw('rs.table.short', { n: 12 })} · Família Martin`)}<div class="tu-body">${field(tRaw('rs.bill'), 'R$ 300,00')}${field(tRaw('rs.excluded', { label: 'Bebidas' }), 'R$ 60,00', true)}
+      <div class="tu-com tu-late">${esc(tRaw('tu.s.com'))} <b>R$ 24,00</b></div>${hl(btn(tRaw('rs.save')), 'row')}</div>`,
   'p-mgr': () => `${head('Restaurante')}<div class="tu-body"><div class="tu-pend-r"><div><b>Família Martin</b><small>R$ 240,00 · ${esc(tRaw('staff.tag.bill', { name: 'Lucas' }))} 📷</small></div><b class="tu-green">R$ 24,00</b></div>${lines(3)}</div>${tabbar('partner', 1)}`,
 };
 
@@ -107,6 +117,7 @@ export const TUTOS = {
     staff: { title: 'tu.p.staff', steps: [['p-staff', 'tu.p.staff.1'], ['p-staff-bill', 'tu.p.staff.2'], ['p-staff-fix', 'tu.p.staff.3'], ['p-mgr', 'tu.p.staff.4']] },
     pay: { title: 'tu.p.pay', steps: [['p-paytab', 'tu.p.pay.1'], ['p-select', 'tu.p.pay.2'], ['p-pix', 'tu.p.pay.3'], ['p-receipt', 'tu.p.pay.4']] },
     team: { title: 'tu.p.team', steps: [['p-team', 'tu.p.team.1'], ['p-add', 'tu.p.team.2'], ['p-wa', 'tu.p.team.3'], ['p-staff', 'tu.p.team.4']] },
+    rules: { title: 'tu.p.rules', steps: [['p-rw1', 'tu.p.rules.1'], ['p-rw2', 'tu.p.rules.2'], ['p-rw3', 'tu.p.rules.3'], ['p-rw4', 'tu.p.rules.4'], ['p-rw5', 'tu.p.rules.5']] },
   },
 };
 const STEP_MS = 4200;

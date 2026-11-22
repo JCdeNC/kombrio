@@ -23,11 +23,13 @@ export function boostWhen(b, lang = getLang()) {
 export const boostValue = (b, c) => (b.ppCents ? tRaw('rate.per_person', { amount: c(b.ppCents) }) : b.rate ? `${pct(b.rate)} %` : '');
 
 // Carte des règles (gérant).
-export function rulesCard(partner, c) {
+export function rulesCard(partner, c, base = '') {
   const pp = partner.commissionModel === 'per_person';
   return `<form class="card" id="rules">
     <h2>${t('rules.title')}</h2>
     <p class="hint">${t('rules.hint')}</p>
+    ${base ? `<div class="notice ok rw-entry"><b>${t('rw.entry')}</b><span class="hint">${t('rw.entry.hint')}</span>
+      <span class="row" style="gap:6px"><a class="btn small" href="${base}/regras">${t('rw.entry.btn')}</a><a class="btn ghost small" href="#/tuto/rules">${t('tu.see')}</a></span></div>` : ''}
     <div class="field"><label for="ru-ex">${t('rules.excluded')}</label>
       <input id="ru-ex" name="ex" maxlength="40" value="${esc(partner.excludedLabel)}" placeholder="${esc(tRaw('rules.excluded.ph'))}">
       <p class="hint" style="margin:4px 0 0">${t(pp ? 'rules.excluded.pp' : 'rules.excluded.hint')}</p></div>

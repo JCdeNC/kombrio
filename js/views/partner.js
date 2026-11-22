@@ -15,6 +15,7 @@ import { startCard, mountStartCard, partnerSteps } from './start.js';
 import { blackoutCard, mountBlackoutCard, blackoutToday } from './blackouts.js';
 import { companyEntryCard, companyView, groupInviteView } from './company.js';
 import { rulesCard, mountRulesCard, boostCard, mountBoostCard } from './boosts.js';
+import { rulesWizardView } from './rules-wizard.js';
 
 const MAX_RECEIPT = 1.5 * 1024 * 1024;
 export const TERMS_VERSION = 'P-2 · 16/11/2026';   // v74 (v1 · 30/10/2026 avant)
@@ -270,6 +271,7 @@ async function partnerViewCore([token, action, visitId], ctx) {
   if (action === 'pagar') return payView(space);
   if (action === 'grupo' && space.group) return groupView(space);
   if (action === 'empresa') return companyView(space, visitId || '', ctx);   // v120 : Minha empresa
+  if (action === 'regras') return rulesWizardView(space, ctx);   // v124 : assistente da comissão
   if (action === 'relatorio') return reportPage(space, visitId);
   if (action === 'mes') return monthPage(space, visitId, space.closings);
   if (action === 'demonstrativo') return docPage(space, visitId, space.closings, `#/p/${encodeURIComponent(token)}/pagamentos`);
@@ -951,7 +953,7 @@ export function spaceView(space, tab = 'painel') {
           <p class="hint" style="margin:4px 0 0">${t('partner.extras.meal.hint')}</p></div>
         <button class="btn secondary">${t('common.save')}</button>
       </form>
-      ${rulesCard(partner, c)}
+      ${rulesCard(partner, c, base)}
       <div class="card" id="j1card">
         <div class="spread"><h2 style="margin:0">${t('j1.p.title')}</h2><span class="badge ${partner.j1Enabled ? 'ok' : ''}">${t(partner.j1Enabled ? 'j1.p.on.badge' : 'j1.p.off.badge')}</span></div>
         <p style="margin-top:8px">${t(partner.j1Enabled ? 'j1.p.on' : 'j1.p.off')}</p>
