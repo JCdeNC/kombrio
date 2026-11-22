@@ -124,7 +124,7 @@ export function installView(params, ctx, kind = window.KOMBRIO_APP || 'partner')
   const st = { os: env.os };
   const back = '#/';
   return {
-    html: `<div class="ia-wrap"><p class="no-print"><a href="${back}">← ${t('ia.back')}</a></p>
+    html: `<div class="ia-wrap"><a class="ios-back no-print" href="${back}"><span aria-hidden="true">‹</span> ${t('ia.back')}</a>
       <div class="ia-head"><img src="../icon.svg" alt=""><div><h1>${t('ia.title')}</h1><p class="hint">${t('ia.sub', { app: name })}</p></div></div>
       <div id="ia-body"></div></div>`,
     mount(root) {

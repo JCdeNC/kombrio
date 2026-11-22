@@ -2,7 +2,7 @@
 import { t, tRaw, getLang } from '../i18n.js';
 import { esc, money, cents, locale, fmtDay, fmtMoment, todayIn, addDays, stayIsValid, qrSvg, appLink, notify, validCpf, validCnpj, onlyDigits, maskCadastur, validCadastur, validPixKey, phoneField, phoneValue } from '../util.js';
 import * as store from '../store.js';
-import { validity, statusBadge, guideAmounts, notFound, termsGateView, forgotLink, mountForgot, resetView, lastMonths, shortMonth, monthKeyOf, delta, barChart, appTabs, iosBack } from './shared.js';
+import { validity, statusBadge, guideAmounts, notFound, termsGateView, forgotLink, mountForgot, resetView, lastMonths, shortMonth, monthKeyOf, delta, barChart, appTabs, iosBack, infoTip } from './shared.js';
 import { maskTaxId, fmtTaxId, qrCardBlob, shareOrDownload, photoToJpeg, weekdayList } from '../util.js';
 import { helpButton, problemLink, mountHelp, topicLabel, alertStatus } from './help.js';
 import { installView, installCard, mountInstallCard, installEnv } from './install.js';
@@ -356,7 +356,7 @@ async function dashboardView(me, city, tab = 'inicio', focus = '') {
       ${shown.length ? groups.filter(([, l]) => l.length).map(([k, l]) => `<h3 class="sw-group">${t(`g.group.${k}`)} <span class="hint">${l.length}</span></h3>${groupList(l)}`).join('')
         : `<p class="hint">${t('g.stays.none')}</p>`}
       ${archived.length ? `<details class="sw-arch"><summary>${t('g.group.archived')} <span class="hint">${archived.length}</span></summary>${groupList(archived)}</details>` : ''}
-      <p class="hint" style="margin:10px 0 0">${t('g.stay.swipe')}</p></div>`;
+      ${infoTip(t('g.stay.swipe'))}</div>`;
   };
 
   // À faire (cases à cocher gardées sur l'appareil).
@@ -507,7 +507,7 @@ async function dashboardView(me, city, tab = 'inicio', focus = '') {
     clientes: focus === 'novo' ? `<div class="ios-sub">${newStayForm}</div>` : `<a class="qr-new" href="#/clientes/novo"><span class="qr-new-plus">+</span><span><b>${t('g.qr.new')}</b><small>${t('g.qr.new.hint')}</small></span></a>
       <div class="pd-cols"><div class="pd-side">${staysCard(stays, true)}${linkedCard}</div><div class="pd-side">${blackCard}${incCard}${offersCard}</div></div>`,
     ganhos: `${heroG}<div class="pd-cols"><div class="pd-side"><div class="card g-card"><div class="spread"><h2 style="margin:0">${t('g.all')}</h2>
-        <span class="hint">${t('guide.sum.note', { pct })}</span></div>${filters}<div id="g-list">${visits.length ? visits.map(txRow).join('') : `<p class="hint">${t('g.tx.none')}</p>`}</div>
+        ${infoTip(t('guide.sum.note', { pct }))}</div>${filters}<div id="g-list">${visits.length ? visits.map(txRow).join('') : `<p class="hint">${t('g.tx.none')}</p>`}</div>
         ${visits.length ? `<p class="hint" style="margin:8px 0 0">${t('gh.tap')}</p>` : ''}</div></div>
       <div class="pd-side">${nextCard}${adjCard}${payoutsCard}<a class="card" href="#/releve" style="display:block;text-decoration:none;color:inherit"><b>${t('guide.statement.title')}</b><span class="hint" style="display:block">${t('g.statement.hint')}</span></a>${chartCard}${partnersCard}</div></div>`,
     conta: `<div class="pd-cols"><div class="pd-side">${contaBody}</div><div class="pd-side"><div class="card no-print"><h2>${t('g.session')}</h2>${logoutButton()}</div></div></div>`,
@@ -674,7 +674,7 @@ async function payoutView(me, city, payoutId) {
           <div class="field"><label>${t('nf.file')}</label><input name="file" type="file" accept="image/*,application/pdf" ${l.has_nf ? '' : 'required'}></div></div>
         <button class="btn ${l.has_nf ? 'ghost' : ''} small">${t(l.has_nf ? 'nf.replace' : 'nf.send')}</button></form></div>`).join('');
   const html = `
-    <p class="no-print"><a href="#/ganhos">← ${t('guide.back')}</a></p>
+    <a class="ios-back no-print" href="#/ganhos"><span aria-hidden="true">‹</span> ${t('guide.back')}</a>
     <div class="card">
       <div class="hint">KOMBRIO</div>
       <h1 style="margin:2px 0">${t('po.title', { num: P.num })}</h1>
@@ -987,7 +987,7 @@ async function statementView(me, city) {
   const cashed = (v) => ['received', 'payout_pending', 'paid'].includes(v.status);
   return {
     html: `
-      <p><a href="#/">← ${t('guide.back')}</a></p>
+      <a class="ios-back no-print" href="#/"><span aria-hidden="true">‹</span> ${t('guide.back')}</a>
       <div class="card">
         <h1>${t('guide.statement.title')}</h1>
         <p class="hint">${t('guide.statement.hint', { pct: me.weeklyPayout ? 75 : 80 })}</p>
@@ -1023,7 +1023,7 @@ async function statementView(me, city) {
 // Le QR mène à la page publique de vérification avec un code secret propre au badge (renouvelable si perdu).
 async function badgeView(me, city) {
   const lang = getLang();
-  const back = `<p class="no-print"><a href="#/conta">← ${t('common.back')}</a></p>`;
+  const back = `<a class="ios-back no-print" href="#/conta"><span aria-hidden="true">‹</span> ${t('common.back')}</a>`;
   const tok = await store.myBadgeToken();
   if (!tok || !tok.ok) return { html: `${back}<div class="notice warn">${t('bdg.unavailable')}</div>` };
   const link = appLink('verify', tok.token);

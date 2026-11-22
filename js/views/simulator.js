@@ -27,7 +27,7 @@ export function simulatorView(space, ctx, opts = {}) {
   const pp0 = partner.commissionModel === 'per_person';
   const rate0 = RATES.includes(Math.round(partner.commissionRate * 100)) ? partner.commissionRate : 0.1;
   const wd = (name) => [1, 2, 3, 4, 5, 6, 7].map((d) => `<label class="wday"><input type="checkbox" name="${name}" value="${d}"><span>${esc(weekdayShort(d, lang))}</span></label>`).join('');
-  const back = space && !opts.embedded ? `<p class="no-print"><a href="#/p/${encodeURIComponent(key)}/comissao">← ${t('pd.tab.comissao')}</a></p>` : '';
+  const back = space && !opts.embedded ? `<a class="ios-back no-print" href="#/p/${encodeURIComponent(key)}/comissao"><span aria-hidden="true">‹</span> ${t('pd.tab.comissao')}</a>` : '';
   // Trois contas types pour comparer d'un coup d'œil (petit groupe, famille au déjeuner, grand groupe le samedi soir).
   const CASES = [
     { label: 'sim.case1', bill: 12000, people: 2, ex: 2000, wd: 1, hm: '20:00' },

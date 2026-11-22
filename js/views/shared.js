@@ -206,6 +206,8 @@ const ICON_PATHS = {
 };
 // items : [{ href, label, short, icon, on, count, center, desk, attrs }] (attrs : attributs en plus, ex. data-help-open)
 // design v2 : center = gros bouton rond au milieu de la barre (comme « Pagar » des apps de transport) pour l'action QR.
+// v130 (lot 5) : texte d'aide replié derrière un petit « ⓘ » (le détail reste à un toucher).
+export const infoTip = (html, title = '') => `<details class="ios-info no-print"><summary aria-label="${esc(tRaw('ui.info'))}"><span class="ios-i" aria-hidden="true">i</span>${title ? ` ${title}` : ''}</summary><div class="ios-info-t">${html}</div></details>`;
 // v129 : retour façon iOS, en haut à gauche (« ‹ Clientes »).
 export const iosBack = (href, key) => `<a class="ios-back no-print" href="${href}"><span aria-hidden="true">‹</span> ${t(key)}</a>`;
 export function appTabs(items) {

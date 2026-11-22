@@ -762,4 +762,10 @@ export default {
   "gh.send": "Enviar al cliente",
   "gh.more": "Más opciones",
   "gh.tap": "Toca una comisión para ver en qué punto está.",
+  // v130 : lot 5, passe design
+  "ui.info": "Más información",
+  "ui.more": "Más",
+  "ui.billrule": "¿Qué monto informar?",
+  "client.qr.tap": "Toca el QR para ampliarlo",
+  "client.qr.close": "Toca para cerrar",
 };

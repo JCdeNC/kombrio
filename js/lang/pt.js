@@ -2698,4 +2698,10 @@ export default {
   "gh.send": "Enviar ao cliente",
   "gh.more": "Mais opções",
   "gh.tap": "Toque numa comissão para ver o caminho dela.",
+  // v130 : lot 5, passe design
+  "ui.info": "Mais informações",
+  "ui.more": "Mais",
+  "ui.billrule": "Qual valor informar?",
+  "client.qr.tap": "Toque no QR para ampliar",
+  "client.qr.close": "Toque para fechar",
 };

@@ -1121,3 +1121,25 @@ details.g-tx[open] > summary { margin-bottom: 8px; }
 body.ios .qr-new { margin-bottom: 16px; }
 details.g-tx .g-amt { flex: none; max-width: 42%; }
 details.g-tx .g-pill { display: block; margin-top: 4px; }
+/* v130 (lot 5) : passe design — un seul bouton plein par écran (les petits boutons des cartes passent en clair),
+   aide repliée derrière « i », « Algum problema? » derrière « ⋯ », QR du client en plein écran. */
+body.ios .card .btn.small:not(.ghost):not(.secondary):not(.link) { background: #E8F3EF; color: var(--brand); border-color: #E8F3EF; }
+.ios-info { margin: 6px 0 0; }
+.ios-info > summary { list-style: none; display: inline-flex; align-items: center; cursor: pointer; color: var(--brand); font-size: .9rem; font-weight: 600; min-height: 32px; }
+.ios-info > summary::-webkit-details-marker { display: none; }
+.ios-i { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; border: 1.5px solid currentColor; font-size: .78rem; font-weight: 800; font-style: italic; font-family: Georgia, serif; }
+.ios-info-t { margin-top: 6px; padding: 10px 12px; border-radius: 12px; background: var(--bg); color: var(--muted); font-size: .9rem; line-height: 1.45; }
+.spread > .ios-info { margin: 0; }
+.pd-x { display: inline-block; margin-left: 4px; position: relative; }
+.pd-x > summary { list-style: none; cursor: pointer; padding: 0 8px; border-radius: 8px; color: var(--muted); font-weight: 700; letter-spacing: .05em; }
+.pd-x > summary::-webkit-details-marker { display: none; }
+.pd-x[open] > summary { background: var(--bg); }
+.pd-x .link-btn { display: block; margin-top: 4px; }
+button.qr-tap { display: block; width: 100%; max-width: 320px; margin: 0 auto; padding: 0; border: 0; background: none; cursor: zoom-in; }
+.qr-tap-hint { margin: 4px 0 10px; font-size: .82rem; }
+.qr-full { position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 1200; background: #fff; display: flex; align-items: center; justify-content: center; padding: 20px; cursor: zoom-out; }
+.qr-full-in { width: 100%; max-width: 520px; text-align: center; color: #102C38; }
+.qr-full-in svg { width: 100%; height: auto; }
+.qr-full-in b { display: block; font-size: 1.4rem; margin-top: 12px; }
+.qr-full-in span { display: block; font-size: 1.2rem; letter-spacing: .08em; margin-top: 4px; }
+.qr-full-in small { display: block; color: #5B6F78; margin-top: 14px; }

@@ -752,4 +752,10 @@ export default {
   "gh.send": "An den Kunden senden",
   "gh.more": "Weitere Optionen",
   "gh.tap": "Tippe auf eine Provision, um den Stand zu sehen.",
+  // v130 : lot 5, passe design
+  "ui.info": "Mehr Informationen",
+  "ui.more": "Mehr",
+  "ui.billrule": "Welcher Betrag?",
+  "client.qr.tap": "Tippe auf den QR-Code, um ihn zu vergrößern",
+  "client.qr.close": "Zum Schließen tippen",
 };

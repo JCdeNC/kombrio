@@ -46,7 +46,8 @@ export async function clientView([token]) {
       <div class="card" style="text-align:center">
         <h1>${t('client.title', { client: stay.client })}</h1>
         <p>${validity(stay, valid, lang)}</p>
-        ${valid ? `<div class="qr">${qrSvg(appLink('partner', `s/${stay.token}`))}</div>
+        ${valid ? `<button type="button" class="qr qr-tap" id="qrbig" aria-label="${esc(tRaw('client.qr.tap'))}">${qrSvg(appLink('partner', `s/${stay.token}`))}</button>
+          <p class="hint qr-tap-hint">${t('client.qr.tap')}</p>
           <p><b>${t('client.show')}</b></p>
           ${stay.code ? `<p class="client-code">${t('client.code', { code: stay.code })}</p>` : ''}
           <p class="hint">${t('client.people', { n: stay.people, end: fmtDay(stay.end, lang) })}</p>
@@ -71,6 +72,14 @@ export async function clientView([token]) {
       <div class="card"><h2>${t('help.faq.title')}</h2>${faqList('client', lang)}</div>`,
     mount(root) {
       mountShowcase(root);
+      // v130 (lot 5) : QR en plein écran au toucher (comme une carte d'embarquement), fond blanc, toucher pour fermer.
+      const big = root.querySelector('#qrbig');
+      if (big) big.onclick = () => {
+        const box = document.createElement('div'); box.className = 'qr-full'; box.setAttribute('role', 'dialog');
+        box.innerHTML = `<div class="qr-full-in">${big.innerHTML}<b>${esc(stay.client)}</b>${stay.code ? `<span>${esc(tRaw('client.code', { code: stay.code }).replace(/<[^>]+>/g, ''))}</span>` : ''}<small>${esc(tRaw('client.qr.close'))}</small></div>`;
+        box.onclick = () => box.remove();
+        document.body.appendChild(box);
+      };
       const b = root.querySelector('#saveqr');
       if (b) {
         b.onclick = async () => {

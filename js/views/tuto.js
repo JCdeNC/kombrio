@@ -134,12 +134,12 @@ export function tutoView(params, ctx, kind = window.KOMBRIO_APP || 'partner') {
   const id = params[0] === 'tuto' ? params[1] : params[0];   // guide : #/tuto/<id> complet ; partenaire : route déjà retirée
   const tu = all[id];
   if (!tu) {
-    return { html: `<div class="ia-wrap"><p class="no-print"><a href="#/">← ${t('ia.back')}</a></p>
+    return { html: `<div class="ia-wrap"><a class="ios-back no-print" href="#/"><span aria-hidden="true">‹</span> ${t('ia.back')}</a>
       <h1>${t('tu.index')}</h1><p class="hint">${t('tu.index.hint')}</p>${kind === 'partner' ? whichCase() : ''}${tutoLinks(kind)}</div>` };
   }
   const others = Object.keys(all).filter((k) => k !== id);
   return {
-    html: `<div class="ia-wrap tu-wrap"><p class="no-print"><a href="#/">← ${t('ia.back')}</a></p>
+    html: `<div class="ia-wrap tu-wrap"><a class="ios-back no-print" href="#/"><span aria-hidden="true">‹</span> ${t('ia.back')}</a>
       <h1>${t(tu.title)}</h1>
       <div class="tu-player">
         <div class="ia-ph tu-ph" aria-hidden="true"><div class="ia-scr tu-scr" id="tu-scr"></div></div>

@@ -7,7 +7,7 @@ import * as store from '../store.js';
 import { readReceiptImage } from '../receipt.js';
 import { inssBadge, inssTimeline, inssLinesTable, inssCsv, downloadText, openDataUrl } from './admin-inss.js';
 import { broadcastGate, broadcastBanners, mountBroadcastBanners } from './broadcast.js';
-import { statusBadge, notFound, termsGateView, forgotLink, mountForgot, resetView, lastMonths, shortMonth, delta, barChart, appTabs } from './shared.js';
+import { statusBadge, notFound, termsGateView, forgotLink, mountForgot, resetView, lastMonths, shortMonth, delta, barChart, appTabs, infoTip } from './shared.js';
 import { readPendingStay, clearPendingStay } from './scan.js';
 import { helpButton, problemLink, mountHelp, topicLabel, alertStatus } from './help.js';
 import { installCard, mountInstallCard, installEnv } from './install.js';
@@ -96,7 +96,7 @@ export async function activateView([code = ''], ctx) {
   if (!code) return { html: '', mount: () => ctx.replace('parceria') };
   return {
     html: `
-      <p><a href="#/">← ${t('pm.title')}</a></p>
+      <a class="ios-back no-print" href="#/"><span aria-hidden="true">‹</span> ${t('pm.title')}</a>
       <form class="card" id="activate">
         <h1>${t('pm.first')}</h1>
         <p class="hint">${t('pm.activate.hint')}</p>
@@ -145,7 +145,7 @@ export async function signupView(params, ctx) {
   const cities = await store.listCities().catch(() => []);
   return {
     html: `
-      <p><a href="#/">← ${t('pm.title')}</a></p>
+      <a class="ios-back no-print" href="#/"><span aria-hidden="true">‹</span> ${t('pm.title')}</a>
       <form class="card" id="psignup">
         <h1>${t('np.form.title')}</h1>
         <p class="hint">${t('ps.hint')}</p>
@@ -868,7 +868,7 @@ export function spaceView(space, tab = 'painel') {
     return `<label class="pd-row${v.parentVisitId ? ' pd-child' : ''}" data-v="${v.status}">
       <span class="pd-c">${can ? `<input type="checkbox" data-sel="${esc(v.id)}" data-st="${v.status}" aria-label="${esc(v.client || '')}">` : ''}</span>
       <span class="pd-d">${fmtDay(v.at.slice(0, 10), lang)}</span>
-      <span class="pd-who"><b>${esc(v.client || '?')}</b><small>${roleTag(v)}${esc(v.guideName || '?')} · ${v.parentVisitId ? '' : `${t('scan.people', { n: v.peopleServed })} · `}${esc(store.visitRef(v))}${v.tableLabel ? ` · ${t('rs.table.short', { n: v.tableLabel })}` : ''}${v.statusNote && ['disputed', 'cancelled'].includes(v.status) ? ` · ${esc(v.statusNote)}` : ''}</small>${rowTags(v)}${alertOf(v.id) ? `<span class="badge">${t('alert.short', { num: alertOf(v.id).num, status: alertStatus(alertOf(v.id).status) })}</span>` : problemLink(v.id)}</span>
+      <span class="pd-who"><b>${esc(v.client || '?')}</b><small>${roleTag(v)}${esc(v.guideName || '?')} · ${v.parentVisitId ? '' : `${t('scan.people', { n: v.peopleServed })} · `}${esc(store.visitRef(v))}${v.tableLabel ? ` · ${t('rs.table.short', { n: v.tableLabel })}` : ''}${v.statusNote && ['disputed', 'cancelled'].includes(v.status) ? ` · ${esc(v.statusNote)}` : ''}</small>${rowTags(v)}${alertOf(v.id) ? `<span class="badge">${t('alert.short', { num: alertOf(v.id).num, status: alertStatus(alertOf(v.id).status) })}</span>` : `<details class="pd-x no-print"><summary aria-label="${esc(tRaw('ui.more'))}">⋯</summary>${problemLink(v.id)}</details>`}</span>
       <span class="pd-st">${statusBadge(v, 'partner')}</span>
       <span class="pd-i">${inv}</span>
       <span class="pd-num pd-com" data-com="${esc(v.id)}">${v.declaredCents == null ? '—' : c(v.declaredCents)}</span>
@@ -892,7 +892,7 @@ export function spaceView(space, tab = 'painel') {
   const visitsCard = (title, list, filters) => `<div class="card pd-card">
       <div class="spread" style="padding:12px 14px 6px"><h2 style="margin:0">${title}</h2>
         ${filters ? `<select id="pd-filter" style="width:auto">${['all', 'visited', 'declared', 'verifying', 'paid'].map((f) => `<option value="${f}">${t(`pd.f.${f}`)}</option>`).join('')}</select>` : ''}</div>
-      ${list.some((v) => v.status === 'visited') ? `<p class="hint" style="padding:0 14px;margin:0 0 6px">${t('bill.rule')}</p>` : ''}
+      ${list.some((v) => v.status === 'visited') ? `<div style="padding:0 14px 6px">${infoTip(t('bill.rule'), t('ui.billrule'))}</div>` : ''}
       ${list.length ? `<div class="pd-rows"><div class="pd-row pd-head"><span></span><span>${t('pd.col.date')}</span><span>${t('pd.col.who')}</span><span>${t('pd.col.status')}</span><span class="pd-r">${t('pd.col.bill')}</span><span class="pd-r">${t('pd.col.com', { rate: rateLbl })}</span></div>
         ${list.map(row).join('')}</div>
         <div class="pd-bar"><span id="pd-sel">${t('pd.sel.none')}</span>
@@ -1291,7 +1291,7 @@ function declareManyView({ partner, city, visits, key }) {
   if (!todo.length) return { html: `<div class="notice">${t('partner.declare.nothing')}</div><a class="btn ghost" href="${back}">${t('partner.space')}</a>` };
   return {
     html: `
-      <p><a href="${back}">← ${t('partner.space')}</a></p>
+      <a class="ios-back no-print" href="${back}"><span aria-hidden="true">‹</span> ${t('ios.back.home')}</a>
       <form class="card" id="declare">
         <h1>${t('partner.declare.title')}</h1>
         <p class="hint">${t('partner.declare.free', { rate: rateText(partner, null, (n) => cents(n, city.currency, lang)) })}</p>
@@ -1368,8 +1368,8 @@ function groupView(space) {
   const sumOf = (k) => group.members.reduce((s2, m) => s2 + m[k], 0);
   const total = sumOf('toPayCents');
   return {
-    html: `<div class="dash-wide">${groupBar(space)}
-      <p><a href="#/p/${encodeURIComponent(key)}">← ${t('partner.space')}</a></p>
+    html: `<div class="dash-wide"><a class="ios-back no-print" href="#/p/${encodeURIComponent(key)}"><span aria-hidden="true">‹</span> ${t('ios.back.home')}</a>
+      ${groupBar(space)}
       <div class="card"><h1 style="margin-bottom:4px">${t('grp.title', { name: group.group.name })}</h1>
         <p class="hint">${t(single ? 'grp.mode.single' : 'grp.mode.each')}</p>
         <div class="table-wrap"><table>
@@ -1602,7 +1602,7 @@ function reportPage(space, month) {
   const link = partner.reportToken ? appLink('partner', `r/${partner.reportToken}`) : '';
   return {
     html: `
-      <p class="no-print"><a href="#/p/${encodeURIComponent(key)}">← ${t('partner.space')}</a></p>
+      <a class="ios-back no-print" href="#/p/${encodeURIComponent(key)}"><span aria-hidden="true">‹</span> ${t('ios.back.home')}</a>
       ${block.html}
       <div class="card no-print">
         <h2>${t('report.share.title')}</h2>
@@ -1663,7 +1663,7 @@ function monthPage(space, month, closings) {
   const step = (n, title, ok, body) => `<div class="card"><div class="spread"><h2 style="margin:0">${n}. ${title}</h2>
       <span class="badge ${ok ? 'ok' : 'warn'}">${t(ok ? 'mes.ok' : 'mes.todo')}</span></div>${body}</div>`;
   const html = `<div class="dash-wide">
-      <p><a href="${base}">← ${t('partner.space')}</a></p>
+      <a class="ios-back no-print" href="${base}"><span aria-hidden="true">‹</span> ${t('ios.back.home')}</a>
       <div class="spread"><div><h1 style="margin-bottom:2px">${t('mes.title')}</h1><p class="hint" style="margin:0">${t('mes.hint')}</p></div>
         <select id="mes-month" style="width:auto">${months.map((x) => `<option value="${x}" ${x === m ? 'selected' : ''}>${esc(monthLabel(x, lang))}</option>`).join('')}</select></div>
       ${step(1, t('mes.s1'), !toDeclare.length && !disputed.length, `
@@ -1714,14 +1714,14 @@ function docPage(space, sel, closings, back) {
   const [m, vtxt] = String(sel || '').split('.v');
   const versions = closings.filter((k) => String(k.month).slice(0, 7) === m);
   const doc = vtxt ? versions.find((k) => String(k.version) === vtxt) : versions.find((k) => k.latest);
-  if (!doc) return { html: `<p class="no-print"><a href="${back}">← ${t('common.back')}</a></p><div class="notice">${t('doc.none')}</div>` };
+  if (!doc) return { html: `<a class="ios-back no-print" href="${back}"><span aria-hidden="true">‹</span> ${t('common.back')}</a><div class="notice">${t('doc.none')}</div>` };
   const T = doc.totals || {};
   const prev = doc.supersedes ? versions.find((k) => k.id === doc.supersedes) : null;
   const pLabel = (st) => tRaw(`pstatus.${{ received: 'paid', payout_pending: 'paid' }[st] || st}`);
   const lines = doc.lines || [];
   const row = (label, val, strong) => `<tr><td>${label}</td><td style="text-align:right">${strong ? `<b>${val}</b>` : val}</td></tr>`;
   const html = `
-    <p class="no-print"><a href="${back}">← ${t('common.back')}</a></p>
+    <a class="ios-back no-print" href="${back}"><span aria-hidden="true">‹</span> ${t('common.back')}</a>
     <div class="card doc-a">
       <div class="spread"><div><div class="hint">KOMBRIO · ${t('doc.issuer')}</div>
         <h1 style="margin:2px 0">${t('doc.a.title')}</h1>
@@ -1997,7 +1997,7 @@ export async function staffEnrollView([ref = ''], ctx) {
     failed = r && r.reason === 'busy' ? 'busy' : 'invalid';
   }
   return {
-    html: `<p><a href="#/">← ${t('pm.title')}</a></p>
+    html: `<a class="ios-back no-print" href="#/"><span aria-hidden="true">‹</span> ${t('pm.title')}</a>
       ${failed ? `<div class="notice bad">${t(`team.enroll.${failed}`)}</div>` : ''}
       <form class="card" id="enroll">
         <h1>${t('team.enroll.title')}</h1>
@@ -2042,7 +2042,7 @@ export async function termsView() {
 async function inssPage(partner, city, token, isManager, back) {
   const lang = getLang();
   const d = await store.partnerInss(token);
-  if (!d) return { html: `<p><a href="${back}">← ${t('common.back')}</a></p><div class="notice warn">${t('pinss.none')}</div>` };
+  if (!d) return { html: `<a class="ios-back no-print" href="${back}"><span aria-hidden="true">‹</span> ${t('common.back')}</a><div class="notice warn">${t('pinss.none')}</div>` };
   const decls = d.declarations || [];
   const rule = (d.rules || []).find((r) => !r.valid_to) || (d.rules || [])[0];
   const brl = (n) => cents(Number(n) || 0, city.currency, lang);
@@ -2075,7 +2075,7 @@ async function inssPage(partner, city, token, isManager, back) {
         <details style="margin-top:6px"><summary>${t('inss.lines.title')}</summary>${inssLinesTable(x, lang)}</details></li>`).join('')}</ul>`
         : `<p class="hint">${t('pinss.decls.none')}</p>`}</div>`;
   return {
-    html: `<p class="no-print"><a href="${back}">← ${t('common.back')}</a></p><h1>${t('pinss.title')}</h1>
+    html: `<a class="ios-back no-print" href="${back}"><span aria-hidden="true">‹</span> ${t('common.back')}</a><h1>${t('pinss.title')}</h1>
       <p class="hint">${t('pinss.intro', { name: esc(partner.name) })}</p>${who}${pending}${list}${rates}`,
     mount(root, ctx) {
       const f = root.querySelector('#pinss-mode');

@@ -2698,4 +2698,10 @@ export default {
   "gh.send": "Envoyer au client",
   "gh.more": "Plus d'options",
   "gh.tap": "Touchez une commission pour voir où elle en est.",
+  // v130 : lot 5, passe design
+  "ui.info": "Plus d'informations",
+  "ui.more": "Plus",
+  "ui.billrule": "Quel montant saisir ?",
+  "client.qr.tap": "Touchez le QR pour l'agrandir",
+  "client.qr.close": "Touchez pour fermer",
 };
