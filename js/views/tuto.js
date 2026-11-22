@@ -34,12 +34,12 @@ const field = (label, value, typing) => `<div class="tu-field"><small>${esc(labe
 
 const SCENES = {
   // ---- guide ----
-  'g-home': () => `${head('Kombrio')}<div class="tu-body"><div class="tu-kpi"><small>${tRaw('tu.s.available')}</small><b>R$ 186,40</b></div>${lines(4)}</div>${tabbar('guide', 2)}`,
+  'g-home': () => `${head('Kombrio')}<div class="tu-body"><div class="tu-kpi"><small>${esc(tRaw('g.next.title'))}</small><b>R$ 186,40</b></div>${lines(4)}</div>${tabbar('guide', 2)}`,
   'g-qrmenu': () => `${head('Kombrio')}<div class="tu-body">${lines(3)}</div><div class="tu-sheet tu-up">
       ${hl(`<div class="tu-li strong">＋ ${esc(tRaw('g.qr.new'))}</div>`, 'row')}<div class="tu-li">${esc(tRaw('tu.s.instay'))}</div><div class="tu-li">${esc(tRaw('bdg.card.title'))}</div></div>`,
   'g-form': () => `${head(tRaw('guide.stay.new'))}<div class="tu-body">${field(tRaw('guide.stay.client'), 'Família Martin', true)}
       <div class="tu-row2">${field(tRaw('guide.stay.people'), '4')}${field(tRaw('guide.stay.start'), '21/11')}</div>${hl(btn(tRaw('guide.stay.create')), 'row')}</div>`,
-  'g-share': () => `${head('Família Martin')}<div class="tu-body tu-center-col">${qrBox('tu-pop')}${hl(btn(tRaw('guide.stay.whatsapp'), 'wa'), 'row')}</div>`,
+  'g-share': () => `${head('Família Martin')}<div class="tu-body tu-center-col">${qrBox('tu-pop')}${hl(btn(tRaw('gh.send')), 'row')}</div>`,
   'g-show': () => `<div class="tu-body tu-center-col tu-dark"><small class="tu-cap">${esc(tRaw('tu.s.partner'))}</small>${qrBox('tu-scanned')}<span class="tu-beam"></span></div>${okMark(tRaw('tu.s.visit.ok'))}`,
   'pix-bank': () => `<div class="tu-lock"><b class="tu-time">10:42</b><div class="tu-notif tu-drop"><span class="tu-bank"></span><div><b>Pix ${esc(tRaw('tu.s.received'))}</b><small>R$ 1,00 · Kombrio</small></div></div></div>`,
   'pix-confirm': () => `${head('Kombrio')}<div class="tu-body"><div class="tu-notice">${esc(tRaw('tu.s.pix.sent'))}${hl(btn(tRaw('pix.confirm')), 'row')}<span class="tu-link">${esc(tRaw('pix.notreceived'))}</span></div>${lines(2)}</div>${tabbar('guide')}`,

@@ -695,7 +695,7 @@ export default {
   'tu.g.client.1': "Tippe auf den QR-Knopf in der Mitte der Leiste.",
   'tu.g.client.2': "Wähle „Neuer Kunde“.",
   'tu.g.client.3': "Name des Kunden, Personenzahl und Reisedaten, dann „QR-Code erstellen“.",
-  'tu.g.client.4': "Sende den QR per WhatsApp an den Kunden.",
+  'tu.g.client.4': "Tippe auf „An den Kunden senden“ und wähle WhatsApp, E-Mail oder Nachricht.",
   'tu.g.client.5': "Beim Partner zeigt der Kunde den QR: Der Besuch wird auf deinen Namen erfasst.",
   'tu.g.pix': "Pix-Schlüssel bestätigen",
   'tu.g.pix.1': "Kombrio sendet einen Pix über R$ 1,00 an deinen Schlüssel.",
@@ -745,4 +745,11 @@ export default {
   "bst.g.excluded": "Ohne Provision: {label}",
   "bst.g.pp": "{amount} / Kunde",
   "bst.g.base": "normal: {value}",
+  // v129 : lot 4, accueil du guide et partage
+  "gh.wait": "+ ≈ {amount} warten auf die Partner",
+  "gh.news": "Neuigkeiten",
+  "gh.nostay": "Gerade keine Kunden vor Ort.",
+  "gh.send": "An den Kunden senden",
+  "gh.more": "Weitere Optionen",
+  "gh.tap": "Tippe auf eine Provision, um den Stand zu sehen.",
 };

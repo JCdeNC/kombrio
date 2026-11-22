@@ -2,7 +2,7 @@
 import { t, tRaw, getLang } from '../i18n.js';
 import { esc, money, cents, locale, fmtDay, fmtMoment, todayIn, addDays, stayIsValid, qrSvg, appLink, notify, validCpf, validCnpj, onlyDigits, maskCadastur, validCadastur, validPixKey, phoneField, phoneValue } from '../util.js';
 import * as store from '../store.js';
-import { validity, statusBadge, guideAmounts, notFound, termsGateView, forgotLink, mountForgot, resetView, lastMonths, shortMonth, monthKeyOf, delta, barChart, appTabs } from './shared.js';
+import { validity, statusBadge, guideAmounts, notFound, termsGateView, forgotLink, mountForgot, resetView, lastMonths, shortMonth, monthKeyOf, delta, barChart, appTabs, iosBack } from './shared.js';
 import { maskTaxId, fmtTaxId, qrCardBlob, shareOrDownload, photoToJpeg, weekdayList } from '../util.js';
 import { helpButton, problemLink, mountHelp, topicLabel, alertStatus } from './help.js';
 import { installView, installCard, mountInstallCard, installEnv } from './install.js';
@@ -312,13 +312,13 @@ async function dashboardView(me, city, tab = 'inicio', focus = '') {
   // Une commission.
   const txRow = (v) => {
     const sh = shareOf(v); const a = alertOf(v.id);
-    return `<div class="g-tx" data-p="${esc(v.partnerId)}" data-s="${esc(v.status)}">
-      <div class="spread"><span><b>${esc(pname(v.partnerId))}</b> · ${esc(stayOf(v.stayId)?.client || '')}${v.parentVisitId && stayOf(v.stayId)?.owner ? ` <span class="hint">(${t('g.line.via', { name: esc(stayOf(v.stayId).owner) })})</span>` : ''}<br>
-        <span class="hint">${fmtDay(v.at.slice(0, 10), lang)} · ${esc(store.visitRef(v))} · ${t('stay.people', { n: v.peopleServed })}${v.direct ? ` · ${t('vd.tag')}` : ''}${v.guidePresent ? ` · ${t('rs.present')}` : ''}${v.guideMeal ? ` · ${t('rs.meal.tag')}` : ''}${v.noCommission ? ` · <b class="bo-tag">${t('bo.tag')}</b>${v.noCommissionNote ? ` (${esc(v.noCommissionNote)})` : ''}` : ''}${v.computedCents != null && v.declaredCents != null && v.declaredCents < v.computedCents ? ` · ${t('g.reduced')}` : ''}</span></span>
-        <span class="g-amt">${sh == null ? `<span class="hint">${t('g.amt.none')}</span>` : CASHED.includes(v.status) ? `<b>${cur(sh)}</b>` : `<b>≈ ${cur(sh)}</b><br><span class="hint">${t('g.amt.est')}</span>`}</span></div>
+    return `<details class="g-tx" data-p="${esc(v.partnerId)}" data-s="${esc(v.status)}">
+      <summary class="spread"><span><b>${esc(pname(v.partnerId))}</b> · ${esc(stayOf(v.stayId)?.client || '')}${v.parentVisitId && stayOf(v.stayId)?.owner ? ` <span class="hint">(${t('g.line.via', { name: esc(stayOf(v.stayId).owner) })})</span>` : ''}<br>
+        <span class="hint">${fmtDay(v.at.slice(0, 10), lang)} · ${esc(store.visitRef(v))} · ${t('stay.people', { n: v.peopleServed })}${v.direct ? ` · ${t('vd.tag')}` : ''}${v.guidePresent ? ` · ${t('rs.present')}` : ''}${v.guideMeal ? ` · ${t('rs.meal.tag')}` : ''}${v.noCommission ? ` · <b class="bo-tag">${t('bo.tag')}</b>${v.noCommissionNote ? ` (${esc(v.noCommissionNote)})` : ''}` : ''}${v.computedCents != null && v.declaredCents != null && v.declaredCents < v.computedCents ? ` · ${t('g.reduced')}` : ''}</span><span class="g-pill">${statusBadge(v)}</span></span>
+        <span class="g-amt">${sh == null ? `<span class="hint">${t('g.amt.none')}</span>` : CASHED.includes(v.status) ? `<b>${cur(sh)}</b>` : `<b>≈ ${cur(sh)}</b><br><span class="hint">${t('g.amt.est')}</span>`}</span></summary>
       ${tracker(v)}
       <div class="g-tx-f">${a ? `<span class="badge">${t('alert.short', { num: a.num, status: alertStatus(a.status) })}</span>` : problemLink(v.id)}</div>
-    </div>`;
+    </details>`;
   };
   const txCard = (title, list, more) => `<div class="card g-card"><div class="spread"><h2 style="margin:0">${title}</h2>${more || ''}</div>
       ${list.length ? list.map(txRow).join('') : `<p class="hint">${t('g.tx.none')}</p>`}</div>`;
@@ -361,7 +361,7 @@ async function dashboardView(me, city, tab = 'inicio', focus = '') {
 
   // À faire (cases à cocher gardées sur l'appareil).
   const dk = gDoneKey(me.id); const done = readDone(dk);
-  const startHtml = tab === 'inicio' ? startCard('guide', me.id, guideSteps({ me, stays, pixOk })) : '';   // v113
+  const startHtml = tab === 'inicio' ? startCard('guide', me.id, guideSteps({ me, stays, pixOk }), { collapsed: true }) : '';   // v113 ; v129 : replié
   const todo = [];
   if (!pixOk) todo.push([`pix-${me.pixKeyVersion}`, t(openCheck ? 'g.todo.pixconfirm' : 'g.todo.pix')]);
   toConfirm.forEach((p) => todo.push([`po-${p.id}`, t('g.todo.payout', { amount: cur(p.cents) })]));
@@ -487,16 +487,30 @@ async function dashboardView(me, city, tab = 'inicio', focus = '') {
         <p class="hint">${t('g.docs.hint')}</p></div>
       ${me.code ? `<p class="hint">${t('guide.code')} <b>${esc(me.code)}</b></p>` : ''}`;
 
+  // v129 (refonte iOS, lot 4) : accueil sur un écran — le prochain virement en haut, les clients en séjour (QR en un
+  // toucher), les 3 dernières nouvelles, « Para começar » replié. Le détail (suivi, virements, graphiques) est dans Ganhos.
+  const heroG = `<a class="pay-hero g-hero${blocked ? ' bad' : ''}" href="#/ganhos"><span class="pay-hero-l">${t('g.next.title')} · ${t(blocked ? 'g.next.blocked' : sum.available > 0 ? 'g.next.planned' : 'g.next.nothing')}</span>
+      <b class="pay-hero-n">${cur(Math.max(0, sum.available))}</b>
+      ${sum.expected ? `<span class="pay-hero-l">${t('gh.wait', { amount: cur(sum.expected) })}</span>` : ''}</a>`;
+  const nowStays = stays.filter((s) => !s.direct && !s.archivedAt && stayState(s) === 'active').sort((a, b) => (a.end < b.end ? -1 : 1));
+  const staysNow = `<h2 class="ios-sec">${t('g.qr.active')}</h2><ul class="ios-list">${nowStays.length ? nowStays.map((s) => `<li><a href="#/sejour/${encodeURIComponent(s.id)}">
+      <span class="ios-lbl"><b>${esc(s.client)}</b><small class="ios-sub-l">${t('stay.people', { n: s.people })} · ${t('g.qr.until')} ${fmtDay(s.end, lang)}</small></span>
+      <span class="ios-qr" aria-hidden="true">QR</span><span class="ios-chev" aria-hidden="true">›</span></a></li>`).join('')
+    : `<li><a href="#/clientes/novo"><span class="ios-lbl">＋ ${t('g.qr.new')}<small class="ios-sub-l">${t('gh.nostay')}</small></span><span class="ios-chev" aria-hidden="true">›</span></a></li>`}</ul>`;
+  const newsList = visits.length ? `<h2 class="ios-sec">${t('gh.news')}</h2><ul class="ios-list">${visits.slice(0, 3).map((v) => { const sh = shareOf(v);
+    return `<li><a href="#/ganhos"><span class="ios-lbl">${esc(pname(v.partnerId))} · ${esc(stayOf(v.stayId)?.client || '')}<small class="ios-sub-l">${fmtDay(v.at.slice(0, 10), lang)} · ${statusBadge(v)}</small></span>
+      <span class="ios-val">${sh == null ? '' : `${CASHED.includes(v.status) ? '' : '≈ '}${cur(sh)}`}</span><span class="ios-chev" aria-hidden="true">›</span></a></li>`; }).join('')}</ul>` : '';
+  const refRow = me.referralEnabled ? `<ul class="ios-list" style="margin-top:14px"><li><a href="#/indicacao"><span class="ios-lbl">${t('ref.card.title')}<small class="ios-sub-l">${t('ref.card.hint')}</small></span><span class="ios-chev" aria-hidden="true">›</span></a></li></ul>` : '';
   const recent = visits.slice(0, 5);
   const body = {
-    inicio: `${kpis}<div class="pd-cols"><div class="pd-side">${txCard(t('g.recent'), recent, visits.length > 5 ? `<a href="#/ganhos">${t('g.seeall')}</a>` : '')}
-        ${staysCard(stays.filter((s) => stayState(s) !== 'done' && !s.archivedAt).slice(0, 4), false)}</div>
-      <div class="pd-side">${todoCard}${blackCard}${nextCard}${chartCard}${partnersCard}${me.referralEnabled ? `<a class="card" href="#/indicacao" style="display:block;text-decoration:none;color:inherit"><b>${t('ref.card.title')}</b><span class="hint" style="display:block">${t('ref.card.hint')}</span></a>` : ''}</div></div>`,
-    clientes: `<div class="pd-cols"><div class="pd-side">${staysCard(stays, true)}${linkedCard}</div><div class="pd-side">${newStayForm}${blackCard}${incCard}${offersCard}</div></div>`,
-    ganhos: `${kpis}<div class="pd-cols"><div class="pd-side"><div class="card g-card"><div class="spread"><h2 style="margin:0">${t('g.all')}</h2>
-        <span class="hint">${t('guide.sum.note', { pct })}</span></div>${filters}<div id="g-list">${visits.length ? visits.map(txRow).join('') : `<p class="hint">${t('g.tx.none')}</p>`}</div></div></div>
-      <div class="pd-side">${nextCard}${adjCard}${payoutsCard}<a class="card" href="#/releve" style="display:block;text-decoration:none;color:inherit"><b>${t('guide.statement.title')}</b><span class="hint" style="display:block">${t('g.statement.hint')}</span></a></div></div>`,
-    conta: `<div class="pd-cols"><div class="pd-side">${contaBody}</div><div class="pd-side">${nextCard}<div class="card no-print"><h2>${t('g.session')}</h2>${logoutButton()}</div></div></div>`,
+    inicio: `${heroG}${staysNow}${newsList}${left ? todoCard : ''}${refRow}${startHtml || installCard('guide')}`,
+    clientes: focus === 'novo' ? `<div class="ios-sub">${newStayForm}</div>` : `<a class="qr-new" href="#/clientes/novo"><span class="qr-new-plus">+</span><span><b>${t('g.qr.new')}</b><small>${t('g.qr.new.hint')}</small></span></a>
+      <div class="pd-cols"><div class="pd-side">${staysCard(stays, true)}${linkedCard}</div><div class="pd-side">${blackCard}${incCard}${offersCard}</div></div>`,
+    ganhos: `${heroG}<div class="pd-cols"><div class="pd-side"><div class="card g-card"><div class="spread"><h2 style="margin:0">${t('g.all')}</h2>
+        <span class="hint">${t('guide.sum.note', { pct })}</span></div>${filters}<div id="g-list">${visits.length ? visits.map(txRow).join('') : `<p class="hint">${t('g.tx.none')}</p>`}</div>
+        ${visits.length ? `<p class="hint" style="margin:8px 0 0">${t('gh.tap')}</p>` : ''}</div></div>
+      <div class="pd-side">${nextCard}${adjCard}${payoutsCard}<a class="card" href="#/releve" style="display:block;text-decoration:none;color:inherit"><b>${t('guide.statement.title')}</b><span class="hint" style="display:block">${t('g.statement.hint')}</span></a>${chartCard}${partnersCard}</div></div>`,
+    conta: `<div class="pd-cols"><div class="pd-side">${contaBody}</div><div class="pd-side"><div class="card no-print"><h2>${t('g.session')}</h2>${logoutButton()}</div></div></div>`,
   }[tab];
 
   const counts = { inicio: todo.filter(([k]) => !done.has(k)).length, clientes: soonStays.length, ganhos: toConfirm.length, conta: !pixOk ? 1 : 0 };
@@ -505,10 +519,11 @@ async function dashboardView(me, city, tab = 'inicio', focus = '') {
 
   return {
     html: `<div class="dash-wide">
-      <div class="spread"><div><h1 style="margin-bottom:2px">${t('guide.hello', { name: me.name })}</h1>
-        <p class="hint" style="margin:0">${me.actorKind && me.actorKind !== 'guide' ? `<span class="badge">${t(`role.${me.actorKind}`)}</span> ` : ''}${esc(city.name || '')}${me.code ? ` · ${esc(me.code)}` : ''}</p></div>
-        <div class="row" style="gap:6px">${helpButton()}</div></div>
-      ${nav}${tab === 'inicio' ? me.bcHtml || '' : ''}${banners}${tab === 'inicio' ? (startHtml || installCard('guide')) : ''}${body}</div>`,
+      ${tab === 'clientes' && focus === 'novo' ? `${iosBack('#/clientes', 'g.tab.clientes')}<div class="ios-head"><h1 class="ios-title">${t(company ? 'stay.group.new' : 'guide.stay.new')}</h1></div>`
+        : `<div class="spread ios-top"><div class="ios-head"><h1 class="ios-title">${tab === 'inicio' ? t('guide.hello', { name: me.name }) : t(`g.tab.${tab}`)}</h1>
+        ${tab === 'inicio' || tab === 'conta' ? `<p class="hint" style="margin:0">${me.actorKind && me.actorKind !== 'guide' ? `<span class="badge">${t(`role.${me.actorKind}`)}</span> ` : ''}${esc(city.name || '')}${me.code ? ` · ${esc(me.code)}` : ''}</p>` : ''}</div>
+        <div class="row">${helpButton()}</div></div>`}
+      ${nav}${tab === 'inicio' ? me.bcHtml || '' : ''}${banners}${body}</div>`,
     mount(root, ctx) {
       mountInstallCard(root);
       mountStartCard(root);
@@ -549,7 +564,7 @@ async function dashboardView(me, city, tab = 'inicio', focus = '') {
       if (weekly) weekly.onchange = async (e) => { await store.setWeeklyPayout(e.target.checked); ctx.refresh(tRaw('common.saved')); };
       const form = root.querySelector('#new-stay');
       // design v2 : « Novo cliente » depuis le bouton QR : le formulaire s'ouvre directement, curseur dans le nom.
-      if (form && focus === 'novo') { form.scrollIntoView({ block: 'start' }); window.scrollBy(0, -12); setTimeout(() => form.client.focus(), 250); }
+      if (form && focus === 'novo') setTimeout(() => form.client.focus(), 250);
       if (form) form.onsubmit = async (e) => {
         e.preventDefault();
         const f = Object.fromEntries(new FormData(e.target));
@@ -834,26 +849,28 @@ async function stayView(me, city, stayId) {
 
   return {
     html: `
-      <p><a href="#/">← ${t('guide.back')}</a></p>
+      ${iosBack('#/clientes', 'guide.back')}
       ${stayBlackoutCard(partners, stay.start, stay.end, true)}
       <div class="card">
         <div class="spread"><h1>${esc(stay.client)}</h1>${validity(stay, valid, lang)}</div>
         <p class="hint">${t('stay.people', { n: stay.people })} · ${fmtDay(stay.start, lang)} → ${fmtDay(stay.end, lang)}</p>
         <div class="qr">${qrSvg(scanLink)}</div>
         <p class="hint" style="text-align:center">${t('guide.stay.qr.hint')}${stay.code ? `<br>${t('gg.client.code', { code: stay.code })}` : ''}</p>
-        ${valid && !stay.direct ? `<button type="button" class="btn block" id="ggopen" style="margin-bottom:10px">${t('gg.open')}</button>
-          <div id="ggbox" class="gg-box" hidden><div class="qr" id="ggqr"></div><p class="hint" id="gghint">${t('gg.hint')}</p>
-            <button type="button" class="btn ghost small" id="ggclose">${t('gg.close')}</button></div>` : ''}
-        <div class="row act-grid">
-          <a class="btn" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent(share)}">${t('guide.stay.whatsapp')}</a>
-          <button type="button" class="btn secondary" id="sendqr">${t('guide.stay.sendqr')}</button>
-          <button class="btn secondary" id="copy">${t('guide.stay.copy')}</button>
-          <a class="btn ghost" target="_blank" rel="noopener" href="${esc(clientLink)}">${t('guide.stay.preview')}</a>
-        </div>
-        <button type="button" class="btn block secondary" id="showcl" style="margin-top:10px">${t('guide.stay.showcl')}</button>
+        <button type="button" class="btn block" id="gsend">${t('gh.send')}</button>
+        <button type="button" class="btn block secondary" id="showcl" style="margin-top:8px">${t('guide.stay.showcl')}</button>
         <div id="clbox" class="gg-box" hidden><div class="qr">${qrSvg(clientLink)}</div>
           <p class="hint" style="text-align:center">${t('guide.stay.showcl.hint')}</p>
           <button type="button" class="btn ghost small" id="clclose">${t('gg.close')}</button></div>
+        <details class="rs-more g-more" id="gmore"><summary>${t('gh.more')}</summary>
+          ${valid && !stay.direct ? `<button type="button" class="btn block secondary" id="ggopen" style="margin:10px 0">${t('gg.open')}</button>
+            <div id="ggbox" class="gg-box" hidden><div class="qr" id="ggqr"></div><p class="hint" id="gghint">${t('gg.hint')}</p>
+              <button type="button" class="btn ghost small" id="ggclose">${t('gg.close')}</button></div>` : ''}
+          <div class="row act-grid">
+            <a class="btn secondary" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent(share)}">${t('guide.stay.whatsapp')}</a>
+            <button type="button" class="btn secondary" id="sendqr">${t('guide.stay.sendqr')}</button>
+            <button type="button" class="btn secondary" id="copy">${t('guide.stay.copy')}</button>
+            <a class="btn ghost" target="_blank" rel="noopener" href="${esc(clientLink)}">${t('guide.stay.preview')}</a>
+          </div></details>
       </div>
       ${canLink ? splitCard(split, city, lang) : `<div class="card">
         <h2>${t('guide.stay.visits')}</h2>
@@ -894,6 +911,14 @@ async function stayView(me, city, stayId) {
         ggOpen.onclick = () => { box.hidden = false; ggOpen.hidden = true; refresh(); clearInterval(timer); timer = setInterval(refresh, 50000); };
         root.querySelector('#ggclose').onclick = () => { box.hidden = true; ggOpen.hidden = false; clearInterval(timer); };
       }
+      // v129 (lot 4) : un seul bouton « Enviar ao cliente » = feuille de partage du téléphone (WhatsApp, e-mail, mensagens…).
+      // Sans feuille de partage (ordinateur ancien), « Mais opções » s'ouvre avec les anciens boutons.
+      root.querySelector('#gsend').onclick = async () => {
+        if (navigator.share) {
+          try { await navigator.share({ title: stay.client, text: share }); return; } catch (e) { if (e && e.name === 'AbortError') return; }
+        }
+        const more = root.querySelector('#gmore'); more.open = true; more.scrollIntoView({ block: 'center' });
+      };
       root.querySelector('#sendqr').onclick = async () => {
         const blob = await qrCardBlob(scanLink, {
           title: stay.client, line1: tRaw('client.valid.until', { end: fmtDay(stay.end, lang) }), line2: tRaw('guide.stay.qr.hint'),

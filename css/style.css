@@ -1104,3 +1104,20 @@ body.ios [data-ask].ghost { background: #fff; border: 1px solid var(--line); col
 /* v128 (lot 3) : sous-page d'Ajustes : le grand titre suffit, le titre de la carte en double disparaît. */
 .ios-sub > .card:first-child > h2:first-child, .ios-sub > form.card:first-child > h2:first-child { display: none; }
 .ios-sub > .card:first-child > .spread:first-child > h2 { font-size: 1rem; }
+/* v129 (lot 4) : app Guide — accueil (carte « Próximo repasse », clients en séjour, nouvelles), commissions repliées. */
+a.g-hero { text-decoration: none; }
+.ios-sub-l { display: block; color: var(--muted); font-size: .86rem; margin-top: 2px; }
+.ios-sub-l .badge { font-size: .72rem; vertical-align: 1px; }
+.ios-qr { flex: none; margin-left: 10px; padding: 4px 9px; border-radius: 8px; background: var(--ok-bg); color: var(--brand); font-weight: 700; font-size: .8rem; }
+details.g-tx > summary { list-style: none; cursor: pointer; flex-wrap: nowrap; align-items: flex-start; }
+details.g-tx > summary::-webkit-details-marker { display: none; }
+details.g-tx > summary > span:first-child { flex: 1; min-width: 0; }
+details.g-tx .g-amt { text-align: right; margin-left: 10px; }
+details.g-tx:not([open]) .g-trk, details.g-tx:not([open]) .g-dev, details.g-tx:not([open]) .g-tx-f { display: none; }
+details.g-tx[open] > summary { margin-bottom: 8px; }
+.g-pill { display: inline-block; margin-top: 4px; }
+.g-more > summary { margin-top: 10px; }
+.g-more .act-grid { margin-top: 10px; }
+body.ios .qr-new { margin-bottom: 16px; }
+details.g-tx .g-amt { flex: none; max-width: 42%; }
+details.g-tx .g-pill { display: block; margin-top: 4px; }

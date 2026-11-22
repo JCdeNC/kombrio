@@ -705,7 +705,7 @@ export default {
   'tu.g.client.1': "Tap the QR button in the middle of the bar.",
   'tu.g.client.2': "Choose “New client”.",
   'tu.g.client.3': "Client name, number of people and stay dates, then “Create the QR”.",
-  'tu.g.client.4': "Send the QR to the client on WhatsApp.",
+  'tu.g.client.4': "Tap “Send to the client” and choose WhatsApp, email or messages.",
   'tu.g.client.5': "At the partner, the client shows the QR: the visit is recorded under your name.",
   'tu.g.pix': "Confirm your Pix key",
   'tu.g.pix.1': "Kombrio sends a R$ 1.00 Pix to your key.",
@@ -755,4 +755,11 @@ export default {
   "bst.g.excluded": "Not commissioned: {label}",
   "bst.g.pp": "{amount} / client",
   "bst.g.base": "usual: {value}",
+  // v129 : lot 4, accueil du guide et partage
+  "gh.wait": "+ ≈ {amount} waiting for partners",
+  "gh.news": "Latest news",
+  "gh.nostay": "No client staying right now.",
+  "gh.send": "Send to the client",
+  "gh.more": "More options",
+  "gh.tap": "Tap a commission to see where it stands.",
 };

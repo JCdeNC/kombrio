@@ -123,7 +123,7 @@ export async function qrCardBlob(text, { title, line1, line2 }) {
   const qr = window.qrcode(0, 'M'); qr.addData(text); qr.make();
   const n = qr.getModuleCount(), size = 760, cell = Math.floor(size / (n + 4)), qs = cell * (n + 4);
   const x0 = (W - qs) / 2, y0 = 400;
-  g.fillStyle = '#fff'; g.beginPath(); g.roundRect(x0 - 20, y0 - 20, qs + 40, qs + 40, 32); g.fill();
+  g.fillStyle = '#fff'; g.beginPath(); if (g.roundRect) g.roundRect(x0 - 20, y0 - 20, qs + 40, qs + 40, 32); else g.rect(x0 - 20, y0 - 20, qs + 40, qs + 40); g.fill();   // v129 : roundRect absent avant iOS 16 / Chrome 99
   g.fillStyle = '#102C38';
   for (let r = 0; r < n; r += 1) for (let k = 0; k < n; k += 1) if (qr.isDark(r, k)) g.fillRect(x0 + (k + 2) * cell, y0 + (r + 2) * cell, cell, cell);
   g.font = '500 34px "DM Sans", sans-serif'; g.fillStyle = '#5B6F78'; g.fillText(line2, W / 2, y0 + qs + 80, W - 120);

@@ -206,6 +206,8 @@ const ICON_PATHS = {
 };
 // items : [{ href, label, short, icon, on, count, center, desk, attrs }] (attrs : attributs en plus, ex. data-help-open)
 // design v2 : center = gros bouton rond au milieu de la barre (comme « Pagar » des apps de transport) pour l'action QR.
+// v129 : retour façon iOS, en haut à gauche (« ‹ Clientes »).
+export const iosBack = (href, key) => `<a class="ios-back no-print" href="${href}"><span aria-hidden="true">‹</span> ${t(key)}</a>`;
 export function appTabs(items) {
   return `<nav class="tabs apptabs no-print">${items.map((x) => `<a href="${x.href}" class="${x.on ? 'on' : ''}${x.center ? ' at-center' : ''}${x.desk ? ' at-desk' : ''}"${x.on ? ' aria-current="page"' : ''}${x.attrs ? ` ${x.attrs}` : ''}>
     ${x.center ? `<span class="atc"><svg viewBox="0 0 24 24" aria-hidden="true">${ICON_PATHS[x.icon] || ''}</svg></span>` : `<svg class="ati" viewBox="0 0 24 24" aria-hidden="true">${ICON_PATHS[x.icon] || ''}</svg>`}<span class="atl">${x.label}</span><span class="ats">${x.short || x.label}</span>${x.count ? `<span class="todo">${x.count}</span>` : ''}</a>`).join('')}</nav>`;

@@ -110,7 +110,7 @@ async function render() {
   // v87 : barre d'onglets fixée en bas sur téléphone → place réservée en bas de page.
   document.body.classList.toggle('has-apptabs', !!root.querySelector('.apptabs'));
   // v127 : refonte iOS (lots 1 et 2) — style façon iPhone, pour l'instant dans l'app Partenaire seulement.
-  document.body.classList.toggle('ios', APP === 'partner');
+  document.body.classList.toggle('ios', APP === 'partner' || APP === 'guide');   // v129 : app Guide aussi
   window.scrollTo(0, 0);
   // v62 : barre d'onglets qui défile (téléphone) — l'onglet ouvert toujours entièrement visible, et une ombre
   // à droite ou à gauche tant qu'il reste des onglets cachés.

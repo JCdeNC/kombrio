@@ -2179,7 +2179,7 @@ export default {
   'tu.g.client.1': "Toque no botão QR, no centro da barra.",
   'tu.g.client.2': "Escolha « Novo cliente ».",
   'tu.g.client.3': "Nome do cliente, número de pessoas e datas da estadia, depois « Criar o QR ».",
-  'tu.g.client.4': "Envie o QR ao cliente pelo WhatsApp.",
+  'tu.g.client.4': "Toque em « Enviar ao cliente » e escolha WhatsApp, e-mail ou mensagem.",
   'tu.g.client.5': "No parceiro, o cliente mostra o QR: a visita fica registrada no seu nome.",
   'tu.g.pix': "Confirmar sua chave Pix",
   'tu.g.pix.1': "A Kombrio envia um Pix de R$ 1,00 para a sua chave.",
@@ -2691,4 +2691,11 @@ export default {
   "aj.c.tc": "Tour Companies e agências",
   "aj.c.bonus": "Bônus e refeição grátis",
   "aj.c.wizard": "Assistente (5 perguntas)",
+  // v129 : lot 4, accueil du guide et partage
+  "gh.wait": "+ ≈ {amount} aguardando os parceiros",
+  "gh.news": "Últimas novidades",
+  "gh.nostay": "Nenhum cliente em estadia agora.",
+  "gh.send": "Enviar ao cliente",
+  "gh.more": "Mais opções",
+  "gh.tap": "Toque numa comissão para ver o caminho dela.",
 };
