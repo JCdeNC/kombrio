@@ -950,3 +950,20 @@ span.st-tick { cursor: default; }
 .bo-today .bo-ico { background: #D64545; }
 .bo-tag { color: #9E2B2B; }
 .bo-stay { border: 1.5px solid #F6B73C; }
+
+/* v120 : Minha empresa (groupe géré par le patron) et horaires des jours sans commission */
+.co-list .co-m { display: block; }
+.co-badges { display: inline-flex; flex-wrap: wrap; gap: 4px; justify-content: flex-end; }
+.co-act { gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+.co-choice { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+.co-choice .btn { flex: 1 1 140px; }
+.co-choice .btn.on { background: var(--brand); color: var(--brand-ink); border-color: var(--brand); }
+.co-mode { border: 0; padding: 0; margin: 0 0 12px; }
+.co-mode legend { font-weight: 600; margin-bottom: 6px; }
+.co-opt { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius-btn); margin-bottom: 8px; cursor: pointer; font-weight: 400; }
+.co-opt input { margin-top: 4px; flex: none; width: auto; }
+.co-big, .co-code { font-family: ui-monospace, Menlo, monospace; letter-spacing: .18em; font-weight: 700; }
+.co-big { font-size: 1.8rem; margin: 6px 0; color: var(--ink); }
+.co-made { margin-top: 12px; }
+.bo-hours { gap: 10px; flex-wrap: wrap; }
+.bo-hours .field { flex: 1 1 140px; }

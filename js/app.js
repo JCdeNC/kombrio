@@ -9,7 +9,7 @@ import { homeView } from './views/home.js';
 import { guideView } from './views/guide.js';
 import { clientView, clientHome, privacyView } from './views/client.js';
 import { scanView } from './views/scan.js';
-import { partnerView, partnerHome, reportView, activateView, signupView, termsView, staffEnrollView, groupQrView } from './views/partner.js';
+import { partnerView, partnerHome, reportView, activateView, signupView, termsView, staffEnrollView, groupQrView, companyInviteRoute } from './views/partner.js';
 import { installView } from './views/install.js';
 import { tutoView } from './views/tuto.js';
 import { adminView } from './views/admin.js';
@@ -22,7 +22,7 @@ const ICON = new URL('../icon.svg', import.meta.url).href;
 const APPS = {
   hub: { routes: { '': homeView }, lang: 'fr' },
   client: { routes: { '': clientHome, c: clientView, privacidade: privacyView }, lang: 'client' },
-  partner: { routes: { '': partnerHome, s: scanView, p: partnerView, r: reportView, ativar: activateView, termos: termsView, parceria: signupView, equipe: staffEnrollView, gg: groupQrView, instalar: installView, tuto: tutoView }, lang: 'pt' },
+  partner: { routes: { '': partnerHome, s: scanView, p: partnerView, r: reportView, ativar: activateView, termos: termsView, parceria: signupView, equipe: staffEnrollView, gg: groupQrView, grupo: companyInviteRoute, instalar: installView, tuto: tutoView }, lang: 'pt' },
   guide: { routes: { '': guideView }, lang: 'pt', all: true },
   admin: { routes: { '': adminView }, lang: 'fr', langs: ['fr', 'pt'], all: true },
   verify: { routes: { '': verifyView }, lang: 'pt', all: true },

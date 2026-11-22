@@ -13,6 +13,7 @@ import { helpButton, problemLink, mountHelp, topicLabel, alertStatus } from './h
 import { installCard, mountInstallCard, installEnv } from './install.js';
 import { startCard, mountStartCard, partnerSteps } from './start.js';
 import { blackoutCard, mountBlackoutCard, blackoutToday } from './blackouts.js';
+import { companyEntryCard, companyView, groupInviteView } from './company.js';
 
 const MAX_RECEIPT = 1.5 * 1024 * 1024;
 export const TERMS_VERSION = 'P-2 · 16/11/2026';   // v74 (v1 · 30/10/2026 avant)
@@ -224,7 +225,8 @@ async function partnerViewCore([token, action, visitId], ctx) {
   space.nfse = space.role === 'manager' ? await store.partnerNfseList(token) : [];   // v97 : Document B
   if (space.role === 'manager' && action === 'equipe') space.team = await store.staffList(token).catch(() => []);
   space.blackouts = await store.partnerBlackouts(token).catch(() => null);   // v118 : jours sans commission
-  todayBo = blackoutToday(space.blackouts, todayIn(space.city.timezone));
+  todayBo = blackoutToday(space.blackouts, todayIn(space.city.timezone),
+    new Intl.DateTimeFormat('en-GB', { timeZone: space.city.timezone, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date()));
   // v95 : loja d'un groupe (ex. Pierim) : tableau du groupe, changement de loja, Pix unique.
   space.group = space.role === 'manager' && space.partner.groupId ? await store.groupSpace(token).catch(() => null) : null;
 
@@ -265,6 +267,7 @@ async function partnerViewCore([token, action, visitId], ctx) {
   if (action === 'declarar') return declareManyView(space);
   if (action === 'pagar') return payView(space);
   if (action === 'grupo' && space.group) return groupView(space);
+  if (action === 'empresa') return companyView(space, visitId || '', ctx);   // v120 : Minha empresa
   if (action === 'relatorio') return reportPage(space, visitId);
   if (action === 'mes') return monthPage(space, visitId, space.closings);
   if (action === 'demonstrativo') return docPage(space, visitId, space.closings, `#/p/${encodeURIComponent(token)}/pagamentos`);
@@ -961,7 +964,7 @@ export function spaceView(space, tab = 'painel') {
         <p class="hint" style="margin:0 0 8px">${t('offer.days.hint')}</p>
         <button class="btn secondary">${t('common.save')}</button>
       </form>
-      ${tab === 'config' ? blackoutCard(space) : ''}
+      ${tab === 'config' ? companyEntryCard(space) + blackoutCard(space) : ''}
       <div class="card" style="text-align:center">
         <h2>${t('partner.qr.title')}</h2>
         ${partner.counterEnabled ? '' : `<div class="notice warn">${t('team.counter.off')}</div>`}
@@ -1212,7 +1215,8 @@ function groupBar({ group, key }) {
   if (!group) return '';
   return `<div class="grp-bar no-print"><b>${t('grp.bar', { name: group.group.name })}</b>
     <select id="grp-switch" aria-label="${esc(tRaw('grp.switch'))}">${group.members.map((m) => `<option value="${esc(m.managerToken)}"${m.managerToken === key ? ' selected' : ''}>${esc(m.name)}</option>`).join('')}</select>
-    <a class="btn ghost small" href="#/p/${encodeURIComponent(key)}/grupo">${t('grp.open')}</a></div>`;
+    <a class="btn ghost small" href="#/p/${encodeURIComponent(key)}/grupo">${t('grp.open')}</a>
+    <a class="btn ghost small" href="#/p/${encodeURIComponent(key)}/empresa">${t('co.title')}</a></div>`;
 }
 function mountGroupBar(root) {
   const sel = root.querySelector('#grp-switch');
@@ -1814,6 +1818,9 @@ function mountTeam(r, ctx, key) {
     catch { cb.disabled = false; notify(tRaw('err.generic')); }
   };
 }
+
+// v120 : lien d'invitation « Minha empresa » (#/grupo/CODE).
+export const companyInviteRoute = (params, ctx) => groupInviteView(params, ctx, ME_KEY);
 
 // v67 : QR « Guia + grupo » lu par l'appareil photo du téléphone : la fiche s'ouvre avec le guide et le groupe.
 export async function groupQrView([tok = ''], ctx) {

@@ -9,6 +9,9 @@ const iso = (d) => d.toISOString().slice(0, 10);
 const todayStr = () => iso(new Date(Date.now() - 3 * 36e5));   // Rio ≈ UTC−3
 const shiftMonth = (m, k) => { const [y, mo] = m.split('-').map(Number); return iso(new Date(Date.UTC(y, mo - 1 + k, 1))).slice(0, 7); };
 const monthTitle = (m, lang) => { const s = new Intl.DateTimeFormat(locale(lang), { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${m}-01T12:00:00Z`)); return s.charAt(0).toUpperCase() + s.slice(1); };
+// v120 : horaire facultatif (ex. soir de match à partir de 17:00). Vide = toute la journée.
+export const boTime = (b) => b.from && b.to ? tRaw('bo.range', { a: b.from, b: b.to }) : b.from ? tRaw('bo.from', { t: b.from }) : b.to ? tRaw('bo.until', { t: b.to }) : '';
+const boWhen = (b, today, lang) => { const h = boTime(b); return `${b.day === today ? t('bo.today') : esc(dayShort(b.day, lang))}${h ? ` · ${esc(h)}` : ''}`; };
 const dayShort = (day, lang) => new Intl.DateTimeFormat(locale(lang), { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' }).format(new Date(`${day}T12:00:00Z`));
 
 // Lignes « jour sans commission » sous une fiche partenaire (page du client, app du guide).
@@ -17,7 +20,7 @@ export function blackoutLines(p, max = 3, forGuide = false) {
   if (!list.length) return '';
   const lang = getLang(); const today = todayStr();
   return `<div class="bo-lines">${list.map((b) => `<div class="bo-line${b.day === today ? ' bo-today' : ''}"><span class="bo-ico" aria-hidden="true">!</span>
-    <span><b>${b.day === today ? t('bo.today') : esc(dayShort(b.day, lang))}</b> · ${esc(b.note || tRaw(forGuide ? 'bo.default.guide' : 'bo.default'))}${forGuide && b.note ? ` <span class="hint">· ${t('bo.guide.nocom')}</span>` : ''}</span></div>`).join('')}
+    <span><b>${boWhen(b, today, lang)}</b> · ${esc(b.note || tRaw(forGuide ? 'bo.default.guide' : 'bo.default'))}${forGuide && b.note ? ` <span class="hint">· ${t('bo.guide.nocom')}</span>` : ''}</span></div>`).join('')}
     ${(p.blackouts || []).length > max ? `<div class="hint">${t('bo.more', { n: p.blackouts.length - max })}</div>` : ''}</div>`;
 }
 
@@ -31,6 +34,9 @@ export function blackoutCard(space) {
     <div class="bo-cal" id="bo-cal"></div>
     <div class="field"><label for="bo-note">${t('bo.p.note')}</label>
       <input id="bo-note" maxlength="160" required placeholder="${esc(tRaw('bo.p.note.ph'))}"></div>
+    <div class="row bo-hours"><div class="field"><label for="bo-from">${t('bo.p.from')}</label><input id="bo-from" type="time" step="900"></div>
+      <div class="field"><label for="bo-to">${t('bo.p.to')}</label><input id="bo-to" type="time" step="900"></div></div>
+    <p class="hint" style="margin:-4px 0 10px">${t('bo.p.hours.hint')}</p>
     ${inGroup ? `<label class="bo-all"><input type="checkbox" id="bo-all"><span>${t('bo.p.all', { name: space.group.group.name })}</span></label>` : ''}
     <button type="button" class="btn secondary" id="bo-save" disabled>${t('bo.p.save0')}</button>
     <div id="bo-list"></div>
@@ -41,7 +47,7 @@ export function mountBlackoutCard(root, ctx, space) {
   const card = root.querySelector('#bo-card');
   if (!card) return;
   const lang = getLang(); const today = todayStr();
-  const have = new Map((space.blackouts || []).map((b) => [b.day, b.note]));
+  const have = new Map((space.blackouts || []).map((b) => [b.day, b]));
   const sel = new Set();
   let month = today.slice(0, 7);
   const cal = card.querySelector('#bo-cal'); const save = card.querySelector('#bo-save');
@@ -56,7 +62,7 @@ export function mountBlackoutCard(root, ctx, space) {
       const day = `${month}-${String(d).padStart(2, '0')}`;
       const past = day < today;
       cells += `<button type="button" class="bo-d${have.has(day) ? ' bo-on' : ''}${sel.has(day) ? ' bo-sel' : ''}${day === today ? ' bo-now' : ''}" data-day="${day}"${past ? ' disabled' : ''}
-        title="${esc(have.has(day) ? (have.get(day) || tRaw('bo.default')) : '')}">${d}</button>`;
+        title="${esc(have.has(day) ? [boTime(have.get(day)), have.get(day).note || tRaw('bo.default')].filter(Boolean).join(' · ') : '')}">${d}</button>`;
     }
     cal.innerHTML = `<div class="bo-head"><button type="button" class="btn ghost small" data-m="-1"${month <= today.slice(0, 7) ? ' disabled' : ''} aria-label="‹">‹</button>
       <b>${esc(monthTitle(month, lang))}</b><button type="button" class="btn ghost small" data-m="1" aria-label="›">›</button></div>
@@ -73,9 +79,9 @@ export function mountBlackoutCard(root, ctx, space) {
     }; });
   };
   const list = () => {
-    const rows = [...have.entries()].filter(([d]) => d >= today).sort();
+    const rows = [...have.entries()].filter(([d]) => d >= today).sort((x, y) => x[0].localeCompare(y[0]));
     card.querySelector('#bo-list').innerHTML = rows.length ? `<h3 style="margin:14px 0 6px">${t('bo.p.next')}</h3><ul class="list">${rows.map(([d, n]) => `<li class="spread" data-bo-day="${d}">
-      <span><b>${esc(dayShort(d, lang))}</b><br><span class="hint">${esc(n || tRaw('bo.default'))}</span></span>
+      <span><b>${esc(dayShort(d, lang))}${boTime(n) ? ` · ${esc(boTime(n))}` : ''}</b><br><span class="hint">${esc(n.note || tRaw('bo.default'))}</span></span>
       <button type="button" class="btn ghost small" data-rm="${d}">${t('bo.p.remove')}</button></li>`).join('')}</ul>` : `<p class="hint" style="margin-top:10px">${t('bo.p.none')}</p>`;
     card.querySelectorAll('[data-rm]').forEach((b) => { b.onclick = async () => {
       const all = !!(card.querySelector('#bo-all') || {}).checked;
@@ -87,25 +93,30 @@ export function mountBlackoutCard(root, ctx, space) {
   save.onclick = async () => {
     const days = [...sel].sort(); const note = card.querySelector('#bo-note').value.trim();
     const all = !!(card.querySelector('#bo-all') || {}).checked;
+    const from = card.querySelector('#bo-from').value; const to = card.querySelector('#bo-to').value;
     if (!days.length) return;
     if (!note) { notify(tRaw('bo.p.note.req')); card.querySelector('#bo-note').focus(); return; }   // motif obligatoire
+    if (from && to && to <= from) { notify(tRaw('bo.p.time.err')); card.querySelector('#bo-to').focus(); return; }
     save.disabled = true;
     try {
-      const r = await store.addBlackouts(space.key, days, note, all);
+      const r = await store.addBlackouts(space.key, days, note, all, from, to);
       if (!r || !r.ok) throw new Error();
-      days.forEach((d) => have.set(d, note)); sel.clear();
+      days.forEach((d) => have.set(d, { day: d, note, from, to })); sel.clear();
       draw(); list(); save.textContent = tRaw('bo.p.save0');
-      notify(tRaw(all ? 'bo.p.saved.all' : 'bo.p.saved', { n: days.length }));
+      // v120 : « toutes les lojas » est réservé au responsável du groupe ; sinon seulement cette loja.
+      notify(tRaw(all && r.all_group === false ? 'bo.p.all.denied' : all ? 'bo.p.saved.all' : 'bo.p.saved', { n: days.length }));
     } catch { save.disabled = false; notify(tRaw('err.generic')); }
   };
   draw(); list();
 }
 
 // Bandeau « aujourd'hui sans commission » pour l'équipe et le gérant au moment du scan : motif à dire au client.
-export function blackoutToday(blackouts, today) {
+export function blackoutToday(blackouts, today, nowHm = '') {
   const b = (blackouts || []).find((x) => x.day === today);
   if (!b) return '';
-  return `<div class="notice bad bo-scan no-print"><b>${t('bo.scan.title')}</b><br>${t('bo.scan.reason', { note: b.note || tRaw('bo.default') })}<br><span class="hint">${t('bo.scan.text')}</span></div>`;
+  if (b.to && nowHm && nowHm >= b.to) return '';   // plage terminée
+  const later = b.from && nowHm && nowHm < b.from;   // pas encore commencée : avertissement en orange
+  return `<div class="notice ${later ? 'warn' : 'bad'} bo-scan no-print"><b>${t(later ? 'bo.scan.later' : 'bo.scan.title', { h: boTime(b) })}</b>${boTime(b) && !later ? ` <span>(${esc(boTime(b))})</span>` : ''}<br>${t('bo.scan.reason', { note: b.note || tRaw('bo.default') })}<br><span class="hint">${t(later ? 'bo.scan.later.text' : 'bo.scan.text')}</span></div>`;
 }
 
 // Jours sans commission pendant un séjour (du jour même à la fin) : page du client et fiche du séjour dans l'app du guide.
@@ -119,5 +130,5 @@ export function stayBlackoutCard(partners, from, to, forGuide = false) {
   return `<div class="card bo-stay"><h2 style="margin:0 0 4px">${t(forGuide ? 'bo.s.title' : 'bo.c.title')}</h2>
     <p class="hint">${t(forGuide ? 'bo.s.hint' : 'bo.c.hint')}</p>
     <div class="bo-lines">${rows.map(({ p, b }) => `<div class="bo-line${b.day === today ? ' bo-today' : ''}"><span class="bo-ico" aria-hidden="true">!</span>
-      <span><b>${esc(p.name)}</b> · <b>${b.day === today ? t('bo.today') : esc(dayShort(b.day, lang))}</b><br>${esc(b.note || tRaw(forGuide ? 'bo.default.guide' : 'bo.default'))}</span></div>`).join('')}</div></div>`;
+      <span><b>${esc(p.name)}</b> · <b>${boWhen(b, today, lang)}</b><br>${esc(b.note || tRaw(forGuide ? 'bo.default.guide' : 'bo.default'))}</span></div>`).join('')}</div></div>`;
 }

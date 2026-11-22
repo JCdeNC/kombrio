@@ -307,7 +307,11 @@ export async function setGuideStatus(guideId, status) {
 // Cercle Kombrio et Parceiro Fundador (v52) : réglages admin par partenaire (journalisés par le trigger d'audit).
 // v95 : groupes d'établissements (ex. Pierim, 3 lojas) ; Pix unique ('single') ou Pix par loja ('each').
 export async function listGroups() {
-  try { return check(await sb.from('partner_groups').select('*').order('name')).map((g) => ({ id: g.id, name: g.name, payMode: g.pay_mode })); } catch { return []; }
+  try { return check(await sb.from('partner_groups').select('*').order('name')).map((g) => ({ id: g.id, name: g.name, payMode: g.pay_mode, ownerId: g.owner_partner_id || null })); } catch { return []; }
+}
+// v120 : responsável du groupe (script 071), choisi par l'admin pour les groupes déjà créés.
+export async function setGroupOwner(groupId, partnerId) {
+  check(await sb.from('partner_groups').update({ owner_partner_id: partnerId || null }).eq('id', groupId));
 }
 export async function addGroup(name, payMode) {
   check(await sb.from('partner_groups').insert({ name: name.trim(), pay_mode: payMode }));
@@ -352,19 +356,46 @@ export async function publicPartners(cityId) {
   const black = bl.error ? [] : (bl.data || []);
   return check(rows).map((r) => ({
     ...r, offer: r.offer || '', offerPriceCents: num(r.offer_price_cents), offerPromoCents: num(r.offer_promo_cents), offerEnd: r.offer_end || '', offerDays: (r.offer_days || []).map(Number), j1Enabled: !!r.j1_enabled,
-    blackouts: black.filter((b) => b.partner_id === r.id).map((b) => ({ day: b.day, note: b.note || '' })) }));
+    blackouts: black.filter((b) => b.partner_id === r.id).map(toBlackout) }));
 }
-// v118 : jours sans commission (ex. jours de match), choisis par le gérant.
+// v118 : jours sans commission (ex. jours de match), choisis par le gérant. v120 : horaire facultatif (from/to, « HH:MM »).
+const toBlackout = (b) => ({ day: b.day, note: b.note || '', from: b.from || '', to: b.to || '' });
 export async function partnerBlackouts(token) {
   const { data, error } = await sb.rpc('partner_blackouts_list', { p_token: token });
-  return error ? null : (data || []).map((b) => ({ day: b.day, note: b.note || '' }));   // null = script 070 pas lancé
+  return error ? null : (data || []).map(toBlackout);   // null = script 070 pas lancé
 }
-export async function addBlackouts(managerToken, days, note, allGroup = false) {
-  return check(await sb.rpc('partner_blackouts_add', { p_manager_token: managerToken, p_days: days, p_note: note, p_all_group: allGroup }));
+export async function addBlackouts(managerToken, days, note, allGroup = false, from = '', to = '') {
+  const args = { p_manager_token: managerToken, p_days: days, p_note: note, p_all_group: allGroup };
+  if (from || to) { args.p_from = from || null; args.p_to = to || null; }   // seulement si une heure est choisie (marche aussi sans le script 071)
+  return check(await sb.rpc('partner_blackouts_add', args));
 }
 export async function removeBlackout(managerToken, day, allGroup = false) {
   return check(await sb.rpc('partner_blackouts_remove', { p_manager_token: managerToken, p_day: day, p_all_group: allGroup }));
 }
+/* ---------- v120 : « Minha empresa » (script 071) — le patron gère son groupe de lojas ---------- */
+export async function companySpace(managerToken) {
+  const { data: d, error } = await sb.rpc('company_space', { p_manager_token: managerToken });
+  if (error) return undefined;   // script 071 pas lancé
+  if (!d) return null;
+  return {
+    me: { id: d.me.id, name: d.me.name, ownership: d.me.ownership === 'franchise' ? 'franchise' : 'own', taxRoot: d.me.tax_root || '' },
+    group: d.group ? { id: d.group.id, name: d.group.name, payMode: d.group.pay_mode, isOwner: !!d.group.is_owner, hasOwner: !!d.group.has_owner, ownerName: d.group.owner_name || '' } : null,
+    members: (d.members || []).map((m) => ({ id: m.id, name: m.name, area: m.area || '', status: m.status, ownership: m.ownership === 'franchise' ? 'franchise' : 'own',
+      isOwner: !!m.is_owner, isMe: !!m.is_me, sameTax: !!m.same_tax, managerToken: m.manager_token || '' })),
+    invites: (d.invites || []).map((i) => ({ id: i.id, code: i.code, ownership: i.ownership, expiresAt: i.expires_at })),
+  };
+}
+const rpcOk = async (fn, args) => check(await sb.rpc(fn, args));
+export const companyCreate = (tok, name) => rpcOk('company_create', { p_manager_token: tok, p_name: name });
+export const companyUpdate = (tok, name, payMode) => rpcOk('company_update', { p_manager_token: tok, p_name: name || null, p_pay_mode: payMode || null });
+export const companyInvite = (tok, ownership) => rpcOk('company_invite', { p_manager_token: tok, p_ownership: ownership });
+export const companyInviteCancel = (tok, id) => rpcOk('company_invite_cancel', { p_manager_token: tok, p_invite: id });
+export const companyInvitePeek = (tok, code) => rpcOk('company_invite_peek', { p_manager_token: tok, p_code: code });
+export const companyInviteAnswer = (tok, code, accept) => rpcOk('company_invite_answer', { p_manager_token: tok, p_code: code, p_accept: accept });
+export const companyAddShop = (tok, { name, area, address }) => rpcOk('company_add_shop', { p_manager_token: tok, p_name: name, p_area: area || '', p_address: address || '' });
+export const companyRemove = (tok, partnerId) => rpcOk('company_remove', { p_manager_token: tok, p_partner: partnerId });
+export const companyLeave = (tok) => rpcOk('company_leave', { p_manager_token: tok });
+export const companyTransfer = (tok, partnerId) => rpcOk('company_transfer', { p_manager_token: tok, p_partner: partnerId });
 export async function setPartnerOwnership(partnerId, ownership) {
   check(await sb.from('partners').update({ ownership }).eq('id', partnerId));
 }

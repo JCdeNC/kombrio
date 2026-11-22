@@ -744,4 +744,8 @@ export default {
   "bo.c.hint": "On these days, the Kombrio offer does not apply at these partners:",
   "bo.s.title": "Days without commission during this stay",
   "bo.s.hint": "Let your clients know: on these days the Kombrio offer does not apply and there is no commission.",
+  // v120 : Minha empresa, horaires des jours sans commission
+  "bo.from": "from {t}",
+  "bo.until": "until {t}",
+  "bo.range": "{a} to {b}",
 };

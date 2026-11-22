@@ -1099,7 +1099,9 @@ async function partners({ partnerList, cityList, city }) {
   const groupsCard = `<div class="card" id="groups"><h2>${t('admin.grp.title')}</h2><p class="hint">${t('admin.grp.hint')}</p>
     ${groups.length ? `<ul class="list">${groups.map((g) => `<li><div class="spread"><b>${esc(g.name)}</b>
         <select data-gmode="${esc(g.id)}" style="width:auto">${['single', 'each'].map((m) => `<option value="${m}"${g.payMode === m ? ' selected' : ''}>${t(`admin.grp.mode.${m}`)}</option>`).join('')}</select></div>
-      <div class="hint">${partnerList.filter((p) => p.groupId === g.id).map((p) => `${esc(p.name)}${p.ownership === 'franchise' ? ` <span class="badge">${t('admin.grp.own.franchise')}</span>` : ''}`).join(' · ') || t('admin.grp.empty')}</div></li>`).join('')}</ul>` : ''}
+      <div class="hint">${partnerList.filter((p) => p.groupId === g.id).map((p) => `${esc(p.name)}${p.ownership === 'franchise' ? ` <span class="badge">${t('admin.grp.own.franchise')}</span>` : ''}${p.status === 'pending' ? ` <span class="badge warn">${t('co.pending')}</span>` : ''}`).join(' · ') || t('admin.grp.empty')}</div>
+      ${partnerList.some((p) => p.groupId === g.id) ? `<div class="row" style="gap:6px;align-items:center;margin-top:6px"><span class="hint">${t('admin.grp.owner')}</span>
+        <select data-gowner="${esc(g.id)}" style="width:auto"><option value="">${t('admin.grp.owner.none')}</option>${partnerList.filter((p) => p.groupId === g.id && p.ownership === 'own' && p.status !== 'pending').map((p) => `<option value="${esc(p.id)}"${g.ownerId === p.id ? ' selected' : ''}>${esc(p.name)}</option>`).join('')}</select></div>` : ''}</li>`).join('')}</ul>` : ''}
     <form class="row" id="grp-add" style="align-items:flex-end;gap:8px;margin-top:8px">
       <div class="field" style="margin:0;flex:1"><label>${t('admin.grp.name')}</label><input name="name" required maxlength="80" placeholder="Pierim"></div>
       <div class="field" style="margin:0"><label>${t('admin.grp.mode')}</label><select name="mode">${['single', 'each'].map((m) => `<option value="${m}">${t(`admin.grp.mode.${m}`)}</option>`).join('')}</select></div>
@@ -1206,6 +1208,8 @@ async function partners({ partnerList, cityList, city }) {
         try { await store.addGroup(ga.name.value, ga.mode.value); ctx.refresh(tRaw('common.saved')); } catch { notify(tRaw('err.generic')); } };
       root.querySelectorAll('[data-gmode]').forEach((sel) => { sel.onchange = async () => {
         try { await store.setGroupMode(sel.dataset.gmode, sel.value); ctx.refresh(tRaw('common.saved')); } catch { notify(tRaw('err.generic')); } }; });
+      root.querySelectorAll('[data-gowner]').forEach((sel) => { sel.onchange = async () => {   // v120 : responsável du groupe
+        try { await store.setGroupOwner(sel.dataset.gowner, sel.value); ctx.refresh(tRaw('common.saved')); } catch { notify(tRaw('err.generic')); } }; });
       root.querySelectorAll('[data-pown]').forEach((sel) => { sel.onchange = async () => {
         try { await store.setPartnerOwnership(sel.dataset.pown, sel.value); ctx.refresh(tRaw('common.saved')); } catch { notify(tRaw('admin.grp.own.err')); } }; });
       root.querySelectorAll('[data-pgroup]').forEach((sel) => { sel.onchange = async () => {

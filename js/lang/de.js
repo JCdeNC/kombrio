@@ -734,4 +734,8 @@ export default {
   "bo.c.hint": "An diesen Tagen gilt das Kombrio-Angebot bei diesen Partnern nicht:",
   "bo.s.title": "Tage ohne Provision während dieses Aufenthalts",
   "bo.s.hint": "Informieren Sie Ihre Kunden: An diesen Tagen gilt das Kombrio-Angebot nicht und es gibt keine Provision.",
+  // v120 : Minha empresa, horaires des jours sans commission
+  "bo.from": "ab {t} Uhr",
+  "bo.until": "bis {t} Uhr",
+  "bo.range": "{a}–{b} Uhr",
 };
