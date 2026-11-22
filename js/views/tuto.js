@@ -14,12 +14,14 @@ const ICO = {
   qr: '<rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><path d="M14 14h2v2h-2zM18 18h2v2h-2zM14 18h2M18 14h2"/>',
   scan: '<path d="M4 8V5.5A1.5 1.5 0 0 1 5.5 4H8M16 4h2.5A1.5 1.5 0 0 1 20 5.5V8M20 16v2.5a1.5 1.5 0 0 1-1.5 1.5H16M8 20H5.5A1.5 1.5 0 0 1 4 18.5V16M4 12h16"/>',
   photo: '<rect x="3" y="6" width="18" height="14" rx="2.5"/><circle cx="12" cy="13" r="3.5"/><path d="M8.5 6 10 3.5h4L15.5 6"/>',
+  gear: '<circle cx="12" cy="12" r="3"/><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7"/>',
   wa: '<path d="M4 20l1.3-4A8 8 0 1 1 8 18.7z"/><path d="M9 9.5c.3 2.2 2.3 4.2 4.5 4.6l1.2-1.2 1.8.9"/>',
 };
 const ico = (k) => `<svg viewBox="0 0 24 24" aria-hidden="true">${ICO[k]}</svg>`;
 // Barre du bas de l'app : 5 places, bouton central rond. `on` = place mise en avant (pulsation).
 const tabbar = (kind, on) => {
-  const items = kind === 'guide' ? ['home', 'users', 'qr', 'wallet', 'user'] : ['grid', 'list', 'scan', 'card', 'team'];
+  // v127 : partenaire = Hoje · Visitas · [Escanear] · Pagar · Ajustes.
+  const items = kind === 'guide' ? ['home', 'users', 'qr', 'wallet', 'user'] : ['home', 'list', 'scan', 'card', 'gear'];
   return `<div class="tu-tabs">${items.map((k, i) => { const c = i === 2 ? `<span class="tu-center">${ico(k)}</span>` : ico(k);
     return `<span class="tu-tab${i === 0 ? ' cur' : ''}">${on === i ? hl(c) : c}</span>`; }).join('')}</div>`;
 };
@@ -29,11 +31,6 @@ const qrBox = (cls = '') => `<div class="tu-qr ${cls}">${'<i></i>'.repeat(9)}</d
 const btn = (label, cls = '') => `<span class="tu-btn ${cls}">${esc(label)}</span>`;
 const okMark = (label) => `<div class="tu-ok"><span class="tu-check"></span><b>${esc(label)}</b></div>`;
 const field = (label, value, typing) => `<div class="tu-field"><small>${esc(label)}</small><span class="${typing ? 'tu-type' : ''}">${esc(value)}</span></div>`;
-
-// « Nova conta » : les deux cas ; `on` = le cas choisi.
-const caseScene = (on) => `${head(tRaw('bill.title'))}<div class="tu-body">${['guide', 'clients'].map((k) => {
-  const c = `<div class="tu-case${k === on ? ' on' : ''}"><b>${esc(tRaw(`bill.case.${k}`))}</b><small>${esc(tRaw(`bill.case.${k}.hint`))}</small></div>`;
-  return k === on ? hl(c, 'row') : c; }).join('')}${lines(2)}</div>`;
 
 const SCENES = {
   // ---- guide ----
@@ -54,18 +51,16 @@ const SCENES = {
   'p-cam': () => `<div class="tu-body tu-center-col tu-dark"><div class="tu-frame">${qrBox()}<span class="tu-beam"></span></div><small class="tu-cap">${esc(tRaw('tu.s.aim'))}</small></div>`,
   'p-bill': () => `${head('Família Martin · 4')}<div class="tu-body">${field(tRaw('rs.bill'), 'R$ 240,00', true)}<div class="tu-com tu-late">${esc(tRaw('tu.s.com'))} <b>R$ 24,00</b></div>${hl(btn(tRaw('rs.save')), 'row')}</div>`,
   'p-ok': () => `${head('Restaurante')}<div class="tu-body">${lines(3)}</div>${okMark(tRaw('tu.s.visit.ok'))}`,
-  'p-paytab': () => `${head('Restaurante')}<div class="tu-body"><div class="tu-kpi warn"><small>${esc(tRaw('pd.k.topay'))}</small><b>R$ 310,00</b></div>${lines(3)}</div>${tabbar('partner', 3)}`,
-  'p-select': () => `${head(tRaw('pd.tab.pagamentos'))}<div class="tu-body">${['Família Martin · R$ 24,00', 'Grupo Silva · R$ 96,00', 'Mr. Brown · R$ 190,00'].map((x, i) => `<div class="tu-chk" style="animation-delay:${0.3 + i * 0.35}s"><i></i>${esc(x)}</div>`).join('')}
-      <div class="tu-com">Total <b>R$ 310,00</b></div>${hl(btn(tRaw('pd.pay')), 'row')}</div>`,
-  'p-pix': () => `${head('Pix')}<div class="tu-body tu-center-col">${qrBox()}<span class="tu-code">00020126…6304</span>${btn(tRaw('tu.s.copy'), 'sec')}<small class="tu-cap">${esc(tRaw('tu.s.onepix'))}</small></div>`,
-  'p-receipt': () => `${head('Pix')}<div class="tu-body">${hl(`<div class="tu-drop-zone">${ico('photo')}<small>${esc(tRaw('partner.declare.receipt'))}</small></div>`, 'row')}<div class="tu-thumb tu-late"></div></div>${'<div class="tu-ok tu-late2"><span class="tu-check"></span><b>' + esc(tRaw('tu.s.sent')) + '</b></div>'}`,
-  'p-team': () => `${head('Restaurante')}<div class="tu-body">${lines(4)}</div>${tabbar('partner', 4)}`,
+  'p-paytab': () => `${head('Restaurante')}<div class="tu-body"><div class="tu-kpi warn"><small>${esc(tRaw('hero.topay'))}</small><b>R$ 310,00</b></div>${hl(btn(tRaw('hero.pay')), 'row')}${lines(2)}</div>${tabbar('partner')}`,
+  'p-select': () => `${head(tRaw('pay.title', { amount: 'R$ 310,00' }))}<div class="tu-body">${['Família Martin · R$ 24,00', 'Grupo Silva · R$ 96,00', 'Mr. Brown · R$ 190,00'].map((x, i) => `<div class="tu-chk" style="animation-delay:${0.3 + i * 0.35}s"><i></i>${esc(x)}</div>`).join('')}
+      <div class="tu-com">Total <b>R$ 310,00</b></div></div>`,
+  'p-pix': () => `${head('Pix')}<div class="tu-body tu-center-col">${qrBox()}<span class="tu-code">00020126…6304</span>${hl(btn(tRaw('tu.s.copy')), 'row')}<small class="tu-cap">${esc(tRaw('tu.s.onepix'))}</small></div>`,
+  'p-receipt': () => `${head('Pix')}<div class="tu-body">${hl(`<div class="tu-drop-zone">${ico('photo')}<small>${esc(tRaw('pay.receipt.btn'))}</small></div>`, 'row')}<div class="tu-thumb tu-late"></div></div>${'<div class="tu-ok tu-late2"><span class="tu-check"></span><b>' + esc(tRaw('tu.s.sent')) + '</b></div>'}`,
+  'p-team': () => `${head(tRaw('pd.tab.config'))}<div class="tu-body"><div class="tu-li">${esc(tRaw('aj.comissao'))}</div>${hl(`<div class="tu-li strong">${esc(tRaw('aj.equipe'))} ›</div>`, 'row')}<div class="tu-li">${esc(tRaw('aj.empresa'))}</div></div>${tabbar('partner', 4)}`,
   'p-add': () => `${head(tRaw('pd.tab.equipe'))}<div class="tu-body"><small class="tu-cap dark">${esc(tRaw('team.add'))}</small>${field(tRaw('tu.s.name'), 'Lucas', true)}${hl(btn(tRaw('team.add.button')), 'row')}</div>`,
   'p-wa': () => `${head('Lucas')}<div class="tu-body tu-center-col">${qrBox('tu-pop')}<small class="tu-cap dark">24 h</small>${hl(btn(tRaw('team.invite.wa'), 'wa'), 'row')}</div>`,
   'p-staff': () => `${head('Lucas')}<div class="tu-body tu-center-col"><span class="tu-bigscan tu-pop">${ico('scan')}<b>${esc(tRaw('pd.tab.scan'))}</b></span>${lines(2)}</div>`,
   // ---- encaissement (v115) : « Nova conta », les deux cas, chegada / valor depois, contas, equipe ----
-  'p-case-c': () => caseScene('clients'),
-  'p-case-g': () => caseScene('guide'),
   'p-cam-g': () => `<div class="tu-body tu-center-col tu-dark"><div class="tu-frame"><div class="tu-badge"><span class="tu-av"></span><b>MARCOS</b><small>Guia · Cadastur</small>${'<i></i>'.repeat(1)}</div><span class="tu-beam"></span></div><small class="tu-cap">${esc(tRaw('bill.guide.code.ph'))}</small></div>`,
   'p-ask': () => `${head(tRaw('bill.title'))}<div class="tu-body"><div class="tu-ok-line">✓ Família Martin · 4</div><div class="tu-notice"><b>${esc(tRaw('bill.ask'))}</b>
       <div class="tu-row2">${btn(tRaw('bill.ask.yes'), 'sec')}${hl(btn(tRaw('bill.ask.no'), 'sec'), 'row')}</div></div></div>`,
@@ -110,9 +105,9 @@ export const TUTOS = {
     track: { title: 'tu.g.track', steps: ['visit', 'declared', 'paid', 'cashed', 'repaid'].map((k, i) => [`trk-${i + 1}`, `g.trk.${k}.hint`]) },
   },
   partner: {
-    present: { title: 'tu.p.present', steps: [['p-home', 'tu.p.c.1'], ['p-case-g', 'tu.p.present.2'], ['p-cam-g', 'tu.p.present.3'], ['p-amount-g', 'tu.p.present.4'], ['p-ok-g', 'tu.p.present.5']] },
-    scan: { title: 'tu.p.scan', steps: [['p-home', 'tu.p.c.1'], ['p-case-c', 'tu.p.scan.2'], ['p-cam', 'tu.p.scan.3'], ['p-ask', 'tu.p.scan.4'], ['p-amount', 'tu.p.scan.5'], ['p-ok', 'tu.p.scan.6']] },
-    later: { title: 'tu.p.later', steps: [['p-case-c', 'tu.p.later.1'], ['p-arrive', 'tu.p.later.2'], ['p-pending', 'tu.p.later.3'], ['p-launch', 'tu.p.later.4'], ['p-zero', 'tu.p.later.5']] },
+    present: { title: 'tu.p.present', steps: [['p-home', 'tu.p.c.1'], ['p-cam-g', 'tu.p.present.3'], ['p-amount-g', 'tu.p.present.4'], ['p-ok-g', 'tu.p.present.5']] },
+    scan: { title: 'tu.p.scan', steps: [['p-home', 'tu.p.c.1'], ['p-cam', 'tu.p.scan.3'], ['p-ask', 'tu.p.scan.4'], ['p-amount', 'tu.p.scan.5'], ['p-ok', 'tu.p.scan.6']] },
+    later: { title: 'tu.p.later', steps: [['p-cam', 'tu.p.later.1'], ['p-arrive', 'tu.p.later.2'], ['p-pending', 'tu.p.later.3'], ['p-launch', 'tu.p.later.4'], ['p-zero', 'tu.p.later.5']] },
     split: { title: 'tu.p.split', steps: [['p-split1', 'tu.p.split.1'], ['p-split2', 'tu.p.split.2']] },
     staff: { title: 'tu.p.staff', steps: [['p-staff', 'tu.p.staff.1'], ['p-staff-bill', 'tu.p.staff.2'], ['p-staff-fix', 'tu.p.staff.3'], ['p-mgr', 'tu.p.staff.4']] },
     pay: { title: 'tu.p.pay', steps: [['p-paytab', 'tu.p.pay.1'], ['p-select', 'tu.p.pay.2'], ['p-pix', 'tu.p.pay.3'], ['p-receipt', 'tu.p.pay.4']] },

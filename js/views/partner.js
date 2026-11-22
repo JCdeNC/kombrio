@@ -311,13 +311,13 @@ export function scannedView({ partner, city, key, role, visits }, visit, action)
         <p class="hint">${t('partner.visit.guide', { guide: visit.guideName })} · ${sinceLabel(visit.at, lang, city.timezone)}${visit.guidePresent ? ` · <span class="badge ok">${t('rs.present')}</span>` : ''}</p>`;
   if (visit.status !== 'visited' && !fixing) {
     return {
-      html: `${head}${offer}<div class="card">${info}
+      html: `${iosBack(back, role === 'manager' ? 'ios.back.home' : staff ? 'staff.tab.today' : 'counter.back')}${head}${offer}<div class="card">${info}
         <p>${t('scan.people', { n: visit.peopleServed })}${visit.tableLabel ? ` · ${t('rs.table.short', { n: visit.tableLabel })}` : ''}</p>
         ${visit.invoiceCents != null ? `<p>${staff ? t('staff.bill.done', { bill: c(visit.invoiceCents) }) : t('rs.bill.done', { bill: c(visit.invoiceCents), com: c(visit.declaredCents || 0) })}</p>` : ''}
         ${staff && visit.canFix ? `<a class="btn secondary small" href="${back}/corrigir/${esc(visit.id)}">${t('staff.fix')}</a>` : ''}
         ${mealsOf(visit) ? `<p><b>${t('meal.due', { n: mealsOf(visit) })}</b></p>` : ''}
         ${visit.guideMeal ? `<p class="hint">${t('rs.meal.done')}</p>` : ''}</div>
-        <a class="btn ghost" href="${back}">${t(role === 'manager' ? 'partner.space' : 'counter.back')}</a>`,
+        `,
     };
   }
   // Autres groupes en attente (16 dernières heures) : même addition partagée.
@@ -327,19 +327,19 @@ export function scannedView({ partner, city, key, role, visits }, visit, action)
           <span class="hint" id="rs-ph-name">${staff ? (visit.hasPhoto ? t('rs.photo.ok') : t(photoNeeded ? 'staff.photo.hint' : 'staff.photo.opt')) : t('rs.photo.hint')}</span>`;
   const amount0 = fixing && visit.invoiceCents != null ? (visit.invoiceCents / 100).toFixed(2).replace('.', ',') : '';
   return {
-    html: `${head}${offer}
-      <form class="card" id="rs">
+    html: `${iosBack(back, role === 'manager' ? 'ios.back.home' : staff ? 'staff.tab.today' : 'counter.back')}${head}${offer}
+      <form class="card ios-card" id="rs">
         ${info}
         ${mealsOf(visit) ? `<div class="notice ok"><b>${t('meal.due', { n: mealsOf(visit) })}</b></div>` : ''}
         ${ask ? `<div class="notice warn" id="rs-ask"><div id="rs-ask-card" class="bill-card"></div><b>${t('bill.ask')}</b>
-          <div class="row" style="gap:8px;margin-top:8px"><button type="button" class="btn small" data-ask="yes">${t('bill.ask.yes')}</button>
+          <div class="row" style="gap:8px;margin-top:8px"><button type="button" class="btn ghost small" data-ask="yes">${t('bill.ask.yes')}</button>
             <button type="button" class="btn ghost small" data-ask="no">${t('bill.ask.no')}</button></div>
           <div id="rs-gp" hidden style="margin-top:10px"><label for="rs-g">${t('bill.guide')}</label>
             <div class="row" style="gap:6px;flex-wrap:nowrap"><button type="button" class="btn secondary" id="rs-gscan">📷</button>
               <input id="rs-g" autocomplete="off" placeholder="${esc(tRaw('bill.guide.code.ph'))}" autocapitalize="characters"></div>
             <p class="hint" style="margin:4px 0 0">${t('bill.ask.yes.hint')}</p></div></div>` : ''}
         <div class="field"><label for="rs-b1">${t('rs.bill')}</label>
-          <div id="rs-bills"><input id="rs-b1" class="rs-bill rs-big" inputmode="decimal" placeholder="${esc(city.currency)} 0,00" aria-label="${esc(tRaw('rs.bill'))}" value="${amount0}"></div>
+          <div id="rs-bills"><input id="rs-b1" class="rs-bill rs-big ios-amount" inputmode="decimal" placeholder="${esc(city.currency)} 0,00" aria-label="${esc(tRaw('rs.bill'))}" value="${amount0}"></div>
           <button type="button" class="btn ghost small" id="rs-add">${t('rs.bill.add')}</button></div>
         ${partner.excludedLabel ? `<div class="field"><label for="rs-ex">${t('rs.excluded', { label: esc(partner.excludedLabel) })}</label>
           <input id="rs-ex" name="ex" inputmode="decimal" placeholder="${esc(city.currency)} 0,00" value="${fixing && visit.excludedCents ? (visit.excludedCents / 100).toFixed(2).replace('.', ',') : ''}">
@@ -351,7 +351,7 @@ export function scannedView({ partner, city, key, role, visits }, visit, action)
         <div class="field" id="rs-note-f" hidden><label for="rs-note">${t('rs.note')}</label><input id="rs-note" name="note" maxlength="200"></div>
         <div class="grid2 rs-keep2">
           <div class="field"><label for="rs-n">${t('rs.people')}</label>
-            <input id="rs-n" name="n" type="number" min="1" max="500" step="1" inputmode="numeric" value="${visit.peopleServed}"></div>
+            ${stepper('rs-n', 'n', visit.peopleServed)}</div>
           ${visit.childCents != null || (partner.askChildren && visit.perPersonCents != null) ? `<div class="field"><label for="rs-k">${t('rs.children')}</label><input id="rs-k" name="kids" type="number" min="0" max="500" step="1" inputmode="numeric" value="${visit.children || 0}"></div>` : ''}
           <div class="field"><label for="rs-t">${t('rs.table')}</label>
             <input id="rs-t" name="table" maxlength="20" value="${esc(visit.tableLabel)}" placeholder="${t('rs.table.ph')}"></div>
@@ -369,14 +369,15 @@ export function scannedView({ partner, city, key, role, visits }, visit, action)
           <p class="hint" style="margin:12px 0 0">${t('bill.rule')}</p>
         </details>
         <button class="btn block" id="rs-save">${t('rs.save')}</button>
-        <div class="row" style="gap:8px;margin-top:8px">
-          <button type="button" class="btn secondary" id="rs-later" style="flex:1"${fixing ? ' hidden' : ''}>${t('rs.later')}</button>
-          <button type="button" class="btn ghost" id="rs-zero" style="flex:1">${t('rs.zero')}</button>
+        <div class="ios-links">
+          <button type="button" class="btn link" id="rs-later"${fixing ? ' hidden' : ''}>${t('rs.later')}</button>
+          <button type="button" class="btn link danger" id="rs-zero">${t('rs.zero')}</button>
         </div>
       </form>
-      <a class="btn ghost" href="${back}">${t(role === 'manager' ? 'partner.space' : 'counter.back')}</a>`,
+      `,
     mount(root, ctx) {
       const f = root.querySelector('#rs');
+      mountSteppers(root);
       const b1 = root.querySelector('#rs-b1'); if (b1 && !visit.tableLabel) b1.focus();
       f.photo.onchange = () => { root.querySelector('#rs-ph-name').textContent = f.photo.files[0] ? tRaw('rs.photo.ok') : staff ? tRaw(photoNeeded ? 'staff.photo.hint' : 'staff.photo.opt') : tRaw('rs.photo.hint'); };
       // v67 : réponse à « O guia está com o grupo ? » (obligatoire avant d'enregistrer).
@@ -518,14 +519,17 @@ const loadScript = (src) => new Promise((resolve, reject) => {
   if (window.jsQR) { resolve(); return; }
   const el = document.createElement('script'); el.src = src; el.onload = resolve; el.onerror = reject; document.head.appendChild(el);
 });
-export function scanQr() {
+// v127 : opts.manual = bouton « Digitar o código » sous la caméra (résultat '__manual__'), et « Cancelar » rend '__cancel__'
+// (au lieu de null, réservé à « caméra indisponible »).
+export function scanQr(opts = {}) {
   const box = document.createElement('div'); box.className = 'qr-scan';
-  box.innerHTML = `<video playsinline muted></video><p>${esc(tRaw('bill.scan.hint'))}</p><button type="button" class="btn secondary">${esc(tRaw('bill.scan.cancel'))}</button>`;
+  box.innerHTML = `<video playsinline muted></video><p>${esc(tRaw(opts.hint || 'bill.scan.hint'))}</p>${opts.manual ? `<button type="button" class="btn qr-scan-manual" data-manual>${esc(tRaw('scan.manual'))}</button>` : ''}<button type="button" class="btn secondary" data-cancel>${esc(tRaw('bill.scan.cancel'))}</button>`;
   document.body.appendChild(box);
   const video = box.querySelector('video'); let stream = null; let done = false;
   const stop = () => { done = true; if (stream) stream.getTracks().forEach((x) => x.stop()); box.remove(); };
   return new Promise((resolve) => {
-    box.querySelector('button').onclick = () => { stop(); resolve(null); };
+    box.querySelector('[data-cancel]').onclick = () => { stop(); resolve(opts.manual ? '__cancel__' : null); };
+    const man = box.querySelector('[data-manual]'); if (man) man.onclick = () => { stop(); resolve('__manual__'); };
     (async () => {
       try {
         stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
@@ -566,74 +570,98 @@ function guideCardHtml(g) {
 }
 
 // v67 : la fiche du serveur. Deux cas : « Guia presente » (mode 2) ou « Só clientes » (mode 1). Scan ou code, puis le montant.
+// v127 (refonte iOS) : retour « ‹ » en haut à gauche, et compteur − / + pour le nombre de personnes.
+const iosBack = (href, key) => `<a class="ios-back no-print" href="${href}"><span aria-hidden="true">‹</span> ${t(key)}</a>`;
+const stepper = (id, name, value) => `<div class="stepper"><button type="button" data-step="-1" aria-label="−">−</button><input id="${id}" name="${name}" type="number" min="1" max="500" step="1" inputmode="numeric" value="${value}"><button type="button" data-step="1" aria-label="+">+</button></div>`;
+function mountSteppers(root) {
+  root.querySelectorAll('.stepper [data-step]').forEach((b) => { b.onclick = () => {
+    const i = b.parentNode.querySelector('input');
+    i.value = String(Math.min(500, Math.max(1, (Number(i.value) || 1) + Number(b.dataset.step))));
+    i.dispatchEvent(new Event('input', { bubbles: true })); i.dispatchEvent(new Event('change', { bubbles: true }));
+  }; });
+}
+// v127 (refonte iOS, lot 1) : « Escanear » ouvre la caméra tout de suite (téléphone) ; le QR décide du cas
+// (crachá ou « Guia + grupo » → guide présent ; QR client → clients, avec la question « O guia está com o grupo ? »).
+// Sans QR : « Digitar o código » (code ou nom du guide, ou les 6 lettres du client). Puis le montant en grand, un seul bouton plein.
 export function billView({ partner, city, key, role }, preset = '') {
   const lang = getLang();
   const c = (n) => cents(n, city.currency, lang);
   const staff = role === 'staff';
   const photoNeeded = staff && partner.staffPhotoRequired;
   const back = `#/p/${encodeURIComponent(key)}`;
-  const scanBtn = (what) => `<button type="button" class="btn secondary" data-scan="${what}">📷 ${t('bill.scan')}</button>`;
-  return {
-    html: `<form class="card" id="bill" autocomplete="off">
-        <div class="spread"><h1 style="margin:0">${t('bill.title')}</h1><span class="hint">${esc(partner.name)}</span></div>
-        <p class="hint">${t('bill.hint')}</p>
-        <div class="bill-cases">
-          <label class="bill-case"><input type="radio" name="case" value="guide"><span><b>${t('bill.case.guide')}</b><br><small>${t('bill.case.guide.hint')}</small></span></label>
-          <label class="bill-case"><input type="radio" name="case" value="clients"><span><b>${t('bill.case.clients')}</b><br><small>${t('bill.case.clients.hint')}</small></span></label>
-        </div>
-        <div id="b-guide" hidden>
-          <div class="field"><label for="b-g">${t('bill.guide')}</label>
-            <div class="row bill-in">${scanBtn('guide')}<input id="b-g" placeholder="${esc(tRaw('bill.guide.ph'))}"></div>
-            <div id="b-g-list" class="vd-list"></div></div>
-          <div id="b-g-card"></div>
-        </div>
-        <div id="b-client" hidden>
-          <div class="field"><label for="b-c">${t('bill.client')} <span class="hint" id="b-c-opt">${t('bill.optional')}</span></label>
-            <div class="row bill-in">${scanBtn('client')}<input id="b-c" maxlength="6" autocapitalize="characters" placeholder="${esc(tRaw('bill.client.ph'))}" style="text-transform:uppercase"></div></div>
-          <div id="b-c-card"></div>
-          <div id="b-ask" class="notice warn" hidden><b>${t('bill.ask')}</b>
-            <div class="row" style="gap:8px;margin-top:8px"><button type="button" class="btn small" data-ask="yes">${t('bill.ask.yes')}</button>
-              <button type="button" class="btn ghost small" data-ask="no">${t('bill.ask.no')}</button></div></div>
-        </div>
-        <div id="b-rest" hidden>
-          <div class="field"><label for="b-v">${t('bill.amount')}</label>
-            <input id="b-v" name="amount" class="rs-big" inputmode="decimal" placeholder="${esc(city.currency)} 0,00"></div>
-          <div class="grid2 rs-keep2">
-            <div class="field"><label for="b-n">${t('rs.people')}</label><input id="b-n" name="n" type="number" min="1" max="500" step="1" inputmode="numeric" value="1"></div>
-            ${partner.askChildren ? `<div class="field"><label for="b-k">${t('rs.children')}</label><input id="b-k" name="kids" type="number" min="0" max="500" step="1" inputmode="numeric" value="0"></div>` : ''}
-            <div class="field"><label for="b-t">${t('rs.table')}</label><input id="b-t" name="table" maxlength="20" placeholder="${t('rs.table.ph')}"></div>
-          </div>
-          <div class="field"><label class="btn ghost small rs-photo-btn" for="b-ph">${t('bill.photo')}</label>
+  const photoField = `<div class="field"><label class="btn ghost small rs-photo-btn" for="b-ph">${t('bill.photo')}</label>
             <input id="b-ph" name="photo" type="file" accept="image/*" capture="environment" hidden>
-            <span class="hint" id="b-ph-name">${t(photoNeeded ? 'staff.photo.hint' : 'staff.photo.opt')}</span></div>
-          ${staff ? '' : `<details class="rs-more"><summary>${t('bill.com.more')}</summary>
-            <div class="field" style="margin-top:8px"><label for="b-com">${t('bill.com', { rate: rateText(partner, null, c) })}</label>
-              <input id="b-com" name="com" inputmode="decimal" placeholder="—"><p class="hint" style="margin:4px 0 0">${t('bill.com.hint')}</p></div>
-            <div class="field"><label for="b-note">${t('rs.note')}</label><input id="b-note" name="note" maxlength="200"></div></details>`}
-          <button class="btn block" id="b-save">${t('bill.save')}</button>
-          <button type="button" class="btn secondary block" id="b-arrive" style="margin-top:8px" hidden>${t('bill.arrive')}</button>
+            <span class="hint" id="b-ph-name">${t(photoNeeded ? 'staff.photo.hint' : 'staff.photo.opt')}</span></div>`;
+  return {
+    html: `${iosBack(back, role === 'manager' ? 'ios.back.home' : staff ? 'staff.tab.today' : 'counter.back')}
+      <div class="ios-head"><h1 class="ios-title">${t('bill.title')}</h1><p class="hint">${esc(partner.name)}</p></div>
+      <form id="bill" autocomplete="off">
+        <div id="b-scanbox">
+          <button type="button" class="ios-scan" data-scan="any"><span class="ios-scan-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8V5.5A1.5 1.5 0 0 1 5.5 4H8M16 4h2.5A1.5 1.5 0 0 1 20 5.5V8M20 16v2.5a1.5 1.5 0 0 1-1.5 1.5H16M8 20H5.5A1.5 1.5 0 0 1 4 18.5V16"/><path d="M4 12h16"/></svg></span>
+            <span><b>${t('scan.big')}</b><small>${t('scan.big.hint')}</small></span></button>
+          <h2 class="ios-sec">${t('scan.manual.title')}</h2>
         </div>
-      </form>
-      <a class="btn ghost" href="${back}">${t(role === 'manager' ? 'partner.space' : 'counter.back')}</a>`,
+        <div class="card ios-card">
+          <div id="b-guide">
+            <div class="field"><label for="b-g">${t('bill.guide')}</label>
+              <input id="b-g" placeholder="${esc(tRaw('bill.guide.ph'))}">
+              <div id="b-g-list" class="vd-list"></div></div>
+            <div id="b-g-card"></div>
+          </div>
+          <div id="b-client">
+            <div class="field"><label for="b-c">${t('bill.client')} <span class="hint" id="b-c-opt">${t('bill.optional')}</span></label>
+              <input id="b-c" maxlength="6" autocapitalize="characters" placeholder="${esc(tRaw('bill.client.ph'))}" style="text-transform:uppercase"></div>
+            <div id="b-c-card"></div>
+            <div id="b-ask" class="notice warn" hidden><b>${t('bill.ask')}</b>
+              <div class="row" style="margin-top:8px"><button type="button" class="btn ghost small" data-ask="yes">${t('bill.ask.yes')}</button>
+                <button type="button" class="btn ghost small" data-ask="no" style="margin-left:8px">${t('bill.ask.no')}</button></div></div>
+          </div>
+        </div>
+        <div id="b-rest" class="card ios-card" hidden>
+          <div class="field"><label for="b-v">${t('bill.amount')}</label>
+            <input id="b-v" name="amount" class="rs-big ios-amount" inputmode="decimal" placeholder="${esc(city.currency)} 0,00">
+            ${staff ? '' : `<p class="hint ios-live" id="b-live"></p>`}</div>
+          <div class="grid2 rs-keep2">
+            <div class="field"><label for="b-n">${t('rs.people')}</label>${stepper('b-n', 'n', 1)}</div>
+            <div class="field"><label for="b-t">${t('rs.table')}</label><input id="b-t" name="table" maxlength="20" placeholder="${t('rs.table.ph')}"></div>
+            ${partner.askChildren ? `<div class="field"><label for="b-k">${t('rs.children')}</label><input id="b-k" name="kids" type="number" min="0" max="500" step="1" inputmode="numeric" value="0"></div>` : ''}
+          </div>
+          ${photoNeeded ? photoField : ''}
+          ${staff && photoNeeded ? '' : `<details class="rs-more"><summary>${t(staff ? 'bill.photo' : 'bill.com.more')}</summary>
+            ${photoNeeded ? '' : photoField}
+            ${staff ? '' : `<div class="field" style="margin-top:8px"><label for="b-com">${t('bill.com', { rate: rateText(partner, null, c) })}</label>
+              <input id="b-com" name="com" inputmode="decimal" placeholder="—"><p class="hint" style="margin:4px 0 0">${t('bill.com.hint')}</p></div>
+            <div class="field"><label for="b-note">${t('rs.note')}</label><input id="b-note" name="note" maxlength="200"></div>`}</details>`}
+          <button class="btn block" id="b-save">${t('bill.save')}</button>
+          <button type="button" class="btn link block" id="b-arrive" hidden>${t('bill.arrive')}</button>
+        </div>
+      </form>`,
     mount(root, ctx) {
       const f = root.querySelector('#bill');
       const $ = (sel) => root.querySelector(sel);
+      mountSteppers(root);
       // État de la fiche : le cas, le guide (QR « Guia + grupo », crachá ou code), le client (QR ou code), la réponse à la question.
       const st = { mode: null, guide: null, client: null, group: null, answer: null };
       const show = () => {
         const guideCase = st.mode === 'guide';
-        $('#b-guide').hidden = !guideCase;
-        $('#b-client').hidden = !st.mode || (guideCase && !!st.group);
+        const known = !!(st.guide || st.client);
+        $('#b-scanbox').hidden = known;
+        $('#b-guide').hidden = st.mode === 'clients';
+        $('#b-client').hidden = guideCase && !!st.group;
         $('#b-c-opt').hidden = !guideCase;
         $('#b-ask').hidden = !(st.mode === 'clients' && st.client && !st.answer);
         const ready = guideCase ? !!st.guide : (!!st.client && st.answer === 'no');
         $('#b-rest').hidden = !ready;
         $('#b-arrive').hidden = !(ready && (st.client || st.group));
-        f.querySelectorAll('[name=case]').forEach((r) => { r.checked = r.value === st.mode; r.closest('label').classList.toggle('on', r.checked); });
       };
       const setMode = (m) => { st.mode = m; if (m === 'guide' && st.answer !== 'yes') st.answer = null; show(); };
-      f.querySelectorAll('[name=case]').forEach((r) => { r.onchange = () => setMode(r.value); });
       const card = (el, html) => { $(el).innerHTML = html; };
+      const live = () => {
+        const el = $('#b-live'); if (!el) return;
+        const sum = parseCents(f.amount.value);
+        el.textContent = sum == null || sum <= 0 ? '' : tRaw('bill.com.live', { com: c(store.commissionFor(partner, null, sum, Number(f.n.value) || 1, f.kids ? Number(f.kids.value) || 0 : 0)) });
+      };
+      f.amount.addEventListener('input', live); f.addEventListener('change', live);
       const setGuide = async (ref, label) => {
         const r = await store.identifyRef(key, ref).catch(() => null);
         if (!r || !r.ok || r.kind === 'client') { notify(saveError(r && r.ok ? { reason: 'guide' } : r, c, 0)); return; }
@@ -656,12 +684,16 @@ export function billView({ partner, city, key, role }, preset = '') {
         show();
       };
       // Scanner : le type du QR décide (crachá ou « Guia + grupo » → guide ; QR client → client).
-      root.querySelectorAll('[data-scan]').forEach((b) => { b.onclick = async () => {
-        const txt = await scanQr(); if (!txt) return;
+      const scan = async (auto) => {
+        const txt = await scanQr({ manual: true });
+        if (txt === '__cancel__') { if (auto) location.hash = back; return; }
+        if (txt === '__manual__') { $('#b-g').focus(); return; }
+        if (!txt) return;
         const ref = refOf(txt);
         if (!ref) { notify(tRaw('bill.err.qr')); return; }
         if (ref.startsWith('C-')) await setClient(ref); else await setGuide(ref);
-      }; });
+      };
+      root.querySelectorAll('[data-scan]').forEach((b) => { b.onclick = () => scan(false); });
       // Code ou nom du guide tapé : suggestions (guides validés de la ville).
       let timer = null; const q = $('#b-g'); const list = $('#b-g-list');
       q.addEventListener('input', () => {
@@ -677,12 +709,17 @@ export function billView({ partner, city, key, role }, preset = '') {
       // Code client tapé (6 lettres).
       $('#b-c').addEventListener('input', (e) => {
         const v = e.target.value.toUpperCase().replace(/[^A-Z]/g, '');
-        st.client = null; st.answer = st.mode === 'guide' ? st.answer : null; card('#b-c-card', ''); show();
+        st.client = null; st.answer = st.mode === 'guide' ? st.answer : null; if (st.mode === 'clients') st.mode = null; card('#b-c-card', ''); show();
         if (v.length === 6) setClient(v);
       });
-      root.querySelectorAll('[data-ask]').forEach((b) => { b.onclick = () => {
-        if (b.dataset.ask === 'yes') { st.answer = 'yes'; setMode('guide'); notify(tRaw('bill.ask.yes.hint')); q.focus(); }
-        else { st.answer = 'no'; show(); f.amount.focus(); }
+      root.querySelectorAll('[data-ask]').forEach((b) => { b.onclick = async () => {
+        if (b.dataset.ask === 'yes') {
+          st.answer = 'yes'; setMode('guide');
+          // Le guide est là : on scanne son crachá tout de suite (ou on tape son code).
+          const txt = await scanQr({ manual: true, hint: 'bill.ask.guide' });
+          const ref = refOf(txt || '');
+          if (ref && !ref.startsWith('C-')) await setGuide(ref); else { notify(tRaw('bill.ask.yes.hint')); q.focus(); }
+        } else { st.answer = 'no'; show(); f.amount.focus(); }
       }; });
       f.photo.onchange = () => { $('#b-ph-name').textContent = f.photo.files[0] ? tRaw('rs.photo.ok') : tRaw(photoNeeded ? 'staff.photo.hint' : 'staff.photo.opt'); };
       const send = async (withAmount) => {
@@ -718,6 +755,10 @@ export function billView({ partner, city, key, role }, preset = '') {
       const pre = refOf(preset);
       if (pre) { if (pre.startsWith('C-')) setClient(pre); else setGuide(pre); }
       show();
+      // Téléphone : la caméra s'ouvre tout de suite (sur ordinateur : le gros bouton « Escanear o QR » et la saisie du code).
+      let touch = false;
+      try { touch = window.matchMedia('(pointer: coarse)').matches; } catch { touch = false; }
+      if (!pre && touch) scan(true);
     },
   };
 }
@@ -772,7 +813,8 @@ function txLine(v, city, lang) {
 }
 
 // Espace du gérant (v32) : tableau de bord à onglets, visites traitées en groupe (cases à cocher), liste « À faire ».
-const PD_TABS = ['painel', 'visitas', 'pagamentos', 'equipe', 'comissao', 'config'];
+// v127 (refonte iOS, lot 2) : Hoje · Visitas · [Escanear] · Pagar · Ajustes. Equipe et Comissão s'ouvrent depuis Ajustes.
+const PD_TABS = ['painel', 'visitas', 'pagamentos', 'config'];
 const ageDays = (iso) => (iso ? Math.floor((Date.now() - new Date(iso)) / 864e5) : 0);
 const doneKey = (pid, month) => `kb-todo-${pid}-${month}`;
 const readDone = (k) => { try { return new Set(JSON.parse(localStorage.getItem(k) || '[]')); } catch { return new Set(); } };
@@ -859,7 +901,7 @@ export function spaceView(space, tab = 'painel') {
     </div>`;
 
   // v113 : la liste « Para começar » reprend l'offre, le QR et le taux : pas de doublon dans « A fazer ».
-  const startHtml = tab === 'painel' ? startCard('partner', partner.id, partnerSteps({ partner, visits, base })) : '';
+  const startHtml = tab === 'painel' ? startCard('partner', partner.id, partnerSteps({ partner, visits, base }), { collapsed: true }) : '';
   const todo = [];
   if (!startHtml && (fresh || !partner.offer)) todo.push(['offer', t('pd.todo.offer')]);
   if (fresh && !startHtml) todo.push(['qr', t('pd.todo.qr')], ['rate', t('pd.todo.rate', { rate: rateLbl })]);
@@ -956,7 +998,6 @@ export function spaceView(space, tab = 'painel') {
           <p class="hint" style="margin:4px 0 0">${t('partner.extras.meal.hint')}</p></div>
         <button class="btn secondary">${t('common.save')}</button>
       </form>
-      ${tab === 'config' ? `<div class="card cm-link"><h2>${t('cm.link.title')}</h2><p class="hint">${t('cm.link.hint')}</p><a class="btn secondary small" href="${base}/comissao">${t('cm.link.btn')}</a></div>` : ''}
       <div class="card" id="j1card">
         <div class="spread"><h2 style="margin:0">${t('j1.p.title')}</h2><span class="badge ${partner.j1Enabled ? 'ok' : ''}">${t(partner.j1Enabled ? 'j1.p.on.badge' : 'j1.p.off.badge')}</span></div>
         <p style="margin-top:8px">${t(partner.j1Enabled ? 'j1.p.on' : 'j1.p.off')}</p>
@@ -984,26 +1025,59 @@ export function spaceView(space, tab = 'painel') {
         <button class="btn secondary">${t('common.save')}</button>
       </form>
       ${tab === 'config' ? companyEntryCard(space) + blackoutCard(space) : ''}
-      <div class="card" style="text-align:center">
+      <div class="card" style="text-align:center" id="qrcard">
         <h2>${t('partner.qr.title')}</h2>
         ${partner.counterEnabled ? '' : `<div class="notice warn">${t('team.counter.off')}</div>`}
         <p class="hint">${t('partner.qr.hint')} ${t('team.counter.see')} <a href="${base}/equipe">${t('pd.tab.equipe')}</a></p>
         <div class="qr">${qrSvg(appLink('partner', `p/${partner.token}`))}</div>
         <button class="btn ghost no-print" id="print">${t('partner.qr.print')}</button>
       </div>
-      <div class="card no-print"><h2>${t('report.card')}</h2><p class="hint">${t('report.card.hint')}</p>
+      <div class="card no-print" id="repcard"><h2>${t('report.card')}</h2><p class="hint">${t('report.card.hint')}</p>
         <a class="btn secondary" href="${base}/relatorio">${t('report.open')}</a></div>
       <p class="hint no-print">${t('partner.linked', { name: partner.name })} <a href="#" id="unlink">${t('partner.unlink')}</a></p>`;
 
   // Les groupes de « Pendentes agora » (moins de 16 h) ne sont pas répétés dans « Visitas a tratar ».
   const inPending = (v) => v.status === 'visited' && Date.now() - new Date(v.at) < 16 * 36e5;
   const open = visits.filter((v) => ['visited', 'declared', 'verifying', 'disputed'].includes(v.status) && !inPending(v));
+  // v127 (refonte iOS, lot 2) : accueil « Hoje » sur un écran — groupes en attente, la carte « A pagar » (un toucher : tout
+  // est coché d'office sur la page Pagar), les visites sans valor, 2 chiffres du mois, « Para começar » replié.
+  const grpPay = space.group && space.group.group.payMode === 'single' ? space.group : null;
+  const heroList = grpPay ? grpPay.toPay : toPay;
+  const heroCents = grpPay ? heroList.reduce((s2, v) => s2 + (v.dueCents || 0), 0) : payCents;
+  const verifying = payments.filter((y) => y.status === 'submitted').reduce((s2, y) => s2 + (y.cents || 0), 0);
+  const verifLine = verifying ? t('mes.s2.verifying', { amount: c(verifying) }) : '';
+  const payHero = heroCents > 0
+    ? `<div class="pay-hero${late >= 15 || partner.status === 'paused' ? ' bad' : ''}"><span class="pay-hero-l">${grpPay ? t('hero.topay.group', { name: grpPay.group.name }) : t('hero.topay')}</span>
+        <b class="pay-hero-n">${c(heroCents)}</b>
+        <span class="pay-hero-l">${late >= 7 ? t('hero.late', { n: late }) : t('hero.line', { n: heroList.length })}${verifLine ? ` · ${verifLine}` : ''}</span>
+        ${heroList.length ? `<a class="btn pay-hero-btn" href="${base}/pagar">${t('hero.pay')}</a>` : ''}</div>`
+    : `<div class="card ios-ok"><span class="ios-ok-ico" aria-hidden="true">✓</span><span><b>${t('hero.ok')}</b><small>${verifLine || t('hero.ok.hint')}</small></span></div>`;
+  const oldToDeclare = toDeclare.filter((v) => !inPending(v));
+  const declareRow = oldToDeclare.length ? `<a class="card ios-row" href="${base}/visitas"><span class="badge warn">${oldToDeclare.length}</span><b>${t('hoje.todeclare', { n: oldToDeclare.length })}</b><span class="ios-chev" aria-hidden="true">›</span></a>` : '';
+  const kpis2 = `<h2 class="ios-sec">${t('hoje.month')}</h2><div class="pd-kpis ios-kpis">
+      <div class="pd-kpi"><span>${t('pd.k.visits')}</span><b>${now.n}</b><em>${t('pd.k.people', { n: now.people })}</em></div>
+      <div class="pd-kpi"><span>${t('dash.k.com')}</span><b>${c(now.com)}</b><em>${t('pd.k.rate', { rate: rateLbl })}</em></div></div>`;
+  // Ajustes : une liste groupée façon iPhone en tête (le lot 3 fera une page par sujet ; en attendant, les cartes suivent).
+  const ajRow = (attrs, label, value = '') => `<li><a ${attrs}><span class="ios-lbl">${label}</span><span class="ios-val">${value}</span><span class="ios-chev" aria-hidden="true">›</span></a></li>`;
+  const ajustesList = `<div class="ios-lists no-print">
+      <h2 class="ios-sec">${t('aj.sec.shop')}</h2><ul class="ios-list">
+        ${ajRow(`href="${base}/comissao"`, t('aj.comissao'), esc(rateLbl))}
+        ${ajRow('href="#" data-goto="offer"', t('aj.offer'), partner.offer ? esc(partner.offer) : t('aj.offer.none'))}
+        ${ajRow('href="#" data-goto="bo-card"', t('aj.days'))}
+        ${ajRow('href="#" data-goto="qrcard"', t('aj.qr'))}</ul>
+      <h2 class="ios-sec">${t('aj.sec.team')}</h2><ul class="ios-list">
+        ${ajRow(`href="${base}/equipe"`, t('aj.equipe'))}
+        ${ajRow(`href="${base}/empresa"`, t('aj.empresa'), space.group ? esc(space.group.group.name) : '')}
+        ${space.group ? ajRow(`href="${base}/grupo"`, t('aj.grupo')) : ''}</ul>
+      <h2 class="ios-sec">${t('aj.sec.account')}</h2><ul class="ios-list">
+        ${ajRow('href="#" data-goto="repcard"', t('aj.report'))}
+        ${loggedIn ? `<li><button type="button" class="ios-danger" id="logout">${t('aj.logout')}</button></li>` : ''}</ul></div>`;
   const body = {
-    painel: `${saleButton(key, true)}${pendingCard({ city, visits, key })}${startHtml}${steps}${kpis}<div class="pd-cols">${visitsCard(t('pd.totreat'), open, false)}<div class="pd-side">${chartCard}${todoCard}${adjustmentsCard(adjustments, city, lang)}${lastCard}${shortcuts}</div></div>`,
+    painel: `${pendingCard({ city, visits, key })}${payHero}${declareRow}${kpis2}${adjustmentsCard(adjustments, city, lang)}${startHtml}`,
     visitas: visitsCard(t('pd.all'), visits, true),
-    pagamentos: `<div class="pd-cols"><div class="pd-side">${visitsCard(t('pd.topay'), toPay, false)}${payHistory}</div><div class="pd-side">${docsCard}${inssCard}${adjustmentsCard(adjustments, city, lang)}</div></div>`,
+    pagamentos: `${payHero}<div class="pd-cols"><div class="pd-side">${payHistory}${chartCard}</div><div class="pd-side">${docsCard}${inssCard}${adjustmentsCard(adjustments, city, lang)}</div></div>`,
     equipe: teamHtml(space),
-    config: settings,
+    config: `${ajustesList}${settings}`,
     comissao: (() => {   // v126 : espace « Comissão » — simulateur, règles et turbo, assistant, tutoriel
       if (tab !== 'comissao') return '';
       const sub = space.sub === 'regras' ? 'regras' : 'sim';
@@ -1013,26 +1087,28 @@ export function spaceView(space, tab = 'painel') {
         ${sub === 'regras' ? `<div class="pd-cols"><div class="pd-side">${rulesCard(partner, c)}</div><div class="pd-side">${boostCard(space, c)}<div class="card"><h2>${t('bo.p.title')}</h2><p class="hint">${t('cm.bo.hint')}</p><a class="btn ghost small" href="${base}/config">${t('pd.tab.config')}</a></div></div></div>` : (space.simView = simulatorView(space, null, { embedded: true })).html}`;
     })(),
   }[tab];
-  const counts = { painel: 0, visitas: toDeclare.length, pagamentos: toPay.length + extraDue.length, equipe: 0, comissao: 0, config: 0 };
+  const counts = { painel: 0, visitas: toDeclare.length, pagamentos: toPay.length + extraDue.length, config: 0 };
   // v87 : pastilles sur ordinateur, barre fixée en bas sur téléphone (icône + mot court).
-  const PD_ICONS = { painel: 'grid', visitas: 'list', pagamentos: 'card', equipe: 'team', comissao: 'percent', config: 'gear' };
+  const PD_ICONS = { painel: 'home', visitas: 'list', pagamentos: 'card', config: 'gear' };
+  const sub = ['equipe', 'comissao'].includes(tab);   // sous-pages d'Ajustes : « ‹ Ajustes » et leur propre titre
+  const onTab = sub ? 'config' : tab;
   const navItems = PD_TABS.map((k) => ({ href: `${base}${k === 'painel' ? '' : `/${k}`}`, label: t(`pd.tab.${k}`), short: t(`pd.tab.${k}.short`),
-    icon: PD_ICONS[k], on: k === tab, count: counts[k], desk: k === 'config' || k === 'comissao' }));
-  // design v2 : « Escanear » au centre de la barre (scanner le QR du client, ou saisir une conta) ; sur téléphone,
-  // « Ajustes » passe en roue dentée dans l'en-tête pour garder 5 places (Equipe reste à un pouce).
+    icon: PD_ICONS[k], on: k === onTab, count: counts[k] }));
+  // design v2 : « Escanear » au centre de la barre (scanner le QR du client, ou saisir une conta).
   navItems.splice(2, 0, { href: `${base}/conta`, label: t('pd.tab.scan'), short: t('pd.tab.scan'), icon: 'scan', center: true });
   const tabsNav = appTabs(navItems);
 
   return {
     html: `<div class="dash-wide">
-      ${groupBar(space)}
-      <div class="spread"><div><h1 style="margin-bottom:2px">${esc(partner.name)}</h1>
+      ${sub ? `${iosBack(`${base}/config`, 'ios.back.settings')}<div class="ios-head"><h1 class="ios-title">${t(`aj.${tab}`)}</h1></div>` : `<div class="spread ios-top"><div class="ios-head">${titleSwitch(space)}
         <p class="hint" style="margin:0">${t(`ptype.${partner.type}`)}${partner.area ? ` · ${esc(partner.area)}` : ''} · ${t('pd.k.rate', { rate: rateLbl })}${partner.managerName ? ` · ${t('pm.hello', { name: partner.managerName })}` : ''}</p></div>
-        <div class="row" style="gap:6px"><a class="btn ghost small no-print gear-phone${tab === 'comissao' ? ' on' : ''}" href="${base}/comissao" aria-label="${esc(tRaw('pd.tab.comissao'))}"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="7.5" cy="7.5" r="2.5"/><circle cx="16.5" cy="16.5" r="2.5"/><path d="M18.5 5.5l-13 13"/></svg></a><a class="btn ghost small no-print gear-phone${tab === 'config' ? ' on' : ''}" href="${base}/config" aria-label="${esc(tRaw('pd.tab.config'))}"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7"/></svg></a>${helpButton()}${loggedIn ? `<button class="btn ghost small no-print" id="logout">${t('common.logout')}</button>` : ''}</div></div>
+        <div class="row">${helpButton()}</div></div>`}
       ${tabsNav}<!--bc-->${banner}${tab === 'painel' && !startHtml ? installCard('partner') : ''}${body}</div>`,
     mount(root, ctx) {
       mountGroupBar(root);
       mountInstallCard(root);
+      root.querySelectorAll('[data-goto]').forEach((a) => { a.onclick = (e) => {
+        e.preventDefault(); const el = document.getElementById(a.dataset.goto); if (el) { el.scrollIntoView(true); window.scrollBy(0, -70); } }; });
       mountStartCard(root);
       root.querySelectorAll('[data-nfse]').forEach((b) => { b.onclick = async () => {
         const f = await store.partnerNfseFile(key, b.dataset.nfse).catch(() => null);
@@ -1248,6 +1324,12 @@ function groupBar({ group, key }) {
     <a class="btn ghost small" href="#/p/${encodeURIComponent(key)}/grupo">${t('grp.open')}</a>
     <a class="btn ghost small" href="#/p/${encodeURIComponent(key)}/empresa">${t('co.title')}</a></div>`;
 }
+// v127 : sur l'accueil du gérant, le nom de la loja sert de sélecteur (groupes) : « Vista Mar ⌄ ».
+function titleSwitch({ partner, group, key }) {
+  if (!group || !group.members || group.members.length < 2) return `<h1 class="ios-title">${esc(partner.name)}</h1>`;
+  return `<div class="ios-switch"><h1 class="ios-title">${esc(partner.name)} <span class="ios-caret" aria-hidden="true">⌄</span></h1>
+    <select id="grp-switch" aria-label="${esc(tRaw('grp.switch'))}">${group.members.map((m) => `<option value="${esc(m.managerToken)}"${m.managerToken === key ? ' selected' : ''}>${esc(m.name)}</option>`).join('')}</select></div>`;
+}
 function mountGroupBar(root) {
   const sel = root.querySelector('#grp-switch');
   if (sel) sel.onchange = () => { location.hash = `#/p/${encodeURIComponent(sel.value)}`; };
@@ -1297,95 +1379,112 @@ function payView({ partner, city, visits, key, group }) {
   if (pre && !pre.length) pre = null;
   if (grp) pre = null;
   const back = `#/p/${encodeURIComponent(key)}`;
-  if (!todo.length) return { html: `<div class="notice">${t('partner.pay.nothing')}</div><a class="btn ghost" href="${back}">${t('partner.space')}</a>` };
+  if (!todo.length) return { html: `${iosBack(back, 'ios.back.home')}<div class="notice">${t('partner.pay.nothing')}</div>` };
+  // v127 (lot 1) : tout est coché d'office (décocher = visite contestée) ; 1. copier le Pix, 2. envoyer le comprovante.
+  // Le comprovante lisible (ID E2E trouvé, montant juste) part tout seul ; sinon, le bouton « Enviar o pagamento » apparaît.
   return {
-    html: `
-      <p><a href="${back}">← ${t('partner.space')}</a></p>
-      <form class="card" id="pay">
-        <h1>${grp ? t('grp.pay.title', { name: grp.group.name }) : t('partner.pay.title')}</h1>
-        <p class="hint">${grp ? t('grp.pay.hint') : t('partner.pay.hint')}</p>
-        <ul class="list">${todo.map((v) => `<li>
+    html: `${iosBack(back, 'ios.back.home')}
+      <form id="pay">
+        <div class="ios-head"><h1 class="ios-title" id="pay-title">${grp ? t('grp.pay.title', { name: grp.group.name }) : t('pay.title', { amount: c(0) })}</h1>
+          <p class="hint">${grp ? t('grp.pay.hint') : t('pay.hint')}</p></div>
+        <div class="card ios-card">
+          <ul class="list ios-checks">${todo.map((v) => `<li>
           <label class="spread" style="font-weight:400;align-items:center">
             <span><input type="checkbox" name="sel" value="${esc(v.id)}"${!pre || pre.includes(v.id) ? ' checked' : ''} style="width:auto;margin-right:8px"><b>${esc(v.client || '?')}</b>
               <span class="hint">${v.partnerName ? ` · <b>${esc(v.partnerName)}</b>` : ''}${v.guideName ? ` · ${roleTag(v)}${esc(v.guideName)}` : ''} · ${esc(store.visitRef(v))} · ${fmtDay(v.at.slice(0, 10), lang)}</span></span>
             <b>${c(v.dueCents)}${v.feeCents ? `<br><small class="hint">${t('mode2.pay.line', { com: c(v.declaredCents), fee: c(v.feeCents) })}</small>` : ''}</b>
           </label></li>`).join('')}</ul>
-        <div class="stat" style="margin:12px 0"><span>${t('partner.pay.total')}</span><b id="total">${c(0)}</b></div>
-        ${pixKey ? `<div style="text-align:center">
-            <div class="qr" id="pixqr"></div>
-            <p class="hint">${t('partner.pay.pixhint')}</p>
-            <button type="button" class="btn secondary" id="copypix">${t('partner.pay.copy')}</button>
-          </div>`
-          : `<div class="notice">${t('partner.declare.payto')}<br><b>${t('partner.declare.payto.pending')}</b></div>`}
-        <div class="field" style="margin-top:12px"><label for="p-method">${t('partner.declare.method')}</label>
-          <select id="p-method" name="method">${city.methods.map((m) => `<option value="${esc(m)}">${t(`method.${m}`)}</option>`).join('')}</select></div>
-        <div class="field"><label for="p-ref">${t('partner.pay.ref')}</label>
-          <input id="p-ref" name="pixref" maxlength="64" placeholder="E2E…" autocapitalize="characters"></div>
-        <div class="field"><label for="p-receipt">${t('partner.declare.receipt')}</label>
-          <input id="p-receipt" name="receipt" type="file" accept="image/*,application/pdf" required>
-          <div class="hint" id="p-rcpt-msg">${t('rc.partner.hint')}</div></div>
-        <button class="btn block">${t('partner.pay.submit')}</button>
+          <div class="stat" style="margin:12px 0 8px"><span>${t('partner.pay.total')}</span><b id="total">${c(0)}</b></div>
+          <p class="hint" style="margin:0">${t('pay.contest')}</p>
+        </div>
+        <div class="card ios-card">
+          <h2>${t('pay.s1')}</h2>
+          ${pixKey ? `<p class="hint">${t('pay.s1.hint')}</p><div style="text-align:center"><div class="qr" id="pixqr"></div></div>
+            <button type="button" class="btn block" id="copypix">${t('partner.pay.copy')}</button>`
+            : `<div class="notice">${t('partner.declare.payto')}<br><b>${t('partner.declare.payto.pending')}</b></div>`}
+        </div>
+        <div class="card ios-card">
+          <h2>${t('pay.s2')}</h2><p class="hint">${t('pay.s2.hint')}</p>
+          <label class="btn ${pixKey ? 'secondary' : ''} block" for="p-receipt" id="p-rcpt-btn">${t('pay.receipt.btn')}</label>
+          <input id="p-receipt" name="receipt" type="file" accept="image/*,application/pdf" hidden>
+          <div class="hint" id="p-rcpt-msg" style="margin-top:8px"></div>
+          <details class="rs-more"><summary>${t('pay.more')}</summary>
+            <div class="field"${city.methods.length > 1 ? '' : ' hidden'}><label for="p-method">${t('partner.declare.method')}</label>
+              <select id="p-method" name="method">${city.methods.map((m) => `<option value="${esc(m)}">${t(`method.${m}`)}</option>`).join('')}</select></div>
+            <div class="field"><label for="p-ref">${t('partner.pay.ref')}</label>
+              <input id="p-ref" name="pixref" maxlength="64" placeholder="E2E…" autocapitalize="characters"></div>
+          </details>
+          <button class="btn block" id="p-send" hidden>${t('partner.pay.submit')}</button>
+        </div>
       </form>`,
     mount(root, ctx) {
       const form = root.querySelector('#pay');
       const chosen = () => todo.filter((v) => form.querySelector(`[value="${v.id}"]`).checked);
+      const sendBtn = root.querySelector('#p-send');
+      const rcptBtn = root.querySelector('#p-rcpt-btn');
+      const rmsg = root.querySelector('#p-rcpt-msg');
       let payload = '';
       const update = () => {
         const total = chosen().reduce((s, v) => s + v.dueCents, 0);
         root.querySelector('#total').textContent = c(total);
+        if (!grp) root.querySelector('#pay-title').textContent = tRaw('pay.title', { amount: c(total) });
         if (pixKey) {
           payload = pixPayload({ key: pixKey, amount: total / 100, txid: `KBR${partner.id.replace(/-/g, '').slice(0, 10)}` });
           root.querySelector('#pixqr').innerHTML = total > 0 ? qrSvg(payload) : '';
         }
       };
-      form.oninput = update;
+      form.querySelectorAll('[name=sel]').forEach((b) => { b.onchange = update; });
       update();
-      // v90 : le reçu joint est lu tout de suite : l'ID E2E remplit le champ, le montant est contrôlé.
-      const rmsg = root.querySelector('#p-rcpt-msg');
-      form.receipt.addEventListener('change', async () => {
-        const file = form.receipt.files[0];
-        if (!file || !file.type.startsWith('image/')) return;
-        rmsg.className = 'hint'; rmsg.textContent = tRaw('rc.reading');
-        try {
-          const r = await readReceiptImage(file);
-          if (!r.e2e) { rmsg.className = 'notice warn'; rmsg.textContent = tRaw('rc.partner.noe2e'); return; }
-          form.pixref.value = r.e2e.e2e;
-          const total = chosen().reduce((sum, v) => sum + v.dueCents, 0);
-          const got = r.amounts[0];
-          const ok = got == null || got === total;
-          rmsg.className = `notice ${ok ? 'ok' : 'warn'}`;
-          rmsg.textContent = ok ? tRaw('rc.partner.ok') : tRaw('rc.amount.ko', { got: c(got), want: c(total) });
-        } catch { rmsg.className = 'hint'; rmsg.textContent = tRaw('rc.partner.hint'); }
-      });
       const copy = root.querySelector('#copypix');
       if (copy) {
         copy.onclick = async () => {
           try { await navigator.clipboard.writeText(payload); copy.textContent = tRaw('partner.pay.copied'); } catch { prompt('', payload); }
+          // Étape suivante en avant : un seul bouton plein à la fois.
+          copy.className = 'btn secondary block'; rcptBtn.className = 'btn block';
         };
       }
-      form.onsubmit = async (e) => {
-        e.preventDefault();
+      const send = async () => {
         const list = chosen();
         if (!list.length) { notify(tRaw('partner.pay.none')); return; }
         const file = form.receipt.files[0];
-        if (!file) return;
-        const button = form.querySelector('button.block');
-        button.disabled = true;
+        if (!file) { notify(tRaw('partner.pay.err.receipt')); return; }
+        sendBtn.disabled = true; rcptBtn.style.pointerEvents = 'none';
+        rmsg.className = 'hint'; rmsg.textContent = tRaw('pay.sending');
         try {
           let receipt;
           if (file.type.startsWith('image/')) receipt = { name: file.name, type: 'image/jpeg', data: await photoToJpeg(file, 1400, 0.78) };
           else {
-            if (file.size > MAX_RECEIPT) { notify(tRaw('partner.declare.toobig')); button.disabled = false; return; }
+            if (file.size > MAX_RECEIPT) { notify(tRaw('partner.declare.toobig')); sendBtn.disabled = false; rcptBtn.style.pointerEvents = ''; rmsg.textContent = ''; return; }
             receipt = { name: file.name, type: file.type, data: await readFileAsDataUrl(file) };
           }
           const r = await (grp ? store.submitGroupPayment : store.submitPayment)(key, { visitIds: list.map((v) => v.id), method: form.method.value, pixRef: form.pixref.value.trim(), receipt });
-          if (!r.ok) { button.disabled = false; notify(tRaw(`partner.pay.err.${r.reason}`)); return; }
+          if (!r.ok) { sendBtn.disabled = false; sendBtn.hidden = false; rcptBtn.style.pointerEvents = ''; rmsg.textContent = ''; notify(tRaw(`partner.pay.err.${r.reason}`)); return; }
           ctx.go(`p/${key}`, tRaw('partner.pay.sent', { num: r.num }));
         } catch {
-          button.disabled = false;
+          sendBtn.disabled = false; sendBtn.hidden = false; rcptBtn.style.pointerEvents = ''; rmsg.textContent = '';
           notify(tRaw('err.generic'));
         }
       };
+      // v90 : le reçu joint est lu tout de suite : l'ID E2E remplit le champ, le montant est contrôlé.
+      form.receipt.addEventListener('change', async () => {
+        const file = form.receipt.files[0];
+        if (!file) return;
+        rcptBtn.textContent = tRaw('pay.receipt.change'); rcptBtn.className = 'btn ghost block';
+        const manual = (cls, text) => { rmsg.className = cls; rmsg.textContent = text; sendBtn.hidden = false; };
+        if (!file.type.startsWith('image/')) { manual('hint', `${file.name} · ${tRaw('pay.check')}`); return; }
+        rmsg.className = 'hint'; rmsg.textContent = tRaw('rc.reading');
+        try {
+          const r = await readReceiptImage(file);
+          if (!r.e2e) { manual('notice warn', tRaw('rc.partner.noe2e')); return; }
+          form.pixref.value = r.e2e.e2e;
+          const total = chosen().reduce((sum, v) => sum + v.dueCents, 0);
+          const got = r.amounts[0];
+          if (got != null && got !== total) { manual('notice warn', tRaw('rc.amount.ko', { got: c(got), want: c(total) })); return; }
+          rmsg.className = 'notice ok'; rmsg.textContent = tRaw('rc.partner.ok');
+          await send();
+        } catch { manual('hint', tRaw('pay.check')); }
+      });
+      form.onsubmit = (e) => { e.preventDefault(); send(); };
     },
   };
 }

@@ -1011,3 +1011,93 @@ input::-webkit-date-and-time-value { text-align: left; margin: 0; }
 .cm-pill { padding: 7px 14px; border-radius: 999px; border: 1.5px solid #DDE3DF; text-decoration: none; color: inherit; font-weight: 600; font-size: .92rem; margin: 0 6px 6px 0; }
 .cm-pill.on { background: var(--brand, #1F8F5F); border-color: var(--brand, #1F8F5F); color: #fff; }
 .sim-title { margin: 6px 0 2px; }
+
+/* ================================================================================================
+   v127 · REFONTE iOS (lots 1 et 2) — app Partenaire (body.ios) : typographie système, grands titres,
+   listes groupées, un seul bouton plein par écran, retour « ‹ » en haut à gauche.
+   Compatibilité iOS 13.4 / Chrome 80 : pas de :has(), pas de inset, pas de gap flex indispensable (marges).
+   ================================================================================================ */
+body.ios { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; background: #F2F4F5; }
+body.ios h1, body.ios h2, body.ios h3, body.ios .btn { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+body.ios h2 { font-size: 1.2rem; font-weight: 700; letter-spacing: -.01em; }
+body.ios .card { border-radius: 14px; box-shadow: 0 1px 2px rgba(16,44,56,.05); padding: 16px; }
+body.ios .btn { border-radius: 12px; font-weight: 600; }
+body.ios .btn.block { min-height: 50px; font-size: 1.05rem; }
+body.ios .btn.secondary { background: #E8F3EF; color: var(--brand); border-color: #E8F3EF; }
+body.ios .btn.ghost { background: #ECEFF1; border-color: #ECEFF1; color: var(--ink); }
+body.ios .btn.link { background: none; border-color: transparent; color: var(--brand); box-shadow: none; padding: 10px 8px; min-height: 44px; }
+body.ios .btn.link.danger { color: var(--bad); }
+body.ios .btn.link.block { width: 100%; margin-top: 4px; }
+body.ios .notice { border-radius: 12px; }
+/* Grand titre et retour */
+.ios-back { display: inline-flex; align-items: center; min-height: 44px; margin: -6px 0 2px -4px; padding: 0 4px; color: var(--brand); text-decoration: none; font-size: 1.05rem; font-weight: 500; }
+.ios-back span { font-size: 1.9rem; line-height: 1; margin-right: 4px; margin-top: -3px; font-weight: 300; }
+.ios-head { min-width: 0; }
+.ios-title { font-size: 2rem; font-weight: 800; letter-spacing: -.025em; line-height: 1.1; margin: 0 0 4px; }
+.ios-head .hint { margin: 0 0 12px; }
+.ios-top { align-items: flex-start; margin-bottom: 10px; }
+.ios-top .ios-head .hint { margin-bottom: 0; }
+.ios-sec { font-size: .8rem !important; font-weight: 600 !important; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 20px 16px 6px; }
+.ios-switch { position: relative; display: inline-block; max-width: 100%; }
+.ios-switch select { position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; font-size: 16px; }
+.ios-caret { font-size: 1.1rem; color: var(--brand); vertical-align: 4px; }
+/* Listes groupées (Ajustes) */
+.ios-lists { margin-bottom: 18px; }
+.ios-list { list-style: none; margin: 0; padding: 0; background: var(--surface, #fff); border-radius: 14px; overflow: hidden; box-shadow: 0 1px 2px rgba(16,44,56,.05); }
+.ios-list li + li > * { background: linear-gradient(#E8EDEF, #E8EDEF) 16px 0 / calc(100% - 16px) 1px no-repeat; }
+.ios-list a, .ios-list button { display: flex; align-items: center; width: 100%; min-height: 50px; padding: 10px 16px; color: var(--ink); text-decoration: none; background: none; border: 0; font: inherit; font-size: 1.02rem; text-align: left; cursor: pointer; }
+.ios-list a:active, .ios-list button:active { background: #EEF2F3; }
+.ios-lbl { flex: 1; min-width: 0; }
+.ios-val { color: var(--muted); margin-left: 10px; max-width: 45%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ios-chev { color: #B7C3C8; font-size: 1.5rem; line-height: 1; margin-left: 10px; }
+.ios-list .ios-danger { color: var(--bad); justify-content: center; font-weight: 600; }
+/* Accueil « Hoje » : carte « A pagar », visites sans valor, chiffres du mois */
+.pay-hero { display: block; margin: 0 0 14px; padding: 18px; border-radius: 18px; color: #fff; background: linear-gradient(135deg, #00A887 0%, #007F65 70%, #0B6E5C 100%); box-shadow: 0 10px 24px rgba(0,127,101,.22); }
+.pay-hero.bad { background: linear-gradient(135deg, #C2453E, #a3242a); box-shadow: 0 10px 24px rgba(163,36,42,.22); }
+.pay-hero-l { display: block; color: rgba(255,255,255,.88); font-size: .95rem; }
+.pay-hero-n { display: block; font-size: 2.3rem; font-weight: 800; letter-spacing: -.02em; line-height: 1.15; margin: 2px 0; }
+.pay-hero-btn { display: block; margin-top: 14px; min-height: 50px; line-height: 30px; text-align: center; background: #fff !important; color: var(--brand) !important; border-color: #fff !important; font-size: 1.05rem; }
+.pay-hero.bad .pay-hero-btn { color: var(--bad) !important; }
+.ios-ok { display: flex; align-items: center; }
+.ios-ok-ico { flex: none; display: grid; place-items: center; width: 40px; height: 40px; margin-right: 12px; border-radius: 50%; background: var(--ok-bg); color: var(--ok); font-weight: 800; font-size: 1.2rem; }
+.ios-ok b { display: block; font-size: 1.05rem; } .ios-ok small { display: block; color: var(--muted); }
+.ios-row { display: flex; align-items: center; text-decoration: none; color: var(--ink); }
+.ios-row b { flex: 1; min-width: 0; margin-left: 10px; font-weight: 600; }
+.ios-kpis { grid-template-columns: 1fr 1fr !important; margin-bottom: 14px; }
+.st-fold > summary { list-style: none; cursor: pointer; }
+.st-fold > summary::-webkit-details-marker { display: none; }
+.st-fold > summary .spread::after { content: '›'; color: #B7C3C8; font-size: 1.5rem; line-height: 1; margin-left: 8px; transition: transform .2s; }
+.st-fold[open] > summary .spread::after { transform: rotate(90deg); }
+.st-fold > summary .spread { flex-wrap: nowrap; align-items: center; }
+.st-fold > summary .spread .hint { margin-left: auto; }
+.st-fold:not([open]) { padding-top: 14px; padding-bottom: 14px; }
+/* Scan : gros bouton caméra, montant en grand, compteur − / + */
+.ios-scan { display: flex; align-items: center; width: 100%; padding: 18px; margin: 4px 0 6px; border: 0; border-radius: 18px; color: #fff; text-align: left; font: inherit; cursor: pointer;
+  background: linear-gradient(135deg, #00A887, #007F65); box-shadow: 0 10px 24px rgba(0,127,101,.22); }
+.ios-scan b { display: block; font-size: 1.15rem; } .ios-scan small { display: block; color: rgba(255,255,255,.88); }
+.ios-scan-ico { flex: none; display: grid; place-items: center; width: 52px; height: 52px; margin-right: 14px; border-radius: 15px; background: rgba(255,255,255,.18); }
+.ios-scan-ico svg { width: 28px; height: 28px; fill: none; stroke: #fff; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.ios-card .field:last-child { margin-bottom: 0; }
+input.ios-amount { font-size: 2rem !important; font-weight: 700; min-height: 64px; letter-spacing: -.01em; }
+.ios-live { margin: 6px 2px 0; font-weight: 600; color: var(--brand) !important; }
+.stepper { display: flex; align-items: stretch; }
+.stepper input { text-align: center; border-radius: 0 !important; min-width: 0; flex: 1; -moz-appearance: textfield; }
+.stepper input::-webkit-outer-spin-button, .stepper input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.stepper button { flex: none; width: 46px; border: 1px solid var(--line); background: #ECEFF1; color: var(--ink); font-size: 1.4rem; font-weight: 500; cursor: pointer; }
+.stepper button:first-child { border-radius: 14px 0 0 14px; border-right: 0; }
+.stepper button:last-child { border-radius: 0 14px 14px 0; border-left: 0; }
+.ios-links { display: flex; justify-content: space-between; flex-wrap: wrap; margin-top: 6px; }
+/* Caméra : « Digitar o código » sous l'image */
+.qr-scan .qr-scan-manual { background: #fff; color: var(--ink); border-color: #fff; min-width: 220px; }
+.qr-scan .btn.secondary { min-width: 220px; }
+/* Paiement : la liste à cocher */
+.ios-checks li { padding: 12px 0; }
+.ios-checks input[type=checkbox] { width: 22px !important; height: 22px; vertical-align: -5px; accent-color: var(--brand); }
+@media (max-width: 560px) {
+  .ios-title { font-size: 1.85rem; }
+  body.ios main { padding-top: 12px; }
+}
+body.ios [hidden] { display: none !important; }
+/* Un seul bouton plein par écran : sur l'accueil, « Lançar valor » passe en bouton clair (la carte « A pagar » est le geste principal). */
+body.ios .rs-pend .btn:not(.ghost) { background: #E8F3EF; color: var(--brand); border-color: #E8F3EF; }
+body.ios [data-ask].ghost { background: #fff; border: 1px solid var(--line); color: var(--ink); }

@@ -47,20 +47,23 @@ export function partnerSteps({ partner, visits, base }) {
 }
 
 // La carte. Renvoie '' si tout est fait ou si la personne l'a masquée.
-export function startCard(kind, id, steps) {
+// v127 : opts.collapsed = une seule ligne « Para começar · 1 de 6 › » qui s'ouvre au toucher (accueil « Hoje » du gérant).
+export function startCard(kind, id, steps, opts = {}) {
   const st = read(KEY(kind, id));
   if (st.hidden) return '';
   const list = steps.map((x) => ({ ...x, done: !!x.done || (x.manual && !!(st.done || {})[x.id]) }));
   const n = list.filter((x) => x.done).length;
   if (n === list.length) return '';
   const pct = Math.round((n / list.length) * 100);
-  return `<div class="card st-card no-print" data-st-card="${esc(kind)}" data-st-id="${esc(id)}">
-      <div class="spread"><h2 style="margin:0">${t('st.title')}</h2><span class="hint">${t('st.count', { n, total: list.length })}</span></div>
+  const tag = opts.collapsed ? 'details' : 'div';
+  const headRow = `<div class="spread"><h2 style="margin:0">${t('st.title')}</h2><span class="hint">${t('st.count', { n, total: list.length })}</span></div>`;
+  return `<${tag} class="card st-card no-print${opts.collapsed ? ' st-fold' : ''}" data-st-card="${esc(kind)}" data-st-id="${esc(id)}">
+      ${opts.collapsed ? `<summary>${headRow}</summary>` : headRow}
       <div class="st-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><i style="width:${pct}%"></i></div>
       <ol class="st-list">${list.map((x) => `<li class="${x.done ? 'st-ok' : ''}">
         ${x.manual ? `<button type="button" class="st-tick" data-st-tick="${esc(x.id)}" aria-pressed="${x.done}" aria-label="${esc(tRaw('st.mark'))}"></button>` : '<span class="st-tick" aria-hidden="true"></span>'}
         <a href="${esc(x.href)}"${x.manual ? ` data-st-go="${esc(x.id)}"` : ''}><b>${t(x.label)}</b><small>${t(x.hint)}</small></a>${x.tuto && !x.done ? `<a class="st-tuto" href="#/tuto/${esc(x.tuto)}"><span class="tu-play" aria-hidden="true"></span>${t('tu.see')}</a>` : ''}</li>`).join('')}</ol>
-      <p style="margin:6px 0 0;text-align:right"><button type="button" class="btn ghost small" data-st-hide>${t('st.hide')}</button></p></div>`;
+      <p style="margin:6px 0 0;text-align:right"><button type="button" class="btn ghost small" data-st-hide>${t('st.hide')}</button></p></${tag}>`;
 }
 
 export function mountStartCard(root) {
