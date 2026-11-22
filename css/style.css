@@ -967,3 +967,12 @@ span.st-tick { cursor: default; }
 .co-made { margin-top: 12px; }
 .bo-hours { gap: 10px; flex-wrap: wrap; }
 .bo-hours .field { flex: 1 1 140px; }
+
+/* v121 : sur iPhone (Safari), les champs date / mois / heure gardaient une largeur fixe et débordaient
+   (offre « Début / Fin », « Clôturer le mois », heures des jours sans commission). On les force à suivre leur case. */
+input[type="date"], input[type="month"], input[type="time"], input[type="datetime-local"] {
+  -webkit-appearance: none; appearance: none; display: block; min-width: 0; max-width: 100%; min-height: 46px; text-align: left;
+}
+input::-webkit-date-and-time-value { text-align: left; margin: 0; }
+.grid2 > *, .row > .field, .spread > .field { min-width: 0; }
+.row > .field { flex: 1 1 160px; }
