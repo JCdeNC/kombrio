@@ -30,7 +30,7 @@ export function rulesSentence(s, c, lang = getLang()) {
 }
 
 // Commission simulée : le plus avantageux de normal / palier / turbo, puis part exclue, minimum, maximum.
-function simulate(s, partner, { bill, people, ex, wd, hm, tierOn }) {
+export function simulate(s, partner, { bill, people, ex, wd, hm, tierOn }) {
   const pp = s.model === 'per_person';
   const cands = [{ k: 'normal', r: s.rate, p: s.pp }];
   if (s.tierClients && tierOn) cands.push({ k: 'tier', r: s.tierRate, p: s.tierPp });
@@ -79,7 +79,7 @@ export function rulesWizardView(space, ctx) {
 
   const html = `<div class="rw">
     <p class="no-print"><a href="${back}">← ${t('pd.tab.config')}</a></p>
-    <h1>${t('rw.title')}</h1><p class="hint">${t('rw.intro')} <a href="#/tuto/rules">${t('rw.tuto')}</a></p>
+    <h1>${t('rw.title')}</h1><p class="hint">${t('rw.intro')} <a href="#/tuto/rules">${t('rw.tuto')}</a> · <a href="#/p/${encodeURIComponent(key)}/simulador">${t('sim.open')}</a></p>
     <div class="st-bar rw-bar"><i id="rw-bar" style="width:${Math.round(100 / N)}%"></i></div>
     <form class="card rw-card" id="rw" novalidate>
     ${step(0, t('rw.q1'), t('rw.q1.ex'), `<div class="rw-choices">
@@ -214,21 +214,26 @@ export function rulesWizardView(space, ctx) {
         e.preventDefault();
         const btn = root.querySelector('#rw-save'); btn.disabled = true;
         try {
-          if (s.model === 'per_person') { if (!(await store.setCommissionModel(key, 'per_person', s.pp))) throw new Error(); }
-          else {
-            if (!(await store.setCommissionRate(key, s.rate))) throw new Error();
-            if (partner.commissionModel === 'per_person' && !(await store.setCommissionModel(key, 'percent'))) throw new Error();
-          }
-          const ok = await store.setCommissionRules(key, { excludedLabel: s.model === 'per_person' ? '' : s.exLabel, capCents: s.cap, minCents: s.min,
-            tierClients: s.tierClients || null, tierRate: s.tierRate, tierPpCents: s.tierPp });
-          if (!ok) throw new Error();
-          if (s.boost.on) {
-            const r = await store.addBoosts(key, { weekdays: s.boost.weekdays, from: s.boost.from, to: s.boost.to, rate: s.boost.rate, ppCents: s.boost.pp, note: s.boost.note });
-            if (!r || !r.ok) throw new Error();
-          }
+          await saveRules(key, partner, s);
           ctx.go(`p/${key}/config`, tRaw('rw.saved'));
         } catch { btn.disabled = false; notify(tRaw('err.generic')); }
       };
     },
   };
+}
+
+// Enregistre une règle complète (assistant et simulateur) : modèle, règles, et le nouvel horaire turbo s'il y en a un.
+export async function saveRules(key, partner, s) {
+  if (s.model === 'per_person') { if (!(await store.setCommissionModel(key, 'per_person', s.pp))) throw new Error(); }
+  else {
+    if (!(await store.setCommissionRate(key, s.rate))) throw new Error();
+    if (partner.commissionModel === 'per_person' && !(await store.setCommissionModel(key, 'percent'))) throw new Error();
+  }
+  const ok = await store.setCommissionRules(key, { excludedLabel: s.model === 'per_person' ? '' : s.exLabel, capCents: s.cap, minCents: s.min,
+    tierClients: s.tierClients || null, tierRate: s.tierRate, tierPpCents: s.tierPp });
+  if (!ok) throw new Error();
+  if (s.boost.on) {
+    const r = await store.addBoosts(key, { weekdays: s.boost.weekdays, from: s.boost.from, to: s.boost.to, rate: s.boost.rate, ppCents: s.boost.pp, note: s.boost.note });
+    if (!r || !r.ok) throw new Error();
+  }
 }

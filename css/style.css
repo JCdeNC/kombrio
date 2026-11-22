@@ -1000,3 +1000,9 @@ input::-webkit-date-and-time-value { text-align: left; margin: 0; }
 .rw-yes { color: #1F8F5F; font-weight: 700; }
 .rw-entry { display: flex; flex-direction: column; margin: 0 0 12px; }
 .rw-entry > * + * { margin-top: 4px; }
+/* v125 : simulateur */
+.sim-h3 { margin: 12px 0 4px; }
+.sim-big { font-size: 1.15rem; }
+.sim-month .spread { padding: 6px 0; border-top: 1px solid #EEF1EF; }
+.sim-month .spread:first-child { border-top: 0; }
+.sim-rules .rw-choices { grid-template-columns: 1fr 1fr; }

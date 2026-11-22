@@ -16,6 +16,7 @@ import { blackoutCard, mountBlackoutCard, blackoutToday } from './blackouts.js';
 import { companyEntryCard, companyView, groupInviteView } from './company.js';
 import { rulesCard, mountRulesCard, boostCard, mountBoostCard } from './boosts.js';
 import { rulesWizardView } from './rules-wizard.js';
+import { simulatorView } from './simulator.js';
 
 const MAX_RECEIPT = 1.5 * 1024 * 1024;
 export const TERMS_VERSION = 'P-2 · 16/11/2026';   // v74 (v1 · 30/10/2026 avant)
@@ -272,6 +273,7 @@ async function partnerViewCore([token, action, visitId], ctx) {
   if (action === 'grupo' && space.group) return groupView(space);
   if (action === 'empresa') return companyView(space, visitId || '', ctx);   // v120 : Minha empresa
   if (action === 'regras') return rulesWizardView(space, ctx);   // v124 : assistente da comissão
+  if (action === 'simulador') return simulatorView(space, ctx);   // v125 : simulador da comissão
   if (action === 'relatorio') return reportPage(space, visitId);
   if (action === 'mes') return monthPage(space, visitId, space.closings);
   if (action === 'demonstrativo') return docPage(space, visitId, space.closings, `#/p/${encodeURIComponent(token)}/pagamentos`);
