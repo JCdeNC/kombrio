@@ -6,6 +6,7 @@
 import { t, tRaw, getLang } from '../i18n.js';
 import { esc, cents, notify, parseCents, weekdayShort } from '../util.js';
 import { rulesSentence, simulate, saveRules } from './rules-wizard.js';
+import { boostWhen, boostValue } from './boosts.js';
 
 const RATES = [5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 20];
 const money = (x) => (x ? (x / 100).toFixed(2).replace('.', ',') : '');
@@ -16,7 +17,7 @@ const num = (v, d = 0) => { const n = Number(String(v || '').replace(',', '.'));
 
 export const simulatorRoute = (params, ctx) => simulatorView(null, ctx);
 
-export function simulatorView(space, ctx) {
+export function simulatorView(space, ctx, opts = {}) {
   const lang = getLang();
   const partner = space ? space.partner : { commissionModel: 'percent', commissionRate: 0.1, perPersonCents: 1000, bonusEvery: 0, bonusCents: 0, excludedLabel: '', minCents: null, capCents: null, tierClients: 0 };
   const currency = space ? space.city.currency : 'BRL';
@@ -26,7 +27,7 @@ export function simulatorView(space, ctx) {
   const pp0 = partner.commissionModel === 'per_person';
   const rate0 = RATES.includes(Math.round(partner.commissionRate * 100)) ? partner.commissionRate : 0.1;
   const wd = (name) => [1, 2, 3, 4, 5, 6, 7].map((d) => `<label class="wday"><input type="checkbox" name="${name}" value="${d}"><span>${esc(weekdayShort(d, lang))}</span></label>`).join('');
-  const back = space ? `<p class="no-print"><a href="#/p/${encodeURIComponent(key)}/config">← ${t('pd.tab.config')}</a></p>` : '';
+  const back = space && !opts.embedded ? `<p class="no-print"><a href="#/p/${encodeURIComponent(key)}/comissao">← ${t('pd.tab.comissao')}</a></p>` : '';
   // Trois contas types pour comparer d'un coup d'œil (petit groupe, famille au déjeuner, grand groupe le samedi soir).
   const CASES = [
     { label: 'sim.case1', bill: 12000, people: 2, ex: 2000, wd: 1, hm: '20:00' },
@@ -34,8 +35,8 @@ export function simulatorView(space, ctx) {
     { label: 'sim.case3', bill: 240000, people: 12, ex: 40000, wd: 6, hm: '21:00' },
   ];
 
-  const html = `<div class="dash-wide sim">${back}
-    <h1>${t('sim.title')}</h1><p class="hint">${t(space ? 'sim.intro' : 'sim.intro.public')}</p>
+  const html = `<div class="${opts.embedded ? '' : 'dash-wide '}sim">${back}
+    ${opts.embedded ? `<h2 class="sim-title">${t('sim.title')}</h2>` : `<h1>${t('sim.title')}</h1>`}<p class="hint">${t(space ? 'sim.intro' : 'sim.intro.public')}</p>
     <div class="pd-cols">
       <form class="card sim-rules" id="sim-f" novalidate>
         <h2>${t('sim.rules')}</h2>
@@ -89,7 +90,8 @@ export function simulatorView(space, ctx) {
 
   return {
     html,
-    mount(root) {
+    mount(root, ctx2) {
+      if (ctx2) ctx = ctx2;
       const f = root.querySelector('#sim-f');
       const $ = (sel) => root.querySelector(sel);
       let s = null; let err = '';
@@ -166,9 +168,20 @@ export function simulatorView(space, ctx) {
         draw();
         if (err) { notify(tRaw(err)); $('#sim-err').scrollIntoView({ block: 'center' }); return; }
         save.disabled = true;
-        try { await saveRules(key, partner, s); ctx.go(`p/${key}/config`, tRaw('sim.saved')); }
+        try { await saveRules(key, partner, s); ctx.go(`p/${key}/comissao`, tRaw('sim.saved')); }
         catch { save.disabled = false; notify(tRaw('err.generic')); }
       };
     },
   };
+}
+
+// v126 : « Sua regra hoje » en tête de l'espace Comissão (règles enregistrées + horaires turbo à venir).
+export function currentRulesHtml(space, c) {
+  const p = space.partner;
+  const st = { model: p.commissionModel, rate: p.commissionRate, pp: p.perPersonCents, exLabel: p.excludedLabel, min: p.minCents, cap: p.capCents,
+    tierClients: p.tierClients, tierRate: p.tierRate, tierPp: p.tierPpCents, boost: { on: false } };
+  const today = new Date(Date.now() - 3 * 36e5).toISOString().slice(0, 10);
+  const bs = (space.boosts || []).filter((b) => !b.day || b.day >= today);
+  return `<div class="card cm-now"><h2 style="margin:0 0 6px">${t('cm.now')}</h2><blockquote class="rw-sentence">${esc(rulesSentence(st, c))}</blockquote>
+    ${bs.length ? `<div class="hint"><b>${t('bst.p.list')}</b> · ${bs.map((b) => `${esc(boostWhen(b))} (${esc(boostValue(b, c))})`).join(' · ')}</div>` : ''}</div>`;
 }

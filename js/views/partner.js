@@ -16,7 +16,7 @@ import { blackoutCard, mountBlackoutCard, blackoutToday } from './blackouts.js';
 import { companyEntryCard, companyView, groupInviteView } from './company.js';
 import { rulesCard, mountRulesCard, boostCard, mountBoostCard } from './boosts.js';
 import { rulesWizardView } from './rules-wizard.js';
-import { simulatorView } from './simulator.js';
+import { simulatorView, currentRulesHtml } from './simulator.js';
 
 const MAX_RECEIPT = 1.5 * 1024 * 1024;
 export const TERMS_VERSION = 'P-2 · 16/11/2026';   // v74 (v1 · 30/10/2026 avant)
@@ -273,7 +273,7 @@ async function partnerViewCore([token, action, visitId], ctx) {
   if (action === 'grupo' && space.group) return groupView(space);
   if (action === 'empresa') return companyView(space, visitId || '', ctx);   // v120 : Minha empresa
   if (action === 'regras') return rulesWizardView(space, ctx);   // v124 : assistente da comissão
-  if (action === 'simulador') return simulatorView(space, ctx);   // v125 : simulador da comissão
+  if (action === 'simulador' || action === 'comissao') { space.sub = action === 'comissao' ? visitId || '' : ''; return spaceView(space, 'comissao'); }   // v126 : espaço Comissão
   if (action === 'relatorio') return reportPage(space, visitId);
   if (action === 'mes') return monthPage(space, visitId, space.closings);
   if (action === 'demonstrativo') return docPage(space, visitId, space.closings, `#/p/${encodeURIComponent(token)}/pagamentos`);
@@ -772,7 +772,7 @@ function txLine(v, city, lang) {
 }
 
 // Espace du gérant (v32) : tableau de bord à onglets, visites traitées en groupe (cases à cocher), liste « À faire ».
-const PD_TABS = ['painel', 'visitas', 'pagamentos', 'equipe', 'config'];
+const PD_TABS = ['painel', 'visitas', 'pagamentos', 'equipe', 'comissao', 'config'];
 const ageDays = (iso) => (iso ? Math.floor((Date.now() - new Date(iso)) / 864e5) : 0);
 const doneKey = (pid, month) => `kb-todo-${pid}-${month}`;
 const readDone = (k) => { try { return new Set(JSON.parse(localStorage.getItem(k) || '[]')); } catch { return new Set(); } };
@@ -788,6 +788,7 @@ export function spaceView(space, tab = 'painel') {
   const month = monthOf(new Date().toISOString(), city.timezone);
   const rate = Math.round(partner.commissionRate * 100);
   const rateLbl = rateText(partner, null, c);
+  space.simView = null;
   const toDeclare = visits.filter((v) => v.status === 'visited');
   const toPay = visits.filter((v) => v.status === 'declared');
   const extraDue = adjustments.filter((a) => a.partnerStatus === 'extra_due');
@@ -955,7 +956,7 @@ export function spaceView(space, tab = 'painel') {
           <p class="hint" style="margin:4px 0 0">${t('partner.extras.meal.hint')}</p></div>
         <button class="btn secondary">${t('common.save')}</button>
       </form>
-      ${rulesCard(partner, c, base)}
+      ${tab === 'config' ? `<div class="card cm-link"><h2>${t('cm.link.title')}</h2><p class="hint">${t('cm.link.hint')}</p><a class="btn secondary small" href="${base}/comissao">${t('cm.link.btn')}</a></div>` : ''}
       <div class="card" id="j1card">
         <div class="spread"><h2 style="margin:0">${t('j1.p.title')}</h2><span class="badge ${partner.j1Enabled ? 'ok' : ''}">${t(partner.j1Enabled ? 'j1.p.on.badge' : 'j1.p.off.badge')}</span></div>
         <p style="margin-top:8px">${t(partner.j1Enabled ? 'j1.p.on' : 'j1.p.off')}</p>
@@ -982,7 +983,7 @@ export function spaceView(space, tab = 'painel') {
         <p class="hint" style="margin:0 0 8px">${t('offer.days.hint')}</p>
         <button class="btn secondary">${t('common.save')}</button>
       </form>
-      ${tab === 'config' ? companyEntryCard(space) + blackoutCard(space) + boostCard(space, c) : ''}
+      ${tab === 'config' ? companyEntryCard(space) + blackoutCard(space) : ''}
       <div class="card" style="text-align:center">
         <h2>${t('partner.qr.title')}</h2>
         ${partner.counterEnabled ? '' : `<div class="notice warn">${t('team.counter.off')}</div>`}
@@ -1003,12 +1004,20 @@ export function spaceView(space, tab = 'painel') {
     pagamentos: `<div class="pd-cols"><div class="pd-side">${visitsCard(t('pd.topay'), toPay, false)}${payHistory}</div><div class="pd-side">${docsCard}${inssCard}${adjustmentsCard(adjustments, city, lang)}</div></div>`,
     equipe: teamHtml(space),
     config: settings,
+    comissao: (() => {   // v126 : espace « Comissão » — simulateur, règles et turbo, assistant, tutoriel
+      if (tab !== 'comissao') return '';
+      const sub = space.sub === 'regras' ? 'regras' : 'sim';
+      const pill = (href, k, on) => `<a class="cm-pill${on ? ' on' : ''}" href="${href}">${t(k)}</a>`;
+      return `<nav class="cm-pills no-print">${pill(`${base}/comissao`, 'cm.sub.sim', sub === 'sim')}${pill(`${base}/comissao/regras`, 'cm.sub.rules', sub === 'regras')}${pill(`${base}/regras`, 'cm.sub.wizard', false)}${pill('#/tuto/rules', 'cm.sub.tuto', false)}</nav>
+        ${currentRulesHtml(space, c)}
+        ${sub === 'regras' ? `<div class="pd-cols"><div class="pd-side">${rulesCard(partner, c)}</div><div class="pd-side">${boostCard(space, c)}<div class="card"><h2>${t('bo.p.title')}</h2><p class="hint">${t('cm.bo.hint')}</p><a class="btn ghost small" href="${base}/config">${t('pd.tab.config')}</a></div></div></div>` : (space.simView = simulatorView(space, null, { embedded: true })).html}`;
+    })(),
   }[tab];
-  const counts = { painel: 0, visitas: toDeclare.length, pagamentos: toPay.length + extraDue.length, equipe: 0, config: 0 };
+  const counts = { painel: 0, visitas: toDeclare.length, pagamentos: toPay.length + extraDue.length, equipe: 0, comissao: 0, config: 0 };
   // v87 : pastilles sur ordinateur, barre fixée en bas sur téléphone (icône + mot court).
-  const PD_ICONS = { painel: 'grid', visitas: 'list', pagamentos: 'card', equipe: 'team', config: 'gear' };
+  const PD_ICONS = { painel: 'grid', visitas: 'list', pagamentos: 'card', equipe: 'team', comissao: 'percent', config: 'gear' };
   const navItems = PD_TABS.map((k) => ({ href: `${base}${k === 'painel' ? '' : `/${k}`}`, label: t(`pd.tab.${k}`), short: t(`pd.tab.${k}.short`),
-    icon: PD_ICONS[k], on: k === tab, count: counts[k], desk: k === 'config' }));
+    icon: PD_ICONS[k], on: k === tab, count: counts[k], desk: k === 'config' || k === 'comissao' }));
   // design v2 : « Escanear » au centre de la barre (scanner le QR du client, ou saisir une conta) ; sur téléphone,
   // « Ajustes » passe en roue dentée dans l'en-tête pour garder 5 places (Equipe reste à un pouce).
   navItems.splice(2, 0, { href: `${base}/conta`, label: t('pd.tab.scan'), short: t('pd.tab.scan'), icon: 'scan', center: true });
@@ -1019,7 +1028,7 @@ export function spaceView(space, tab = 'painel') {
       ${groupBar(space)}
       <div class="spread"><div><h1 style="margin-bottom:2px">${esc(partner.name)}</h1>
         <p class="hint" style="margin:0">${t(`ptype.${partner.type}`)}${partner.area ? ` · ${esc(partner.area)}` : ''} · ${t('pd.k.rate', { rate: rateLbl })}${partner.managerName ? ` · ${t('pm.hello', { name: partner.managerName })}` : ''}</p></div>
-        <div class="row" style="gap:6px"><a class="btn ghost small no-print gear-phone${tab === 'config' ? ' on' : ''}" href="${base}/config" aria-label="${esc(tRaw('pd.tab.config'))}"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7"/></svg></a>${helpButton()}${loggedIn ? `<button class="btn ghost small no-print" id="logout">${t('common.logout')}</button>` : ''}</div></div>
+        <div class="row" style="gap:6px"><a class="btn ghost small no-print gear-phone${tab === 'comissao' ? ' on' : ''}" href="${base}/comissao" aria-label="${esc(tRaw('pd.tab.comissao'))}"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="7.5" cy="7.5" r="2.5"/><circle cx="16.5" cy="16.5" r="2.5"/><path d="M18.5 5.5l-13 13"/></svg></a><a class="btn ghost small no-print gear-phone${tab === 'config' ? ' on' : ''}" href="${base}/config" aria-label="${esc(tRaw('pd.tab.config'))}"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7"/></svg></a>${helpButton()}${loggedIn ? `<button class="btn ghost small no-print" id="logout">${t('common.logout')}</button>` : ''}</div></div>
       ${tabsNav}<!--bc-->${banner}${tab === 'painel' && !startHtml ? installCard('partner') : ''}${body}</div>`,
     mount(root, ctx) {
       mountGroupBar(root);
@@ -1138,6 +1147,7 @@ export function spaceView(space, tab = 'painel') {
       };
       mountBlackoutCard(root, ctx, space);   // v118 : jours sans commission
       mountRulesCard(root, ctx, partner, key); mountBoostCard(root, ctx, space, c);   // v123 : règles et horaires turbo
+      if (space.simView) space.simView.mount(root, ctx);   // v126 : simulateur dans l'espace Comissão
       const j1b = root.querySelector('#j1-toggle');
       if (j1b) j1b.onclick = async () => {
         const on = !!j1b.dataset.on;

@@ -51,7 +51,7 @@ export function rulesWizardView(space, ctx) {
   const { partner, city, key } = space;
   const lang = getLang();
   const c = (n) => cents(n, city.currency, lang);
-  const back = `#/p/${encodeURIComponent(key)}/config`;
+  const back = `#/p/${encodeURIComponent(key)}/comissao`;
   const pp0 = partner.commissionModel === 'per_person';
   const rate0 = RATES.includes(Math.round(partner.commissionRate * 100)) ? partner.commissionRate : 0.1;
   const s = {
@@ -78,8 +78,8 @@ export function rulesWizardView(space, ctx) {
       <ul class="rw-rules"><li>${t('rw.mix.r1')}</li><li>${t('rw.mix.r2')}</li><li>${t('rw.mix.r3')}</li><li class="hint">${t('rw.mix.r4')}</li></ul></details>`;
 
   const html = `<div class="rw">
-    <p class="no-print"><a href="${back}">← ${t('pd.tab.config')}</a></p>
-    <h1>${t('rw.title')}</h1><p class="hint">${t('rw.intro')} <a href="#/tuto/rules">${t('rw.tuto')}</a> · <a href="#/p/${encodeURIComponent(key)}/simulador">${t('sim.open')}</a></p>
+    <p class="no-print"><a href="${back}">← ${t('pd.tab.comissao')}</a></p>
+    <h1>${t('rw.title')}</h1><p class="hint">${t('rw.intro')} <a href="#/tuto/rules">${t('rw.tuto')}</a> · <a href="#/p/${encodeURIComponent(key)}/comissao">${t('sim.open')}</a></p>
     <div class="st-bar rw-bar"><i id="rw-bar" style="width:${Math.round(100 / N)}%"></i></div>
     <form class="card rw-card" id="rw" novalidate>
     ${step(0, t('rw.q1'), t('rw.q1.ex'), `<div class="rw-choices">
@@ -215,7 +215,7 @@ export function rulesWizardView(space, ctx) {
         const btn = root.querySelector('#rw-save'); btn.disabled = true;
         try {
           await saveRules(key, partner, s);
-          ctx.go(`p/${key}/config`, tRaw('rw.saved'));
+          ctx.go(`p/${key}/comissao`, tRaw('rw.saved'));
         } catch { btn.disabled = false; notify(tRaw('err.generic')); }
       };
     },

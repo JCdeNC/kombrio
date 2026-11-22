@@ -29,7 +29,7 @@ export function rulesCard(partner, c, base = '') {
     <h2>${t('rules.title')}</h2>
     <p class="hint">${t('rules.hint')}</p>
     ${base ? `<div class="notice ok rw-entry"><b>${t('rw.entry')}</b><span class="hint">${t('rw.entry.hint')}</span>
-      <span class="row" style="gap:6px"><a class="btn small" href="${base}/regras">${t('rw.entry.btn')}</a><a class="btn secondary small" href="${base}/simulador">${t('sim.open')}</a><a class="btn ghost small" href="#/tuto/rules">${t('tu.see')}</a></span></div>` : ''}
+      <span class="row" style="gap:6px"><a class="btn small" href="${base}/regras">${t('rw.entry.btn')}</a><a class="btn secondary small" href="${base}/comissao">${t('sim.open')}</a><a class="btn ghost small" href="#/tuto/rules">${t('tu.see')}</a></span></div>` : ''}
     <div class="field"><label for="ru-ex">${t('rules.excluded')}</label>
       <input id="ru-ex" name="ex" maxlength="40" value="${esc(partner.excludedLabel)}" placeholder="${esc(tRaw('rules.excluded.ph'))}">
       <p class="hint" style="margin:4px 0 0">${t(pp ? 'rules.excluded.pp' : 'rules.excluded.hint')}</p></div>

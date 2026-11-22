@@ -1006,3 +1006,8 @@ input::-webkit-date-and-time-value { text-align: left; margin: 0; }
 .sim-month .spread { padding: 6px 0; border-top: 1px solid #EEF1EF; }
 .sim-month .spread:first-child { border-top: 0; }
 .sim-rules .rw-choices { grid-template-columns: 1fr 1fr; }
+/* v126 : espace Comissão */
+.cm-pills { display: flex; flex-wrap: wrap; margin: 4px 0 12px; }
+.cm-pill { padding: 7px 14px; border-radius: 999px; border: 1.5px solid #DDE3DF; text-decoration: none; color: inherit; font-weight: 600; font-size: .92rem; margin: 0 6px 6px 0; }
+.cm-pill.on { background: var(--brand, #1F8F5F); border-color: var(--brand, #1F8F5F); color: #fff; }
+.sim-title { margin: 6px 0 2px; }
