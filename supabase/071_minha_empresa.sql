@@ -217,15 +217,15 @@ begin
   insert into partners (city_id, type, name, area, address, tax_id, status, lang,
                         token, manager_token, manager_user, manager_name, manager_phone, manager_email,
                         terms_version, terms_accepted_at, commission_rate, commission_model, per_person_cents,
-                        bonus_every, bonus_cents, meal_every, mode, rate_tc, rate_agency, child_cents, ask_children,
-                        group_id, ownership)
+                        bonus_every, bonus_cents, meal_every, mode2_fee_rate, mode2_fee_cap_cents, rate_tc, rate_agency, child_cents,
+                        staff_photo_required, group_id, ownership)
   values (me.city_id, me.type, nm, nullif(left(trim(coalesce(p_area, '')), 120), ''), nullif(left(trim(coalesce(p_address, '')), 200), ''),
           me.tax_id, 'pending', me.lang,
           'P-' || left(replace(gen_random_uuid()::text, '-', ''), 24), 'G-' || replace(gen_random_uuid()::text, '-', ''),
           me.manager_user, me.manager_name, me.manager_phone, me.manager_email,
           me.terms_version, me.terms_accepted_at, me.commission_rate, me.commission_model, me.per_person_cents,
-          me.bonus_every, me.bonus_cents, me.meal_every, me.mode, me.rate_tc, me.rate_agency, me.child_cents, me.ask_children,
-          (o.g).id, 'own')
+          me.bonus_every, me.bonus_cents, me.meal_every, me.mode2_fee_rate, me.mode2_fee_cap_cents, me.rate_tc, me.rate_agency, me.child_cents,
+          me.staff_photo_required, (o.g).id, 'own')
   returning id into v_id;
   perform log_event('manager', 'company_shop_added', null, null, null, jsonb_build_object('group', (o.g).id, 'partner', v_id, 'name', nm));
   perform company_alert(v_id, 'Nouvelle loja à valider : ' || nm || ', ajoutée par ' || me.name || ' dans « ' || (o.g).name || ' » (onglet Partenaires).');

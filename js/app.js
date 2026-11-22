@@ -92,6 +92,10 @@ async function render() {
       ${store.DEMO ? `<button class="btn ghost small" id="demo-reset">${t('demo.reset')}</button>` : ''}
     </footer>`;
 
+  // v122 : remplace :has() (interdit : iOS 13.4 / Chrome 80) — tableau de bord large, cartes contenant un tableau.
+  const mainEl = root.querySelector('main');
+  mainEl.classList.toggle('wide', !!mainEl.querySelector('.dash-wide'));
+  mainEl.querySelectorAll('.card, details').forEach((c) => { if (c.querySelector('table')) c.classList.add('has-table'); });
   document.getElementById('lang').onchange = (e) => { chooseLang(e.target.value); render(); };
   const reset = document.getElementById('demo-reset');
   if (reset) {

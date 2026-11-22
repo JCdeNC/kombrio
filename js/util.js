@@ -31,14 +31,14 @@ export function parseCents(text) {
 // Une date "AAAA-MM-JJ" affichée sans décalage de fuseau.
 export function fmtDay(day, lang) {
   if (!day) return '';
-  return new Intl.DateTimeFormat(locale(lang), { dateStyle: 'medium', timeZone: 'UTC' })
+  return new Intl.DateTimeFormat(locale(lang), { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' })
     .format(new Date(`${day}T12:00:00Z`));
 }
 
 // Un instant (ISO) affiché à l'heure locale de la ville.
 export function fmtMoment(iso, lang, timeZone) {
   if (!iso) return '';
-  return new Intl.DateTimeFormat(locale(lang), { dateStyle: 'medium', timeStyle: 'short', timeZone })
+  return new Intl.DateTimeFormat(locale(lang), { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone })
     .format(new Date(iso));
 }
 

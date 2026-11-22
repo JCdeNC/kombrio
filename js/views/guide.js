@@ -945,7 +945,7 @@ async function statementView(me, city) {
   const cur = (n) => (n == null ? '—' : cents(n, city.currency, lang));
   const pname = (id) => partners.find((p) => p.id === id)?.name || '?';
   const payout = (id) => payouts.find((p) => p.id === id);
-  const short = (iso) => new Intl.DateTimeFormat(locale(lang), { dateStyle: 'short', timeZone: city.timezone }).format(new Date(iso));
+  const short = (iso) => new Intl.DateTimeFormat(locale(lang), { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: city.timezone }).format(new Date(iso));
   const cashed = (v) => ['received', 'payout_pending', 'paid'].includes(v.status);
   return {
     html: `

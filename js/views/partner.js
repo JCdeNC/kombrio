@@ -1364,7 +1364,7 @@ function payView({ partner, city, visits, key, group }) {
 const monthOf = (iso, tz) => new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit' }).format(new Date(iso));
 const monthLabel = (m, lang) => new Intl.DateTimeFormat(locale(lang), { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${m}-15T12:00:00Z`));
 const PAID = ['received', 'payout_pending', 'paid'];
-const shortMoment = (iso, lang, tz) => new Intl.DateTimeFormat(locale(lang), { dateStyle: 'short', timeStyle: 'short', timeZone: tz }).format(new Date(iso));
+const shortMoment = (iso, lang, tz) => new Intl.DateTimeFormat(locale(lang), { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: tz }).format(new Date(iso));
 
 // Corrections après encaissement (contre-écritures) vues par le partenaire.
 function adjustmentsCard(adjustments, city, lang, month) {

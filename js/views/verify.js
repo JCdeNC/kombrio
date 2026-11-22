@@ -6,7 +6,7 @@ import * as store from '../store.js';
 
 export async function verifyView([token = '']) {
   const b = /^B-[a-f0-9]{32}$/.test(token) ? await store.guideBadge(token) : null;
-  const now = new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short', timeZone: 'America/Sao_Paulo' }).format(new Date());
+  const now = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' }).format(new Date());
   if (!b) {
     return { html: `<div class="vf"><div class="vf-state bad"><b>${t('vf.none.title')}</b><span>${t('vf.none.text')}</span></div>
       <p class="hint" style="text-align:center">${t('vf.checked', { at: now })}</p></div>` };
