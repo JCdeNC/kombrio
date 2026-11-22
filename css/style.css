@@ -976,3 +976,7 @@ input[type="date"], input[type="month"], input[type="time"], input[type="datetim
 input::-webkit-date-and-time-value { text-align: left; margin: 0; }
 .grid2 > *, .row > .field, .spread > .field { min-width: 0; }
 .row > .field { flex: 1 1 160px; }
+/* v123 : horaires turbo et règles de commission */
+.bst-line { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: .9rem; margin-top: 4px; }
+.bst-gcard .badge.ok, #bst-card .badge.ok { white-space: nowrap; }
+.pd-i .pd-ex { margin-top: 4px; }

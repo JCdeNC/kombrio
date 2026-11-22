@@ -9,6 +9,7 @@ import { installView, installCard, mountInstallCard, installEnv } from './instal
 import { startCard, mountStartCard, guideSteps } from './start.js';
 import { tutoView } from './tuto.js';
 import { blackoutLines, stayBlackoutCard } from './blackouts.js';
+import { boostWhen } from './boosts.js';
 import { broadcastGate, broadcastBanners, mountBroadcastBanners } from './broadcast.js';
 import { WEEKLY_OPTION } from '../config.js';
 // Durée maximale d'un séjour (K-15, décidé le 06/11/2026) : les clients restent au plus une semaine. Même règle dans la base (script 014).
@@ -256,7 +257,8 @@ async function loadGuide(me, city) {
     store.listStays(me.id), store.listVisits({ guideId: me.id }), store.listAdjustments(me.id), store.listPayouts(me.id),
     store.listPixVerifications(me.id), store.publicPartners(city.id), store.listMyAlerts()]);
   const linked = await store.myLinkedStays();   // v100 : groupes d'une agence ou d'un TC auxquels on est rattaché
-  return { stays, visits, adjustments, payouts, pixChecks, partners, alerts, linked };
+  const incentives = await store.guideIncentives(city.id).catch(() => []);   // v123 : turbos, paliers, parts non commissionnées
+  return { stays, visits, adjustments, payouts, pixChecks, partners, alerts, linked, incentives };
 }
 
 async function dashboardView(me, city, tab = 'inicio', focus = '') {
@@ -422,6 +424,17 @@ async function dashboardView(me, city, tab = 'inicio', focus = '') {
   const blackCard = blackList.length ? `<div class="card bo-gcard"><h2 style="margin:0 0 4px">${t('bo.g.title')}</h2><p class="hint">${t('bo.g.hint')}</p>
       <ul class="list">${blackList.map((p) => `<li><b>${esc(p.name)}</b><span class="hint">${p.area ? ` · ${esc(p.area)}` : ''}</span>${blackoutLines(p, 4, true)}</li>`).join('')}</ul></div>` : '';
 
+  // v123 : commissions plus élevées (horaires turbo, palier du mois) et parts non commissionnées, par ordre alphabétique,
+  // sans classement (indépendance du guide). Seulement pour le guide connecté : jamais sur la page du client.
+  const pName = (id) => (partners.find((p) => p.id === id) || {}).name || '';
+  const valOf = (x, rate, pp) => (pp ? tRaw('bst.g.pp', { amount: cur(pp) }) : rate ? `${Math.round(rate * 1000) / 10} %` : '');
+  const incList = (d.incentives || []).filter((x) => pName(x.partnerId)).sort((a, b) => pName(a.partnerId).localeCompare(pName(b.partnerId)));
+  const incCard = incList.length ? `<div class="card bst-gcard"><h2 style="margin:0 0 4px">${t('bst.g.title')}</h2><p class="hint">${t('bst.g.hint')}</p>
+      <ul class="list">${incList.map((x) => `<li><b>${esc(pName(x.partnerId))}</b> <span class="hint">· ${t('bst.g.base', { value: esc(valOf(x, x.model === 'per_person' ? null : x.rate, x.model === 'per_person' ? x.ppCents : null)) })}</span>
+        ${x.boosts.map((b) => `<div class="bst-line"><span class="badge ok">${esc(valOf(x, b.rate, b.ppCents))}</span> ${esc(boostWhen(b, lang))}${b.note ? ` <span class="hint">· ${esc(b.note)}</span>` : ''}</div>`).join('')}
+        ${x.tier ? `<div class="bst-line">${t('bst.g.tier', { n: x.tier.clients, value: esc(valOf(x, x.tier.rate, x.tier.ppCents)) })}</div>` : ''}
+        ${x.excludedLabel ? `<div class="hint">${t('bst.g.excluded', { label: esc(x.excludedLabel) })}</div>` : ''}</li>`).join('')}</ul></div>` : '';
+
   // v100 : groupes d'une agence ou d'un TC auxquels ce compte est rattaché.
   const linkedCard = linked.length ? `<div class="card"><h2 style="margin:0 0 6px">${t('grp.mine.title')}</h2><ul class="list">${linked.map((x) => `<li>
       <div class="spread"><b>${esc(x.client)}</b><span class="badge">${t(`role.${x.role}`)}</span></div>
@@ -479,7 +492,7 @@ async function dashboardView(me, city, tab = 'inicio', focus = '') {
     inicio: `${kpis}<div class="pd-cols"><div class="pd-side">${txCard(t('g.recent'), recent, visits.length > 5 ? `<a href="#/ganhos">${t('g.seeall')}</a>` : '')}
         ${staysCard(stays.filter((s) => stayState(s) !== 'done' && !s.archivedAt).slice(0, 4), false)}</div>
       <div class="pd-side">${todoCard}${blackCard}${nextCard}${chartCard}${partnersCard}${me.referralEnabled ? `<a class="card" href="#/indicacao" style="display:block;text-decoration:none;color:inherit"><b>${t('ref.card.title')}</b><span class="hint" style="display:block">${t('ref.card.hint')}</span></a>` : ''}</div></div>`,
-    clientes: `<div class="pd-cols"><div class="pd-side">${staysCard(stays, true)}${linkedCard}</div><div class="pd-side">${newStayForm}${blackCard}${offersCard}</div></div>`,
+    clientes: `<div class="pd-cols"><div class="pd-side">${staysCard(stays, true)}${linkedCard}</div><div class="pd-side">${newStayForm}${blackCard}${incCard}${offersCard}</div></div>`,
     ganhos: `${kpis}<div class="pd-cols"><div class="pd-side"><div class="card g-card"><div class="spread"><h2 style="margin:0">${t('g.all')}</h2>
         <span class="hint">${t('guide.sum.note', { pct })}</span></div>${filters}<div id="g-list">${visits.length ? visits.map(txRow).join('') : `<p class="hint">${t('g.tx.none')}</p>`}</div></div></div>
       <div class="pd-side">${nextCard}${adjCard}${payoutsCard}<a class="card" href="#/releve" style="display:block;text-decoration:none;color:inherit"><b>${t('guide.statement.title')}</b><span class="hint" style="display:block">${t('g.statement.hint')}</span></a></div></div>`,

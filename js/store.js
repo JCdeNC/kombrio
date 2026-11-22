@@ -61,6 +61,9 @@ const toPartner = (r) => r && ({
   // v70 : prix Kombrio pour le client (prix normal → prix Kombrio) et dates de l'offre (vides = toujours).
   childCents: num(r.child_cents) || 0, askChildren: !!r.ask_children, // v71 : forfait enfant (0 = comme un adulte)
   offerPriceCents: num(r.offer_price_cents), offerPromoCents: num(r.offer_promo_cents), offerStart: r.offer_start || '', offerEnd: r.offer_end || '', offerDays: (r.offer_days || []).map(Number),
+  // v123 (script 074) : part non commissionnable (libellé), plafond / minimum par addition, palier du mois.
+  excludedLabel: r.excluded_label || '', capCents: num(r.commission_cap_cents), minCents: num(r.commission_min_cents),
+  tierClients: num(r.tier_clients) || 0, tierRate: r.tier_rate == null ? null : Number(r.tier_rate), tierPpCents: num(r.tier_pp_cents),
 });
 const toStay = (r) => r && ({
   id: r.id, guideId: r.guide_id, client: r.client, people: r.people, start: r.start_day, end: r.end_day,
@@ -89,6 +92,8 @@ const toVisit = (r) => r && ({
   mode: r.mode == null ? 1 : Number(r.mode), feeCents: num(r.fee_cents) || 0, feeRate: r.fee_rate == null ? null : Number(r.fee_rate),
   dueCents: r.declared_cents == null ? null : Number(r.declared_cents) + (Number(r.fee_cents) || 0),
   parentVisitId: r.parent_visit_id || null, actorRole: r.actor_role || null, // v101 : ligne de commission par rôle
+  // v123 : part non commissionnable, plafond / minimum figés au scan, « turbo » ou « palier » appliqué.
+  excludedCents: num(r.excluded_cents), capCents: num(r.cap_cents), minCents: num(r.min_cents), incentive: r.incentive || '', incentiveNote: r.incentive_note || '',
 });
 // v102 : chaque ligne de commission (TC, guide d'un groupe d'agence) juste après son passage principal.
 export function nestLines(visits) {
@@ -484,7 +489,7 @@ export async function setCommissionModel(managerToken, model, perPersonCents = n
   return check(await sb.rpc('set_commission_model', { p_manager_token: managerToken, p_model: model, p_per_person_cents: perPersonCents }));
 }
 // v68 : commission d'un passage, comme le calcule la base (commission_for).
-export function commissionFor(partner, visit, invoiceCents, people, children = 0) {
+export function commissionFor(partner, visit, invoiceCents, people, children = 0, excludedCents = null) {
   const pp = visit ? (visit.perPersonCents ?? null) : forfaitOf(partner);
   if (invoiceCents == null) return null;
   const n = Math.max(1, Number(people) || 1);
@@ -492,8 +497,38 @@ export function commissionFor(partner, visit, invoiceCents, people, children = 0
   const kids = cc == null ? 0 : Math.min(n, Math.max(0, Number(children) || 0));
   const every = visit ? visit.bonusEvery : partner.bonusEvery;
   const bonus = invoiceCents > 0 && every > 0 ? Math.floor(n / every) * ((visit ? visit.bonusCents : partner.bonusCents) || 0) : 0;
-  if (pp == null) return Math.round(invoiceCents * ((visit && visit.rate) ?? partner.commissionRate)) + bonus;
-  return invoiceCents === 0 ? 0 : (n - kids) * pp + kids * cc + bonus;
+  // v123 : la part non commissionnable (ex. bebidas) est retirée de l'addition pour le % ; plafond et minimum par passage.
+  const ex = excludedCents != null ? excludedCents : (visit && visit.excludedCents) || 0;
+  const base = Math.max(0, invoiceCents - (partner.excludedLabel || (visit && visit.excludedCents) ? ex : 0));
+  const raw = pp == null ? Math.round(base * ((visit && visit.rate) ?? partner.commissionRate)) + bonus
+    : invoiceCents === 0 ? 0 : (n - kids) * pp + kids * cc + bonus;
+  const cap = visit ? visit.capCents : partner.capCents; const min = visit ? visit.minCents : partner.minCents;
+  return raw > 0 ? Math.min(cap ?? raw, Math.max(min || 0, raw)) : raw;
+}
+// v123 : règles de commission du gérant (part non commissionnable, plafond, minimum, palier) et horaires turbo.
+export async function setCommissionRules(managerToken, { excludedLabel, capCents, minCents, tierClients, tierRate, tierPpCents }) {
+  return check(await sb.rpc('set_commission_rules', { p_manager_token: managerToken, p_excluded_label: excludedLabel || null, p_cap_cents: capCents || null,
+    p_min_cents: minCents || null, p_tier_clients: tierClients || null, p_tier_rate: tierRate || null, p_tier_pp_cents: tierPpCents || null }));
+}
+const toBoost = (b) => ({ id: b.id, day: b.day || '', weekdays: (b.weekdays || []).map(Number), from: b.from || '', to: b.to || '',
+  rate: b.rate == null ? null : Number(b.rate), ppCents: num(b.pp_cents), note: b.note || '' });
+export async function partnerBoosts(token) {
+  const { data, error } = await sb.rpc('partner_boosts_list', { p_token: token });
+  return error ? null : (data || []).map(toBoost);   // null = script 074 pas lancé
+}
+export async function addBoosts(managerToken, { days, weekdays, from, to, rate, ppCents, note }) {
+  return check(await sb.rpc('partner_boosts_add', { p_manager_token: managerToken, p_days: days && days.length ? days : null,
+    p_weekdays: weekdays && weekdays.length ? weekdays : null, p_from: from || null, p_to: to || null, p_rate: rate ?? null, p_pp_cents: ppCents ?? null, p_note: note || '' }));
+}
+export async function removeBoost(managerToken, id) {
+  return check(await sb.rpc('partner_boosts_remove', { p_manager_token: managerToken, p_id: id }));
+}
+// Pour le guide connecté : horaires turbo, paliers et parts non commissionnées des partenaires de sa ville ([] sans le script 074).
+export async function guideIncentives(cityId) {
+  const { data, error } = await sb.rpc('guide_incentives', { p_city: cityId });
+  return error ? [] : (data || []).map((x) => ({ partnerId: x.partner_id, model: x.model, rate: x.rate == null ? null : Number(x.rate), ppCents: num(x.pp_cents),
+    tier: x.tier ? { clients: Number(x.tier.clients), rate: x.tier.rate == null ? null : Number(x.tier.rate), ppCents: num(x.tier.pp_cents) } : null,
+    excludedLabel: x.excluded_label || '', boosts: (x.boosts || []).map(toBoost) }));
 }
 // v71 : forfait enfant — le serveur indique les enfants du groupe ; le gérant fixe le montant par enfant.
 export async function setVisitChildren(token, visitId, children) {
@@ -562,7 +597,12 @@ export async function setPeopleServed(partnerToken, visitId, people) {
 }
 
 // v59 : saisie d'un passage par la caisse ou le gérant (montant final, commission éventuellement baissée, repas du guide, table, photo).
-export async function declareVisit(token, visitId, { invoiceCents, commissionCents = null, guideMeal = false, table = null, photo = null, note = null }) {
+export async function declareVisit(token, visitId, { invoiceCents, commissionCents = null, guideMeal = false, table = null, photo = null, note = null, excludedCents = null }) {
+  // v123 : avec une part non commissionnable, declare_visit_ex l'enregistre puis fait la même saisie (script 074).
+  if (excludedCents != null) return check(await sb.rpc('declare_visit_ex', {
+    p_token: token, p_visit: visitId, p_invoice_cents: invoiceCents, p_excluded_cents: excludedCents, p_commission_cents: commissionCents,
+    p_guide_meal: guideMeal, p_table: table, p_photo: photo, p_note: note,
+  }));
   return check(await sb.rpc('declare_visit', {
     p_token: token, p_visit: visitId, p_invoice_cents: invoiceCents, p_commission_cents: commissionCents,
     p_guide_meal: guideMeal, p_table: table, p_photo: photo, p_note: note,

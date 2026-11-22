@@ -748,4 +748,11 @@ export default {
   "bo.from": "a partir de las {t}",
   "bo.until": "hasta las {t}",
   "bo.range": "de {a} a {b}",
+  "bst.allday": "todo el día",
+  "bst.g.title": "Comisiones más altas",
+  "bst.g.hint": "Horarios turbo y niveles del mes decididos por los socios. Solo para ti: los clientes no los ven.",
+  "bst.g.tier": "A partir de {n} clientes en el mes contigo: {value}",
+  "bst.g.excluded": "Sin comisión: {label}",
+  "bst.g.pp": "{amount} / cliente",
+  "bst.g.base": "normal: {value}",
 };

@@ -738,4 +738,11 @@ export default {
   "bo.from": "ab {t} Uhr",
   "bo.until": "bis {t} Uhr",
   "bo.range": "{a}–{b} Uhr",
+  "bst.allday": "ganztägig",
+  "bst.g.title": "Höhere Provisionen",
+  "bst.g.hint": "Turbo-Zeiten und Monatsstufen der Partner. Nur für Sie: Kunden sehen das nicht.",
+  "bst.g.tier": "Ab {n} Kunden im Monat mit Ihnen: {value}",
+  "bst.g.excluded": "Ohne Provision: {label}",
+  "bst.g.pp": "{amount} / Kunde",
+  "bst.g.base": "normal: {value}",
 };

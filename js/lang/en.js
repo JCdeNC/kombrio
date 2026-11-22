@@ -748,4 +748,11 @@ export default {
   "bo.from": "from {t}",
   "bo.until": "until {t}",
   "bo.range": "{a} to {b}",
+  "bst.allday": "all day",
+  "bst.g.title": "Higher commissions",
+  "bst.g.hint": "Turbo hours and monthly tiers set by partners. Only for you: clients don't see them.",
+  "bst.g.tier": "From {n} clients in the month with you: {value}",
+  "bst.g.excluded": "Not commissioned: {label}",
+  "bst.g.pp": "{amount} / client",
+  "bst.g.base": "usual: {value}",
 };
