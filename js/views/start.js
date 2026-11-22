@@ -38,9 +38,9 @@ export function guideSteps({ me, stays, pixOk }) {
 // Étapes du gérant d'un partenaire.
 export function partnerSteps({ partner, visits, base }) {
   return [installStep(),
-    { id: 'offer', label: 'st.p.offer', hint: 'st.p.offer.hint', href: `${base}/config`, done: !!(partner.offer || partner.offerPromoCents) },
+    { id: 'offer', label: 'st.p.offer', hint: 'st.p.offer.hint', href: `${base}/config/oferta`, done: !!(partner.offer || partner.offerPromoCents) },
     { id: 'rate', label: 'st.p.rate', hint: 'st.p.rate.hint', href: `${base}/regras`, tuto: 'rules', manual: true },
-    { id: 'qr', label: 'st.p.qr', hint: 'st.p.qr.hint', href: `${base}/config`, manual: true },
+    { id: 'qr', label: 'st.p.qr', hint: 'st.p.qr.hint', href: `${base}/config/qr`, manual: true },
     { id: 'team', label: 'st.p.team', hint: 'st.p.team.hint', href: `${base}/equipe`, tuto: 'team', manual: true },
     { id: 'scan', label: 'st.p.scan', hint: 'st.p.scan.hint', href: `${base}/conta`, tuto: 'scan', done: visits.length > 0 },
   ].filter(Boolean);

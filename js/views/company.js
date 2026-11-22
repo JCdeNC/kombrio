@@ -19,7 +19,7 @@ export const inviteLink = (code) => appLink('partner', `grupo/${code}`);
 
 export async function companyView(space, code, ctx) {
   const key = space.key;
-  const back = `<p><a href="#/p/${encodeURIComponent(key)}/config">← ${t('pd.tab.config')}</a></p>`;
+  const back = `<a class="ios-back no-print" href="#/p/${encodeURIComponent(key)}/config"><span aria-hidden="true">‹</span> ${t('pd.tab.config')}</a>`;
   const cs = await store.companySpace(key);
   if (cs === undefined) return { html: `<div class="dash-wide">${back}<div class="card"><h1>${t('co.title')}</h1><p class="hint">${t('co.soon')}</p></div></div>` };
   if (!cs) return { html: `<div class="dash-wide">${back}<div class="notice bad">${t('err.generic')}</div></div>` };

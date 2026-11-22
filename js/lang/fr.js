@@ -2678,4 +2678,17 @@ export default {
   "aj.report": "Relevés",
   "aj.logout": "Se déconnecter",
   "aj.offer.none": "aucune",
+  // v128 : lot 3, Réglages une page par sujet
+  "aj.d1": "Paiement rapide (J+1)",
+  "aj.on": "activé",
+  "aj.off": "désactivé",
+  "aj.install": "Installer l'app",
+  "aj.tutos": "Tutoriels",
+  "aj.agency.short": "agence",
+  "aj.sec.rules": "Vos règles",
+  "aj.sec.decide": "Pour décider",
+  "aj.c.taxa": "Taux et modèle",
+  "aj.c.tc": "Tour Companies et agences",
+  "aj.c.bonus": "Bonus et repas offert",
+  "aj.c.wizard": "Assistant (5 questions)",
 };

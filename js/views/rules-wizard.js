@@ -78,8 +78,8 @@ export function rulesWizardView(space, ctx) {
       <ul class="rw-rules"><li>${t('rw.mix.r1')}</li><li>${t('rw.mix.r2')}</li><li>${t('rw.mix.r3')}</li><li class="hint">${t('rw.mix.r4')}</li></ul></details>`;
 
   const html = `<div class="rw">
-    <p class="no-print"><a href="${back}">← ${t('pd.tab.comissao')}</a></p>
-    <h1>${t('rw.title')}</h1><p class="hint">${t('rw.intro')} <a href="#/tuto/rules">${t('rw.tuto')}</a> · <a href="#/p/${encodeURIComponent(key)}/comissao">${t('sim.open')}</a></p>
+    <a class="ios-back no-print" href="${back}"><span aria-hidden="true">‹</span> ${t('pd.tab.comissao')}</a>
+    <h1>${t('rw.title')}</h1><p class="hint">${t('rw.intro')} <a href="#/tuto/rules">${t('rw.tuto')}</a> · <a href="#/p/${encodeURIComponent(key)}/comissao/sim">${t('sim.open')}</a></p>
     <div class="st-bar rw-bar"><i id="rw-bar" style="width:${Math.round(100 / N)}%"></i></div>
     <form class="card rw-card" id="rw" novalidate>
     ${step(0, t('rw.q1'), t('rw.q1.ex'), `<div class="rw-choices">

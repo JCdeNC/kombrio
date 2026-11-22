@@ -2678,4 +2678,17 @@ export default {
   "aj.report": "Relatórios",
   "aj.logout": "Sair",
   "aj.offer.none": "nenhuma",
+  // v128 : lot 3, Ajustes une page par sujet
+  "aj.d1": "Pagamento rápido (D+1)",
+  "aj.on": "ligado",
+  "aj.off": "desligado",
+  "aj.install": "Instalar o app",
+  "aj.tutos": "Tutoriais",
+  "aj.agency.short": "agência",
+  "aj.sec.rules": "Suas regras",
+  "aj.sec.decide": "Para decidir",
+  "aj.c.taxa": "Taxa e modelo",
+  "aj.c.tc": "Tour Companies e agências",
+  "aj.c.bonus": "Bônus e refeição grátis",
+  "aj.c.wizard": "Assistente (5 perguntas)",
 };

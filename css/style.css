@@ -1101,3 +1101,6 @@ body.ios [hidden] { display: none !important; }
 /* Un seul bouton plein par écran : sur l'accueil, « Lançar valor » passe en bouton clair (la carte « A pagar » est le geste principal). */
 body.ios .rs-pend .btn:not(.ghost) { background: #E8F3EF; color: var(--brand); border-color: #E8F3EF; }
 body.ios [data-ask].ghost { background: #fff; border: 1px solid var(--line); color: var(--ink); }
+/* v128 (lot 3) : sous-page d'Ajustes : le grand titre suffit, le titre de la carte en double disparaît. */
+.ios-sub > .card:first-child > h2:first-child, .ios-sub > form.card:first-child > h2:first-child { display: none; }
+.ios-sub > .card:first-child > .spread:first-child > h2 { font-size: 1rem; }

@@ -267,13 +267,13 @@ async function partnerViewCore([token, action, visitId], ctx) {
   // La caisse n'a accès qu'aux passages qu'elle vient d'enregistrer.
   if (action === 'venda' || action === 'conta') return billView(space, visitId || '');
   if (space.role !== 'manager' && !['passage', 'deja', 'lancar', 'corrigir'].includes(action)) return spaceView(space);
-  if (['visitas', 'pagamentos', 'equipe', 'config'].includes(action)) return spaceView(space, action);
+  if (['visitas', 'pagamentos', 'equipe', 'config'].includes(action)) { space.sub = action === 'config' ? visitId || '' : ''; return spaceView(space, action); }
   if (action === 'declarar') return declareManyView(space);
   if (action === 'pagar') return payView(space);
   if (action === 'grupo' && space.group) return groupView(space);
   if (action === 'empresa') return companyView(space, visitId || '', ctx);   // v120 : Minha empresa
   if (action === 'regras') return rulesWizardView(space, ctx);   // v124 : assistente da comissão
-  if (action === 'simulador' || action === 'comissao') { space.sub = action === 'comissao' ? visitId || '' : ''; return spaceView(space, 'comissao'); }   // v126 : espaço Comissão
+  if (action === 'simulador' || action === 'comissao') { space.sub = action === 'comissao' ? visitId || '' : 'sim'; return spaceView(space, 'comissao'); }   // v126 : espaço Comissão
   if (action === 'relatorio') return reportPage(space, visitId);
   if (action === 'mes') return monthPage(space, visitId, space.closings);
   if (action === 'demonstrativo') return docPage(space, visitId, space.closings, `#/p/${encodeURIComponent(token)}/pagamentos`);
@@ -959,7 +959,8 @@ export function spaceView(space, tab = 'painel') {
       <div class="spread"><b>${t('partner.payment.line', { num: y.num, amount: c(y.cents) })}</b>${payBadge(y)}</div>
       <div class="hint">${fmtMoment(y.submittedAt, lang, city.timezone)}${y.note ? ` · ${esc(y.note)}` : ''}</div></li>`).join('')}</ul>` : `<p class="hint">${t('pd.last.none')}</p>`}</div>`;
 
-  const settings = `<form class="card" id="rate">
+  // v128 (lot 3) : chaque réglage sur sa propre page (Ajustes › … ou Comissão › …), un seul « Salvar » plein.
+  const setRate = `<form class="card" id="rate">
         <h2>${t('partner.rate.title')}</h2>
         <div class="field" style="display:grid;gap:6px">
           <label style="font-weight:400;display:flex;gap:10px;align-items:center"><input type="radio" name="model" value="percent" style="width:auto"${partner.commissionModel !== 'per_person' ? ' checked' : ''}> ${t('partner.model.percent')}</label>
@@ -973,18 +974,18 @@ export function spaceView(space, tab = 'painel') {
           <p class="hint">${t('partner.model.hint')}</p>
           <div class="field"><label for="m-child">${t('partner.model.child')}</label>
             <input id="m-child" name="child" inputmode="decimal" placeholder="${t('partner.model.child.ph')}" value="${partner.childCents ? (partner.childCents / 100).toFixed(2).replace('.', ',') : ''}"></div></div>
-        <button class="btn secondary">${t('common.save')}</button>
-      </form>
-      <form class="card" id="roles">
+        <button class="btn block">${t('common.save')}</button>
+      </form>`;
+  const setRoles = `<form class="card" id="roles">
         <h2>${t('roles.title')}</h2><p class="hint">${t('roles.hint')}</p>
         <div class="grid2 rs-keep2">
           <div class="field"><label for="r-tc">${t('roles.tc')} (%)</label><input id="r-tc" name="tc" inputmode="decimal" value="${partner.rateTc ? String(Math.round(partner.rateTc * 10000) / 100).replace('.', ',') : ''}" placeholder="0"></div>
           <div class="field"><label for="r-ag">${t('roles.agency')} (%)</label><input id="r-ag" name="agency" inputmode="decimal" value="${partner.rateAgency ? String(Math.round(partner.rateAgency * 10000) / 100).replace('.', ',') : ''}" placeholder="5"></div>
         </div>
         <p class="hint" style="margin:0 0 8px">${t('roles.example')}</p>
-        <button class="btn secondary">${t('common.save')}</button>
-      </form>
-      <form class="card" id="extras">
+        <button class="btn block">${t('common.save')}</button>
+      </form>`;
+  const setExtras = `<form class="card" id="extras">
         <h2>${t('partner.extras.title')}</h2>
         <p class="hint">${t('partner.extras.hint')}</p>
         <div class="grid2 rs-keep2">
@@ -996,15 +997,15 @@ export function spaceView(space, tab = 'painel') {
         <div class="field"><label for="x-me">${t('partner.extras.meal')}</label>
           <input id="x-me" name="me" type="number" min="0" max="50" step="1" inputmode="numeric" value="${partner.mealEvery || ''}" placeholder="0" style="max-width:120px">
           <p class="hint" style="margin:4px 0 0">${t('partner.extras.meal.hint')}</p></div>
-        <button class="btn secondary">${t('common.save')}</button>
-      </form>
-      <div class="card" id="j1card">
+        <button class="btn block">${t('common.save')}</button>
+      </form>`;
+  const setJ1 = `<div class="card" id="j1card">
         <div class="spread"><h2 style="margin:0">${t('j1.p.title')}</h2><span class="badge ${partner.j1Enabled ? 'ok' : ''}">${t(partner.j1Enabled ? 'j1.p.on.badge' : 'j1.p.off.badge')}</span></div>
         <p style="margin-top:8px">${t(partner.j1Enabled ? 'j1.p.on' : 'j1.p.off')}</p>
         <p class="hint">${t('j1.p.hint')}</p>
         <button type="button" class="btn ${partner.j1Enabled ? 'ghost' : 'secondary'} small" id="j1-toggle" data-on="${partner.j1Enabled ? '1' : ''}">${t(partner.j1Enabled ? 'j1.p.cut' : 'j1.p.enable')}</button>
-      </div>
-      <form class="card" id="offer">
+      </div>`;
+  const setOffer = `<form class="card" id="offer">
         <h2>${t('partner.offer.title')}</h2>
         <p class="hint">${t('partner.offer.hint')}</p>
         <div class="field"><input name="offer" value="${esc(partner.offer || '')}" maxlength="120" placeholder="${t('partner.offer.none')}"></div>
@@ -1022,17 +1023,16 @@ export function spaceView(space, tab = 'painel') {
           ${[1, 2, 3, 4, 5, 6, 7].map((d) => `<label class="wday"><input type="checkbox" name="wd" value="${d}"${!partner.offerDays.length || partner.offerDays.includes(d) ? ' checked' : ''}><span>${esc(weekdayShort(d, getLang()))}</span></label>`).join('')}
         </fieldset>
         <p class="hint" style="margin:0 0 8px">${t('offer.days.hint')}</p>
-        <button class="btn secondary">${t('common.save')}</button>
-      </form>
-      ${tab === 'config' ? companyEntryCard(space) + blackoutCard(space) : ''}
-      <div class="card" style="text-align:center" id="qrcard">
+        <button class="btn block">${t('common.save')}</button>
+      </form>`;
+  const setQr = `<div class="card" style="text-align:center" id="qrcard">
         <h2>${t('partner.qr.title')}</h2>
         ${partner.counterEnabled ? '' : `<div class="notice warn">${t('team.counter.off')}</div>`}
         <p class="hint">${t('partner.qr.hint')} ${t('team.counter.see')} <a href="${base}/equipe">${t('pd.tab.equipe')}</a></p>
         <div class="qr">${qrSvg(appLink('partner', `p/${partner.token}`))}</div>
         <button class="btn ghost no-print" id="print">${t('partner.qr.print')}</button>
-      </div>
-      <div class="card no-print" id="repcard"><h2>${t('report.card')}</h2><p class="hint">${t('report.card.hint')}</p>
+      </div>`;
+  const setReport = `<div class="card no-print" id="repcard"><h2>${t('report.card')}</h2><p class="hint">${t('report.card.hint')}</p>
         <a class="btn secondary" href="${base}/relatorio">${t('report.open')}</a></div>
       <p class="hint no-print">${t('partner.linked', { name: partner.name })} <a href="#" id="unlink">${t('partner.unlink')}</a></p>`;
 
@@ -1057,41 +1057,67 @@ export function spaceView(space, tab = 'painel') {
   const kpis2 = `<h2 class="ios-sec">${t('hoje.month')}</h2><div class="pd-kpis ios-kpis">
       <div class="pd-kpi"><span>${t('pd.k.visits')}</span><b>${now.n}</b><em>${t('pd.k.people', { n: now.people })}</em></div>
       <div class="pd-kpi"><span>${t('dash.k.com')}</span><b>${c(now.com)}</b><em>${t('pd.k.rate', { rate: rateLbl })}</em></div></div>`;
-  // Ajustes : une liste groupée façon iPhone en tête (le lot 3 fera une page par sujet ; en attendant, les cartes suivent).
+  // v128 (lot 3) : Ajustes = une liste groupée façon iPhone ; chaque ligne ouvre sa page (#/p/<clé>/config/<page>).
+  // Comissão réunit tout : taux et modèle, Tour Companies/agences, bonus, règles et turbo, jours sans commission, simulateur, assistant.
   const ajRow = (attrs, label, value = '') => `<li><a ${attrs}><span class="ios-lbl">${label}</span><span class="ios-val">${value}</span><span class="ios-chev" aria-hidden="true">›</span></a></li>`;
+  const pct = (x) => `${String(Math.round(x * 10000) / 100).replace('.', ',')} %`;
+  const nBo = (space.blackouts || []).filter((x) => x.day >= todayIn(city.timezone)).length;
   const ajustesList = `<div class="ios-lists no-print">
       <h2 class="ios-sec">${t('aj.sec.shop')}</h2><ul class="ios-list">
         ${ajRow(`href="${base}/comissao"`, t('aj.comissao'), esc(rateLbl))}
-        ${ajRow('href="#" data-goto="offer"', t('aj.offer'), partner.offer ? esc(partner.offer) : t('aj.offer.none'))}
-        ${ajRow('href="#" data-goto="bo-card"', t('aj.days'))}
-        ${ajRow('href="#" data-goto="qrcard"', t('aj.qr'))}</ul>
+        ${ajRow(`href="${base}/config/oferta"`, t('aj.offer'), partner.offer ? esc(partner.offer) : t('aj.offer.none'))}
+        ${ajRow(`href="${base}/comissao/dias"`, t('aj.days'), nBo ? String(nBo) : '')}
+        ${ajRow(`href="${base}/config/d1"`, t('aj.d1'), t(partner.j1Enabled ? 'aj.on' : 'aj.off'))}
+        ${ajRow(`href="${base}/config/qr"`, t('aj.qr'))}</ul>
       <h2 class="ios-sec">${t('aj.sec.team')}</h2><ul class="ios-list">
         ${ajRow(`href="${base}/equipe"`, t('aj.equipe'))}
         ${ajRow(`href="${base}/empresa"`, t('aj.empresa'), space.group ? esc(space.group.group.name) : '')}
         ${space.group ? ajRow(`href="${base}/grupo"`, t('aj.grupo')) : ''}</ul>
       <h2 class="ios-sec">${t('aj.sec.account')}</h2><ul class="ios-list">
-        ${ajRow('href="#" data-goto="repcard"', t('aj.report'))}
+        ${ajRow(`href="${base}/config/relatorios"`, t('aj.report'))}
+        ${ajRow('href="#/instalar"', t('aj.install'))}
+        ${ajRow('href="#/tuto"', t('aj.tutos'))}
         ${loggedIn ? `<li><button type="button" class="ios-danger" id="logout">${t('aj.logout')}</button></li>` : ''}</ul></div>`;
+  const roleVal = [partner.rateTc > 0 ? `TC ${pct(partner.rateTc)}` : '', partner.rateAgency > 0 ? `${t('aj.agency.short')} ${pct(partner.rateAgency)}` : ''].filter(Boolean).join(' · ');
+  const comissaoList = `<div class="ios-lists no-print">
+      <h2 class="ios-sec">${t('aj.sec.rules')}</h2><ul class="ios-list">
+        ${ajRow(`href="${base}/comissao/taxa"`, t('aj.c.taxa'), esc(rateLbl))}
+        ${ajRow(`href="${base}/comissao/tc"`, t('aj.c.tc'), esc(roleVal))}
+        ${ajRow(`href="${base}/comissao/bonus"`, t('aj.c.bonus'))}
+        ${ajRow(`href="${base}/comissao/regras"`, t('cm.sub.rules'))}
+        ${ajRow(`href="${base}/comissao/dias"`, t('aj.days'), nBo ? String(nBo) : '')}</ul>
+      <h2 class="ios-sec">${t('aj.sec.decide')}</h2><ul class="ios-list">
+        ${ajRow(`href="${base}/comissao/sim"`, t('cm.sub.sim'))}
+        ${ajRow(`href="${base}/regras"`, t('aj.c.wizard'))}
+        ${ajRow('href="#/tuto/rules"', t('cm.sub.tuto'))}</ul></div>`;
+  const csub = tab === 'comissao' ? space.sub || '' : '';
+  const gsub = tab === 'config' ? space.sub || '' : '';
   const body = {
     painel: `${pendingCard({ city, visits, key })}${payHero}${declareRow}${kpis2}${adjustmentsCard(adjustments, city, lang)}${startHtml}`,
     visitas: visitsCard(t('pd.all'), visits, true),
     pagamentos: `${payHero}<div class="pd-cols"><div class="pd-side">${payHistory}${chartCard}</div><div class="pd-side">${docsCard}${inssCard}${adjustmentsCard(adjustments, city, lang)}</div></div>`,
     equipe: teamHtml(space),
-    config: `${ajustesList}${settings}`,
-    comissao: (() => {   // v126 : espace « Comissão » — simulateur, règles et turbo, assistant, tutoriel
+    config: { oferta: setOffer, d1: setJ1, qr: setQr, relatorios: setReport }[gsub] || ajustesList,
+    comissao: (() => {   // v126 → v128 : espace « Comissão » en liste, une page par réglage
       if (tab !== 'comissao') return '';
-      const sub = space.sub === 'regras' ? 'regras' : 'sim';
-      const pill = (href, k, on) => `<a class="cm-pill${on ? ' on' : ''}" href="${href}">${t(k)}</a>`;
-      return `<nav class="cm-pills no-print">${pill(`${base}/comissao`, 'cm.sub.sim', sub === 'sim')}${pill(`${base}/comissao/regras`, 'cm.sub.rules', sub === 'regras')}${pill(`${base}/regras`, 'cm.sub.wizard', false)}${pill('#/tuto/rules', 'cm.sub.tuto', false)}</nav>
-        ${currentRulesHtml(space, c)}
-        ${sub === 'regras' ? `<div class="pd-cols"><div class="pd-side">${rulesCard(partner, c)}</div><div class="pd-side">${boostCard(space, c)}<div class="card"><h2>${t('bo.p.title')}</h2><p class="hint">${t('cm.bo.hint')}</p><a class="btn ghost small" href="${base}/config">${t('pd.tab.config')}</a></div></div></div>` : (space.simView = simulatorView(space, null, { embedded: true })).html}`;
+      if (csub === 'sim') return (space.simView = simulatorView(space, null, { embedded: true })).html;
+      if (csub === 'regras') return `<div class="pd-cols"><div class="pd-side">${rulesCard(partner, c)}</div><div class="pd-side">${boostCard(space, c)}</div></div>`;
+      if (csub === 'taxa') return setRate;
+      if (csub === 'tc') return setRoles;
+      if (csub === 'bonus') return setExtras;
+      if (csub === 'dias') return blackoutCard(space);
+      return `${currentRulesHtml(space, c)}${comissaoList}`;
     })(),
   }[tab];
+  // Titre et retour des sous-pages : « ‹ Ajustes » (ou « ‹ Comissão ») et leur propre grand titre.
+  const SUBT = { oferta: 'aj.offer', d1: 'aj.d1', qr: 'aj.qr', relatorios: 'aj.report', sim: 'cm.sub.sim', regras: 'cm.sub.rules', taxa: 'aj.c.taxa', tc: 'aj.c.tc', bonus: 'aj.c.bonus', dias: 'aj.days' };
+  const subHead = tab === 'equipe' ? [`${base}/config`, 'ios.back.settings', 'aj.equipe']
+    : tab === 'comissao' ? (SUBT[csub] ? [`${base}/comissao`, 'aj.comissao', SUBT[csub]] : [`${base}/config`, 'ios.back.settings', 'aj.comissao'])
+    : tab === 'config' && SUBT[gsub] ? [`${base}/config`, 'ios.back.settings', SUBT[gsub]] : null;
   const counts = { painel: 0, visitas: toDeclare.length, pagamentos: toPay.length + extraDue.length, config: 0 };
   // v87 : pastilles sur ordinateur, barre fixée en bas sur téléphone (icône + mot court).
   const PD_ICONS = { painel: 'home', visitas: 'list', pagamentos: 'card', config: 'gear' };
-  const sub = ['equipe', 'comissao'].includes(tab);   // sous-pages d'Ajustes : « ‹ Ajustes » et leur propre titre
-  const onTab = sub ? 'config' : tab;
+  const onTab = ['equipe', 'comissao'].includes(tab) ? 'config' : tab;
   const navItems = PD_TABS.map((k) => ({ href: `${base}${k === 'painel' ? '' : `/${k}`}`, label: t(`pd.tab.${k}`), short: t(`pd.tab.${k}.short`),
     icon: PD_ICONS[k], on: k === onTab, count: counts[k] }));
   // design v2 : « Escanear » au centre de la barre (scanner le QR du client, ou saisir une conta).
@@ -1100,10 +1126,10 @@ export function spaceView(space, tab = 'painel') {
 
   return {
     html: `<div class="dash-wide">
-      ${sub ? `${iosBack(`${base}/config`, 'ios.back.settings')}<div class="ios-head"><h1 class="ios-title">${t(`aj.${tab}`)}</h1></div>` : `<div class="spread ios-top"><div class="ios-head">${titleSwitch(space)}
+      ${subHead ? `${iosBack(subHead[0], subHead[1])}<div class="ios-head"><h1 class="ios-title">${t(subHead[2])}</h1></div>` : `<div class="spread ios-top"><div class="ios-head">${titleSwitch(space)}
         <p class="hint" style="margin:0">${t(`ptype.${partner.type}`)}${partner.area ? ` · ${esc(partner.area)}` : ''} · ${t('pd.k.rate', { rate: rateLbl })}${partner.managerName ? ` · ${t('pm.hello', { name: partner.managerName })}` : ''}</p></div>
         <div class="row">${helpButton()}</div></div>`}
-      ${tabsNav}<!--bc-->${banner}${tab === 'painel' && !startHtml ? installCard('partner') : ''}${body}</div>`,
+      ${tabsNav}<!--bc-->${banner}${tab === 'painel' && !startHtml ? installCard('partner') : ''}${SUBT[csub] || SUBT[gsub] ? `<div class="ios-sub">${body}</div>` : body}</div>`,
     mount(root, ctx) {
       mountGroupBar(root);
       mountInstallCard(root);
