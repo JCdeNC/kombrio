@@ -12,3 +12,6 @@ Clé/
 
 # Dépôt privé à part : sauvegardes des données (CPF, Pix), jamais dans ce dépôt public
 kombrio-sauvegardes/
+
+# Copie de la mémoire de Claude (va dans le zip du Drive, jamais sur GitHub)
+Mémoire Claude/
