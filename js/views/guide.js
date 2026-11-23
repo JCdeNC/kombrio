@@ -12,6 +12,7 @@ import { blackoutLines, stayBlackoutCard } from './blackouts.js';
 import { boostWhen } from './boosts.js';
 import { broadcastGate, broadcastBanners, mountBroadcastBanners } from './broadcast.js';
 import { WEEKLY_OPTION } from '../config.js';
+import { scanQr } from './partner.js';   // v131 : scanner du crachá (rattacher un guide à un groupe)
 // Durée maximale d'un séjour (K-15, décidé le 06/11/2026) : les clients restent au plus une semaine. Même règle dans la base (script 014).
 const MAX_STAY_DAYS = 7;
 // v74 : version des conditions du guide à accepter (texte dans la base, script 047).
@@ -23,6 +24,7 @@ export async function guideView(params, ctx) {
   // Lien « nouveau mot de passe » : il suffit d'être connecté par le lien, même sans fiche guide complète.
   if (store.inRecovery() && await store.hasSession()) return resetView();
   const me = await store.currentGuide();
+  window.kbActor = me ? me.actorKind || 'guide' : null;   // v131 : nom de l'app dans l'en-tête (Agência / Tour Company)
   if (!me) {
     // Connecté, mais pas guide (ex. un compte partenaire) : on l'envoie vers la bonne application.
     if (await store.hasSession()) {
@@ -219,7 +221,8 @@ const G_TABS = ['inicio', 'clientes', 'ganhos', 'conta'];
 const G_ICONS = { inicio: 'home', clientes: 'users', ganhos: 'wallet', indicacao: 'gift', conta: 'user' };
 function guideTabs(me, tab, counts = {}) {
   const tabs = me.referralEnabled ? ['inicio', 'clientes', 'ganhos', 'indicacao', 'conta'] : G_TABS;
-  const items = tabs.map((k) => ({ href: `#/${k === 'inicio' ? '' : k}`, label: t(`g.tab.${k}`), short: t(`g.tab.${k}.short`),
+  const co = me.actorKind && me.actorKind !== 'guide';   // v131 : agence / TC → « Grupos »
+  const items = tabs.map((k) => ({ href: `#/${k === 'inicio' ? '' : k}`, label: t(co && k === 'clientes' ? 'g.tab.grupos' : `g.tab.${k}`), short: t(co && k === 'clientes' ? 'g.tab.grupos' : `g.tab.${k}.short`),
     icon: G_ICONS[k], on: k === tab, count: counts[k] }));
   // design v2 : bouton QR au centre de la barre (montrer un QR, créer un client, crachá) — toujours à un pouce.
   items.splice(2, 0, { href: '#/qr', label: t('g.tab.qr'), short: t('g.tab.qr'), icon: 'qr', on: tab === 'qr', center: true });
@@ -496,7 +499,7 @@ async function dashboardView(me, city, tab = 'inicio', focus = '') {
   const staysNow = `<h2 class="ios-sec">${t('g.qr.active')}</h2><ul class="ios-list">${nowStays.length ? nowStays.map((s) => `<li><a href="#/sejour/${encodeURIComponent(s.id)}">
       <span class="ios-lbl"><b>${esc(s.client)}</b><small class="ios-sub-l">${t('stay.people', { n: s.people })} · ${t('g.qr.until')} ${fmtDay(s.end, lang)}</small></span>
       <span class="ios-qr" aria-hidden="true">QR</span><span class="ios-chev" aria-hidden="true">›</span></a></li>`).join('')
-    : `<li><a href="#/clientes/novo"><span class="ios-lbl">＋ ${t('g.qr.new')}<small class="ios-sub-l">${t('gh.nostay')}</small></span><span class="ios-chev" aria-hidden="true">›</span></a></li>`}</ul>`;
+    : `<li><a href="#/clientes/novo"><span class="ios-lbl">＋ ${t(company ? 'stay.group.new' : 'g.qr.new')}<small class="ios-sub-l">${t('gh.nostay')}</small></span><span class="ios-chev" aria-hidden="true">›</span></a></li>`}</ul>`;
   const newsList = visits.length ? `<h2 class="ios-sec">${t('gh.news')}</h2><ul class="ios-list">${visits.slice(0, 3).map((v) => { const sh = shareOf(v);
     return `<li><a href="#/ganhos"><span class="ios-lbl">${esc(pname(v.partnerId))} · ${esc(stayOf(v.stayId)?.client || '')}<small class="ios-sub-l">${fmtDay(v.at.slice(0, 10), lang)} · ${statusBadge(v)}</small></span>
       <span class="ios-val">${sh == null ? '' : `${CASHED.includes(v.status) ? '' : '≈ '}${cur(sh)}`}</span><span class="ios-chev" aria-hidden="true">›</span></a></li>`; }).join('')}</ul>` : '';
@@ -504,7 +507,7 @@ async function dashboardView(me, city, tab = 'inicio', focus = '') {
   const recent = visits.slice(0, 5);
   const body = {
     inicio: `${heroG}${staysNow}${newsList}${left ? todoCard : ''}${refRow}${startHtml || installCard('guide')}`,
-    clientes: focus === 'novo' ? `<div class="ios-sub">${newStayForm}</div>` : `<a class="qr-new" href="#/clientes/novo"><span class="qr-new-plus">+</span><span><b>${t('g.qr.new')}</b><small>${t('g.qr.new.hint')}</small></span></a>
+    clientes: focus === 'novo' ? `<div class="ios-sub">${newStayForm}</div>` : `<a class="qr-new" href="#/clientes/novo"><span class="qr-new-plus">+</span><span><b>${t(company ? 'stay.group.new' : 'g.qr.new')}</b><small>${t('g.qr.new.hint')}</small></span></a>
       <div class="pd-cols"><div class="pd-side">${staysCard(stays, true)}${linkedCard}</div><div class="pd-side">${blackCard}${incCard}${offersCard}</div></div>`,
     ganhos: `${heroG}<div class="pd-cols"><div class="pd-side"><div class="card g-card"><div class="spread"><h2 style="margin:0">${t('g.all')}</h2>
         ${infoTip(t('guide.sum.note', { pct }))}</div>${filters}<div id="g-list">${visits.length ? visits.map(txRow).join('') : `<p class="hint">${t('g.tx.none')}</p>`}</div>
@@ -519,8 +522,8 @@ async function dashboardView(me, city, tab = 'inicio', focus = '') {
 
   return {
     html: `<div class="dash-wide">
-      ${tab === 'clientes' && focus === 'novo' ? `${iosBack('#/clientes', 'g.tab.clientes')}<div class="ios-head"><h1 class="ios-title">${t(company ? 'stay.group.new' : 'guide.stay.new')}</h1></div>`
-        : `<div class="spread ios-top"><div class="ios-head"><h1 class="ios-title">${tab === 'inicio' ? t('guide.hello', { name: me.name }) : t(`g.tab.${tab}`)}</h1>
+      ${tab === 'clientes' && focus === 'novo' ? `${iosBack('#/clientes', company ? 'g.tab.grupos' : 'g.tab.clientes')}<div class="ios-head"><h1 class="ios-title">${t(company ? 'stay.group.new' : 'guide.stay.new')}</h1></div>`
+        : `<div class="spread ios-top"><div class="ios-head"><h1 class="ios-title">${tab === 'inicio' ? t('guide.hello', { name: me.name }) : t(company && tab === 'clientes' ? 'g.tab.grupos' : `g.tab.${tab}`)}</h1>
         ${tab === 'inicio' || tab === 'conta' ? `<p class="hint" style="margin:0">${me.actorKind && me.actorKind !== 'guide' ? `<span class="badge">${t(`role.${me.actorKind}`)}</span> ` : ''}${esc(city.name || '')}${me.code ? ` · ${esc(me.code)}` : ''}</p>` : ''}</div>
         <div class="row">${helpButton()}</div></div>`}
       ${nav}${tab === 'inicio' ? me.bcHtml || '' : ''}${banners}${body}</div>`,
@@ -849,7 +852,7 @@ async function stayView(me, city, stayId) {
 
   return {
     html: `
-      ${iosBack('#/clientes', 'guide.back')}
+      ${iosBack('#/clientes', canLink ? 'g.tab.grupos' : 'guide.back')}
       ${stayBlackoutCard(partners, stay.start, stay.end, true)}
       <div class="card">
         <div class="spread"><h1>${esc(stay.client)}</h1>${validity(stay, valid, lang)}</div>
@@ -879,17 +882,29 @@ async function stayView(me, city, stayId) {
       ${canLink ? `<div class="card" id="links"><h2>${t('grp.links.title')}</h2><p class="hint">${t(me.actorKind === 'agency' ? 'grp.links.hint.agency' : 'grp.links.hint.tc')}</p>
         ${actors.length ? `<ul class="list">${actors.map((a) => `<li><div class="spread"><span><b>${esc(a.name)}</b> <span class="badge">${t(`role.${a.role}`)}</span><br><span class="hint">${esc(a.code || '')}</span></span>
           <button type="button" class="btn ghost small" data-unlink="${esc(a.actor_id)}">${t('grp.links.remove')}</button></div></li>`).join('')}</ul>` : `<p class="hint">${t('grp.links.none')}</p>`}
-        <form class="row" id="link-form" style="align-items:flex-end;gap:8px;margin-top:8px">
+        <button type="button" class="btn block" id="lk-scan" style="margin-top:8px">📷 ${t('grp.links.scan')}</button>
+        <form class="row" id="link-form" style="align-items:flex-end;margin-top:8px">
           <div class="field" style="margin:0;flex:1"><label for="lk-code">${t('grp.links.code')}</label><input id="lk-code" name="code" required autocapitalize="characters" placeholder="RIO-KG-12345 / RIO-KT-12345" style="text-transform:uppercase"></div>
-          <button class="btn small">${t('grp.links.add')}</button></form></div>` : ''}
+          <button class="btn small secondary" style="margin-left:8px">${t('grp.links.add')}</button></form></div>` : ''}
       ${guideTabs(me, 'clientes')}`,
     mount(root) {
       const lf = root.querySelector('#link-form');
-      if (lf) lf.onsubmit = async (e) => {
-        e.preventDefault();
-        const r = await store.linkActor(stay.id, lf.code.value.trim()).catch(() => null);
+      const doLink = async (code) => {
+        const r = await store.linkActor(stay.id, code).catch(() => null);
         if (r && r.ok) { notify(tRaw('grp.links.done', { name: r.name })); location.reload(); }
         else notify(tRaw(`link.err.${r && ['code', 'self', 'kind', 'one_tc', 'role', 'ended', 'stay'].includes(r.reason) ? r.reason : 'generic'}`));
+      };
+      if (lf) lf.onsubmit = (e) => { e.preventDefault(); doLink(lf.code.value.trim()); };
+      // v131 (lot 6) : le QR du crachá mène à la page de vérification (B-…), qui donne le code du guide : on le rattache tout de suite.
+      const lks = root.querySelector('#lk-scan');
+      if (lks) lks.onclick = async () => {
+        const txt = await scanQr({ hint: 'grp.links.scan.hint' });
+        if (!txt) return;
+        const m = String(txt).match(/B-[a-f0-9]{32}/);
+        const b = m ? await store.guideBadge(m[0]).catch(() => null) : null;
+        if (!b || !b.code) { notify(tRaw('grp.links.badgeerr')); return; }
+        lf.code.value = b.code;
+        doLink(b.code);
       };
       root.querySelectorAll('[data-unlink]').forEach((b) => { b.onclick = async () => {
         if (!confirm(tRaw('grp.links.remove.confirm'))) return;
@@ -955,6 +970,7 @@ function splitCard(split, city, lang) {
 // le QR d'un client en séjour, un nouveau client, son crachá.
 async function qrView(me, city) {
   const lang = getLang();
+  const company = me.actorKind && me.actorKind !== 'guide';
   const stays = await store.listStays(me.id);
   const today = todayIn(city.timezone);
   const active = stays.filter((s) => !s.direct && !s.archivedAt && s.start <= today && stayIsValid(s, city)).sort((a, b) => (a.end < b.end ? -1 : 1));
@@ -964,7 +980,7 @@ async function qrView(me, city) {
   return {
     html: `<div class="qr-home">
       <h1>${t('g.qr.title')}</h1>
-      <a class="qr-new" href="#/clientes/novo"><span class="qr-new-plus">+</span><span><b>${t('g.qr.new')}</b><small>${t('g.qr.new.hint')}</small></span></a>
+      <a class="qr-new" href="#/clientes/novo"><span class="qr-new-plus">+</span><span><b>${t(company ? 'stay.group.new' : 'g.qr.new')}</b><small>${t('g.qr.new.hint')}</small></span></a>
       <h2 class="qr-sec">${t('g.qr.active')}</h2>
       ${active.length ? `<div class="qr-list">${active.map((s) => item(s, 'active')).join('')}</div>` : `<p class="hint">${t('g.qr.none')}</p>`}
       ${soon.length ? `<h2 class="qr-sec">${t('g.qr.soon')}</h2><div class="qr-list">${soon.map((s) => item(s, 'soon')).join('')}</div>` : ''}

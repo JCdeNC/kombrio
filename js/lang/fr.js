@@ -2704,4 +2704,9 @@ export default {
   "ui.billrule": "Quel montant saisir ?",
   "client.qr.tap": "Touchez le QR pour l'agrandir",
   "client.qr.close": "Touchez pour fermer",
+  // v131 : lot 6, agence et Tour Company
+  "g.tab.grupos": "Groupes",
+  "grp.links.scan": "Scanner le badge",
+  "grp.links.scan.hint": "Visez le QR du badge.",
+  "grp.links.badgeerr": "Badge non reconnu. Tapez le code.",
 };

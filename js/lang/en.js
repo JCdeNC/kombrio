@@ -768,4 +768,11 @@ export default {
   "ui.billrule": "Which amount?",
   "client.qr.tap": "Tap the QR to enlarge it",
   "client.qr.close": "Tap to close",
+  // v131 : lot 6, agence et Tour Company
+  "g.tab.grupos": "Groups",
+  "grp.links.scan": "Scan the badge",
+  "grp.links.scan.hint": "Point at the badge QR.",
+  "grp.links.badgeerr": "Badge not recognized. Type the code.",
+  "bill.scan.cancel": "Cancel",
+  "bill.scan.err": "Camera unavailable. Type the code.",
 };

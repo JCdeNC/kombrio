@@ -77,11 +77,13 @@ async function render() {
     : LANGS.filter(([code]) => RICH_APPS.includes(APP) || !GUIDE_ONLY_LANGS.includes(code));
   // v60 : sur téléphone, la langue en 2 lettres (« PT ») pour ne pas déborder de l'en-tête.
   const narrow = window.matchMedia('(max-width: 480px)').matches;
-  document.title = APP === 'hub' ? 'Kombrio' : `Kombrio · ${t(`app.${APP}`)}`;
+  // v131 (lot 6) : une agence ou une Tour Company voit son nom de métier au lieu de « Guia » (window.kbActor, posé par l'app Guide).
+  const appName = APP === 'guide' && ['agency', 'tc'].includes(window.kbActor) ? t(`role.${window.kbActor}`) : t(`app.${APP}`);
+  document.title = APP === 'hub' ? 'Kombrio' : `Kombrio · ${appName}`;
 
   root.innerHTML = `
     <header class="top">
-      <a class="brand" href="#/"><img src="${ICON}" alt=""><span class="brand-word">kombrio<i></i></span>${APP === 'hub' ? '' : `<span class="brand-app">${narrow && APP === 'admin' ? 'Admin' : t(`app.${APP}`)}</span>`}</a>
+      <a class="brand" href="#/"><img src="${ICON}" alt=""><span class="brand-word">kombrio<i></i></span>${APP === 'hub' ? '' : `<span class="brand-app">${narrow && APP === 'admin' ? 'Admin' : appName}</span>`}</a>
       <span class="top-r"><button type="button" class="hdr-help no-print" id="hdr-help" hidden aria-label="${esc(tRaw('help.btn'))}">?</button>
       <select id="lang" aria-label="${t('common.language')}">
         ${langs.map(([code, label]) => `<option value="${code}" ${code === getLang() ? 'selected' : ''}>${narrow ? code.toUpperCase() : label}</option>`).join('')}

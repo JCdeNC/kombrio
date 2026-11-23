@@ -758,4 +758,11 @@ export default {
   "ui.billrule": "Welcher Betrag?",
   "client.qr.tap": "Tippe auf den QR-Code, um ihn zu vergrößern",
   "client.qr.close": "Zum Schließen tippen",
+  // v131 : lot 6, agence et Tour Company
+  "g.tab.grupos": "Gruppen",
+  "grp.links.scan": "Ausweis scannen",
+  "grp.links.scan.hint": "Auf den QR-Code des Ausweises richten.",
+  "grp.links.badgeerr": "Ausweis nicht erkannt. Code eingeben.",
+  "bill.scan.cancel": "Abbrechen",
+  "bill.scan.err": "Kamera nicht verfügbar. Code eingeben.",
 };

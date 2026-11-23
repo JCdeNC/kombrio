@@ -2704,4 +2704,9 @@ export default {
   "ui.billrule": "Qual valor informar?",
   "client.qr.tap": "Toque no QR para ampliar",
   "client.qr.close": "Toque para fechar",
+  // v131 : lot 6, agence et Tour Company
+  "g.tab.grupos": "Grupos",
+  "grp.links.scan": "Escanear o crachá",
+  "grp.links.scan.hint": "Aponte para o QR do crachá.",
+  "grp.links.badgeerr": "Crachá não reconhecido. Digite o código.",
 };

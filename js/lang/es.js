@@ -768,4 +768,11 @@ export default {
   "ui.billrule": "¿Qué monto informar?",
   "client.qr.tap": "Toca el QR para ampliarlo",
   "client.qr.close": "Toca para cerrar",
+  // v131 : lot 6, agence et Tour Company
+  "g.tab.grupos": "Grupos",
+  "grp.links.scan": "Escanear la credencial",
+  "grp.links.scan.hint": "Apunta al QR de la credencial.",
+  "grp.links.badgeerr": "Credencial no reconocida. Escribe el código.",
+  "bill.scan.cancel": "Cancelar",
+  "bill.scan.err": "Cámara no disponible. Escribe el código.",
 };
