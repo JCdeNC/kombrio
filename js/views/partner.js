@@ -212,7 +212,10 @@ export async function partnerView(params, ctx) {
   const view = await partnerViewCore(params, ctx);
   const action = params[1] || '';
   if (!todayBo || !view || !view.html || !['', 'venda', 'conta', 'passage', 'deja', 'lancar', 'corrigir'].includes(action)) return view;
-  return { ...view, html: view.html.includes('<!--bc-->') ? view.html.replace('<!--bc-->', `${todayBo}<!--bc-->`) : todayBo + view.html };
+  if (view.html.includes('<!--bc-->')) return { ...view, html: view.html.replace('<!--bc-->', `${todayBo}<!--bc-->`) };
+  // v133 : le retour « ‹ » reste tout en haut ; le bandeau du jour vient juste en dessous.
+  const back = view.html.match(/^\s*<a class="ios-back[^>]*>[\s\S]*?<\/a>/);
+  return { ...view, html: back ? back[0] + todayBo + view.html.slice(back[0].length) : todayBo + view.html };
 }
 async function partnerViewCore([token, action, visitId], ctx) {
   let space = token && await store.partnerSpace(token);
@@ -339,10 +342,10 @@ export function scannedView({ partner, city, key, role, visits }, visit, action)
               <input id="rs-g" autocomplete="off" placeholder="${esc(tRaw('bill.guide.code.ph'))}" autocapitalize="characters"></div>
             <p class="hint" style="margin:4px 0 0">${t('bill.ask.yes.hint')}</p></div></div>` : ''}
         <div class="field"><label for="rs-b1">${t('rs.bill')}</label>
-          <div id="rs-bills"><input id="rs-b1" class="rs-bill rs-big ios-amount" inputmode="decimal" placeholder="${esc(city.currency)} 0,00" aria-label="${esc(tRaw('rs.bill'))}" value="${amount0}"></div>
+          <div id="rs-bills"><input id="rs-b1" class="rs-bill rs-big ios-amount" inputmode="decimal" placeholder="${esc(cents(0, city.currency, getLang()))}" aria-label="${esc(tRaw('rs.bill'))}" value="${amount0}"></div>
           <button type="button" class="btn ghost small" id="rs-add">${t('rs.bill.add')}</button></div>
         ${partner.excludedLabel ? `<div class="field"><label for="rs-ex">${t('rs.excluded', { label: esc(partner.excludedLabel) })}</label>
-          <input id="rs-ex" name="ex" inputmode="decimal" placeholder="${esc(city.currency)} 0,00" value="${fixing && visit.excludedCents ? (visit.excludedCents / 100).toFixed(2).replace('.', ',') : ''}">
+          <input id="rs-ex" name="ex" inputmode="decimal" placeholder="${esc(cents(0, city.currency, getLang()))}" value="${fixing && visit.excludedCents ? (visit.excludedCents / 100).toFixed(2).replace('.', ',') : ''}">
           <p class="hint" style="margin:4px 0 0">${t('rs.excluded.hint')}</p></div>` : ''}
         ${staff ? `<div class="field">${photoField}</div>` : ''}
         <div class="field"${staff ? ' hidden' : ''}><label for="rs-c">${t('rs.com', { rate: rateText(partner, visit, c) })}</label>
@@ -433,7 +436,7 @@ export function scannedView({ partner, city, key, role, visits }, visit, action)
       f.addEventListener('input', (e) => { if (e.target === f.com) comTouched = f.com.value.trim() !== ''; upd(); });
       f.addEventListener('change', upd);
       root.querySelector('#rs-add').onclick = () => {
-        const i = document.createElement('input'); i.className = 'rs-bill rs-big'; i.inputMode = 'decimal'; i.placeholder = `${city.currency} 0,00`; i.style.marginTop = '6px';
+        const i = document.createElement('input'); i.className = 'rs-bill rs-big'; i.inputMode = 'decimal'; i.placeholder = cents(0, city.currency, getLang()); i.style.marginTop = '6px';
         root.querySelector('#rs-bills').appendChild(i); i.focus();
       };
       const people = async () => {
@@ -523,11 +526,15 @@ const loadScript = (src) => new Promise((resolve, reject) => {
 // (au lieu de null, réservé à « caméra indisponible »).
 export function scanQr(opts = {}) {
   const box = document.createElement('div'); box.className = 'qr-scan';
-  box.innerHTML = `<video playsinline muted></video><p>${esc(tRaw(opts.hint || 'bill.scan.hint'))}</p>${opts.manual ? `<button type="button" class="btn qr-scan-manual" data-manual>${esc(tRaw('scan.manual'))}</button>` : ''}<button type="button" class="btn secondary" data-cancel>${esc(tRaw('bill.scan.cancel'))}</button>`;
+  box.innerHTML = `<div class="qr-scan-cam"><video playsinline muted></video><span class="qr-scan-aim" aria-hidden="true"></span></div><p>${esc(tRaw(opts.hint || 'bill.scan.hint'))}</p>${opts.manual ? `<button type="button" class="btn qr-scan-manual" data-manual>${esc(tRaw('scan.manual'))}</button>` : ''}<button type="button" class="btn secondary" data-cancel>${esc(tRaw('bill.scan.cancel'))}</button>`;
   document.body.appendChild(box);
   const video = box.querySelector('video'); let stream = null; let done = false;
-  const stop = () => { done = true; if (stream) stream.getTracks().forEach((x) => x.stop()); box.remove(); };
+  // v133 : quitter la page (geste retour, onglet) éteint aussi la caméra et retire l'écran de scan.
+  let onNav = null;
+  const stop = () => { done = true; if (stream) stream.getTracks().forEach((x) => x.stop()); box.remove(); if (onNav) window.removeEventListener('hashchange', onNav); };
   return new Promise((resolve) => {
+    onNav = () => { if (!done) { stop(); resolve(''); } };   // '' : rien à faire (la personne est déjà ailleurs)
+    window.addEventListener('hashchange', onNav);
     box.querySelector('[data-cancel]').onclick = () => { stop(); resolve(opts.manual ? '__cancel__' : null); };
     const man = box.querySelector('[data-manual]'); if (man) man.onclick = () => { stop(); resolve('__manual__'); };
     (async () => {
@@ -619,7 +626,7 @@ export function billView({ partner, city, key, role }, preset = '') {
         </div>
         <div id="b-rest" class="card ios-card" hidden>
           <div class="field"><label for="b-v">${t('bill.amount')}</label>
-            <input id="b-v" name="amount" class="rs-big ios-amount" inputmode="decimal" placeholder="${esc(city.currency)} 0,00">
+            <input id="b-v" name="amount" class="rs-big ios-amount" inputmode="decimal" placeholder="${esc(cents(0, city.currency, getLang()))}">
             ${staff ? '' : `<p class="hint ios-live" id="b-live"></p>`}</div>
           <div class="grid2 rs-keep2">
             <div class="field"><label for="b-n">${t('rs.people')}</label>${stepper('b-n', 'n', 1)}</div>
@@ -717,6 +724,7 @@ export function billView({ partner, city, key, role }, preset = '') {
           st.answer = 'yes'; setMode('guide');
           // Le guide est là : on scanne son crachá tout de suite (ou on tape son code).
           const txt = await scanQr({ manual: true, hint: 'bill.ask.guide' });
+          if (txt === '') return;   // page quittée pendant le scan
           const ref = refOf(txt || '');
           if (ref && !ref.startsWith('C-')) await setGuide(ref); else { notify(tRaw('bill.ask.yes.hint')); q.focus(); }
         } else { st.answer = 'no'; show(); f.amount.focus(); }
@@ -970,7 +978,7 @@ export function spaceView(space, tab = 'painel') {
         <div class="field"><select name="rate">${[...(rate === 0 || partner.rateTc > 0 || partner.rateAgency > 0 ? [0] : []), 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 20].map((n) => `<option value="${n / 100}"${rate === n ? ' selected' : ''}>${n} %${n === 10 ? ` (${t('partner.rate.suggested')})` : n === 0 ? ` (${t('partner.rate.zero')})` : ''}</option>`).join('')}</select></div></div>
         <div id="m-pp"${partner.commissionModel === 'per_person' ? '' : ' hidden'}>
           <div class="field"><label for="m-amount">${t('partner.model.amount')}</label>
-            <input id="m-amount" name="pp" inputmode="decimal" placeholder="${esc(city.currency)} 10,00" value="${partner.perPersonCents ? (partner.perPersonCents / 100).toFixed(2).replace('.', ',') : ''}"></div>
+            <input id="m-amount" name="pp" inputmode="decimal" placeholder="${esc(cents(1000, city.currency, getLang()))}" value="${partner.perPersonCents ? (partner.perPersonCents / 100).toFixed(2).replace('.', ',') : ''}"></div>
           <p class="hint">${t('partner.model.hint')}</p>
           <div class="field"><label for="m-child">${t('partner.model.child')}</label>
             <input id="m-child" name="child" inputmode="decimal" placeholder="${t('partner.model.child.ph')}" value="${partner.childCents ? (partner.childCents / 100).toFixed(2).replace('.', ',') : ''}"></div></div>

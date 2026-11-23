@@ -93,6 +93,8 @@ a.card:hover { border-color: var(--brand-light); }
 .btn + .btn { margin-left: 8px; }
 .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 .row .btn + .btn { margin-left: 0; }
+/* Boutons pleine largeur empilés : pas de décalage à gauche (sinon ils dépassent de la carte de 8 px), un petit espace au-dessus. */
+.btn.block + .btn, .btn + .btn.block { margin-left: 0; margin-top: 8px; }
 .spread { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; flex-wrap: wrap; }
 
 form .field { margin-bottom: 12px; }
@@ -146,8 +148,11 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--brand-light
 .tabs a { padding: 8px 14px; border-radius: 999px; text-decoration: none; white-space: nowrap; border: 1px solid var(--line); background: #fff; color: var(--ink); font-size: .92rem; }
 .tabs a.on { background: var(--deep); color: #fff; border-color: var(--deep); }
 
-.chips { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0 12px; }
-.chip { font: inherit; font-weight: 500; padding: 8px 16px; min-height: 40px; border-radius: 999px; border: 1px solid var(--line); background: #fff; color: var(--ink); cursor: pointer; }
+/* v133 : une seule ligne qui défile (façon iOS), marges au lieu de gap (iOS 13.4). */
+.chips { display: flex; flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; margin: 8px 0 12px; padding-bottom: 2px; }
+.chips::-webkit-scrollbar { display: none; }
+.chip + .chip { margin-left: 8px; }
+.chip { flex: 0 0 auto; white-space: nowrap; font: inherit; font-weight: 500; padding: 7px 14px; min-height: 38px; border-radius: 999px; border: 1px solid var(--line); background: #fff; color: var(--ink); cursor: pointer; }
 .chip.on { background: var(--ink); color: #fff; border-color: var(--ink); }
 .pcards { display: grid; gap: 12px; }
 @media (min-width: 620px) { .pcards { grid-template-columns: 1fr 1fr; } }
@@ -462,8 +467,12 @@ main { overflow-wrap: break-word; }
 .bill-guide img, .bill-ini { width: 56px; height: 56px; border-radius: 50%; object-fit: cover; flex: none; }
 .bill-ini { display: grid; place-items: center; background: var(--line); font-weight: 700; }
 .bill-client { margin: 6px 0; font-weight: 600; }
-.qr-scan { position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 1000; background: #000; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 16px; color: #fff; }
-.qr-scan video { width: 100%; max-width: 480px; max-height: 70vh; border-radius: 12px; object-fit: cover; }
+.qr-scan { position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 1000; background: #000; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 16px; color: #fff; }
+.qr-scan > * + * { margin-top: 12px; }   /* v133 : marges au lieu de gap (iOS 13.4) */
+.qr-scan .btn + .btn { margin-left: 0; }
+.qr-scan-cam { position: relative; width: 100%; max-width: 480px; height: 58vh; max-height: 520px; border-radius: 14px; overflow: hidden; background: #111; }
+.qr-scan video { display: block; width: 100%; height: 100%; object-fit: cover; }
+.qr-scan-aim { position: absolute; left: 50%; top: 50%; width: 220px; height: 220px; transform: translate(-50%, -50%); border: 3px solid #F6B73C; border-radius: 18px; box-shadow: 0 0 0 1000px rgba(0, 0, 0, .28); pointer-events: none; }
 .gg-box { text-align: center; margin-bottom: 10px; }
 .client-code { font-size: 1.1em; letter-spacing: .08em; }
 @media (max-width: 420px) { .bill-cases { grid-template-columns: 1fr; } }
@@ -1153,3 +1162,6 @@ body.ios .ad-inbox .btn.small { background: #E8F3EF; color: var(--brand); border
 @media (max-width: 480px) { body.ios .stats { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; } body.ios .stats .stat { padding: 10px 8px; } body.ios .stats .stat b { font-size: .95rem; } body.ios .stats .stat span { font-size: .72rem; line-height: 1.25; } }
 .ios-list .ad-row a.btn { display: inline-block; width: auto; min-height: 0; padding: 7px 14px; font-size: .9rem; color: var(--brand); }
 .ad-row .ios-lbl { flex: 1; min-width: 0; }
+/* v133 : champ heure du simulateur et de l'assistant (« 13: » coupé) */
+#st-h, #sm-h { min-width: 104px; flex: 0 0 auto; }
+#st-d, #sm-d { flex: 1 1 auto; min-width: 0; }

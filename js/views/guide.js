@@ -882,7 +882,7 @@ async function stayView(me, city, stayId) {
       ${canLink ? `<div class="card" id="links"><h2>${t('grp.links.title')}</h2><p class="hint">${t(me.actorKind === 'agency' ? 'grp.links.hint.agency' : 'grp.links.hint.tc')}</p>
         ${actors.length ? `<ul class="list">${actors.map((a) => `<li><div class="spread"><span><b>${esc(a.name)}</b> <span class="badge">${t(`role.${a.role}`)}</span><br><span class="hint">${esc(a.code || '')}</span></span>
           <button type="button" class="btn ghost small" data-unlink="${esc(a.actor_id)}">${t('grp.links.remove')}</button></div></li>`).join('')}</ul>` : `<p class="hint">${t('grp.links.none')}</p>`}
-        <button type="button" class="btn block" id="lk-scan" style="margin-top:8px">📷 ${t('grp.links.scan')}</button>
+        <button type="button" class="btn block secondary" id="lk-scan" style="margin-top:8px">📷 ${t('grp.links.scan')}</button>
         <form class="row" id="link-form" style="align-items:flex-end;margin-top:8px">
           <div class="field" style="margin:0;flex:1"><label for="lk-code">${t('grp.links.code')}</label><input id="lk-code" name="code" required autocapitalize="characters" placeholder="RIO-KG-12345 / RIO-KT-12345" style="text-transform:uppercase"></div>
           <button class="btn small secondary" style="margin-left:8px">${t('grp.links.add')}</button></form></div>` : ''}
