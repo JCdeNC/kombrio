@@ -2709,4 +2709,13 @@ export default {
   "grp.links.scan": "Escanear o crachá",
   "grp.links.scan.hint": "Aponte para o QR do crachá.",
   "grp.links.badgeerr": "Crachá não reconhecido. Digite o código.",
+  // v132 : lot 7, admin
+  "admin.do.answer": "Responder",
+  "admin.do.verify": "Verificar",
+  "admin.do.payout": "Repassar",
+  "admin.do.validate": "Validar",
+  "admin.do.declare": "Declarar",
+  "admin.do.check": "Conferir",
+  "admin.do.solve": "Resolver",
+  "admin.do.see": "Ver",
 };

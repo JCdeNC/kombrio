@@ -223,7 +223,7 @@ async function alertas({ alerts }) {
 const sumOf = (list, key) => list.reduce((s, v) => s + (v[key] || 0), 0);
 const IN = (v, ...st) => st.includes(v.status);
 
-async function dashboard({ guides, partnerList, visits, adjustments, cur, cityList, todo = {}, agenda = null }) {
+async function dashboard({ guides, partnerList, visits, adjustments, cur, cityList, todo = {}, agenda = null, paymentList = [], payoutList = [], alerts = [] }) {
   const cityId = cityList[0]?.id;
   const lang = getLang(); const tz = cityList[0]?.timezone || 'America/Sao_Paulo';
   const months6 = lastMonths(6, tz);
@@ -249,7 +249,28 @@ async function dashboard({ guides, partnerList, visits, adjustments, cur, cityLi
   const agendaCard = agenda ? `<div class="card"><div class="spread"><h2 style="margin:0">${t('ag.dash')}</h2><a class="btn ghost small" href="#/agenda">${t('admin.tab.agenda')}</a></div>
     ${agNext.length ? `<ul class="list">${agNext.slice(0, 8).map((x) => `<li class="ag-item ag-${esc(x.category)}"><div class="spread"><span><span class="ag-dot"></span>${agendaLabel(x)}</span>
       <span class="badge ${x.status === 'late' ? 'bad' : x.status === 'soon' ? 'warn' : ''}">${fmtDay(x.due, lang)}</span></div></li>`).join('')}</ul>` : `<p class="hint" style="margin:0">${t('ag.dash.none')}</p>`}</div>` : '';
-  const todoCard = `<div class="card"><h2>${t('admin.today')}</h2>${todoLines.length ? `<ul class="admin-todo">${todoLines.join('')}</ul>` : `<p class="hint" style="margin:0">${t('admin.today.none')}</p>`}</div>`;
+  // v132 (refonte iOS, lot 7) : boîte « Aujourd'hui » — une ligne par tâche, les premiers éléments en clair et le bouton
+  // d'action sur la même ligne (il ouvre l'onglet qui fait le geste : vérifier un Pix, lancer un virement, valider…).
+  const pName = (id) => (partnerList.find((x) => x.id === id) || {}).name || '';
+  const few = (l) => l.filter(Boolean).slice(0, 3).join(' · ') + (l.filter(Boolean).length > 3 ? ' …' : '');
+  const detail = {
+    alertas: few(alerts.filter((a) => a.status === 'new').map((a) => `nº ${a.num}`)),
+    payments: few(paymentList.filter((y) => y.status === 'submitted').map((y) => `nº ${y.num} · ${esc(pName(y.partnerId))} · ${cur(y.cents, cityId)}`)),
+    payouts: few(guides.filter((g) => visits.some((v) => v.guideId === g.id && v.status === 'received')).map((g) => esc(g.name))),
+    validations: few(guides.filter(toVerify).map((g) => esc(g.name))),
+    partners: few(partnerList.filter((x) => x.status === 'pending').map((x) => esc(x.name))),
+    transactions: few(visits.filter((v) => v.status === 'disputed').map((v) => esc(store.visitRef(v)))),
+  };
+  const ACT = { alertas: 'admin.do.answer', payments: 'admin.do.verify', payouts: 'admin.do.payout', validations: 'admin.do.validate', partners: 'admin.do.validate',
+    inss: 'admin.do.declare', pix: 'admin.do.check', transactions: 'admin.do.solve', agenda: 'admin.do.see' };
+  const inbox = TABS.filter((k) => todo[k]).map((k) => `<li><div class="ad-row"><span class="ad-n">${todo[k]}</span>
+      <span class="ios-lbl"><b>${t(`admin.tab.${k}`)}</b>${detail[k] ? `<small class="ios-sub-l">${detail[k]}</small>` : ''}</span>
+      <a class="btn small" href="#/${k}">${t(ACT[k] || 'admin.do.see')}</a></div></li>`);
+  if (openLeads.length) inbox.push(`<li><div class="ad-row"><span class="ad-n">${openLeads.length}</span><span class="ios-lbl"><b>${t('lead.title')}</b><small class="ios-sub-l">${few(openLeads.map((l) => esc(l.name)))}</small></span>
+      <a class="btn small" href="#" data-goto="lead-card">${t('admin.do.see')}</a></div></li>`);
+  const todoCard = `<h2 class="ios-sec">${t('admin.today')}</h2>${inbox.length ? `<ul class="ios-list ad-inbox">${inbox.join('')}</ul>`
+    : `<div class="card ios-ok"><span class="ios-ok-ico" aria-hidden="true">✓</span><span><b>${t('admin.today.none')}</b></span></div>`}`;
+  void todoLines;
   return {
     html: `
       ${todoCard}
@@ -282,6 +303,7 @@ async function dashboard({ guides, partnerList, visits, adjustments, cur, cityLi
         <p class="hint">${t('dash.rank.hint')}</p>
         <div class="pd-cols"><div class="pd-side" id="rank-guides"></div><div class="pd-side" id="rank-partners"></div></div></div>`,
     mount(root) {
+      root.querySelectorAll('[data-goto]').forEach((a) => { a.onclick = (e) => { e.preventDefault(); const el = document.getElementById(a.dataset.goto); if (el) { el.scrollIntoView(true); window.scrollBy(0, -70); } }; });
       root.querySelectorAll('[data-lead]').forEach((x) => { x.onchange = async () => {
         try { await store.adminSetLead(x.dataset.lead, x.value); notify(tRaw('common.saved')); } catch { notify(tRaw('err.generic')); }
       }; });

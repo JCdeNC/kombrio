@@ -2709,4 +2709,13 @@ export default {
   "grp.links.scan": "Scanner le badge",
   "grp.links.scan.hint": "Visez le QR du badge.",
   "grp.links.badgeerr": "Badge non reconnu. Tapez le code.",
+  // v132 : lot 7, admin
+  "admin.do.answer": "Répondre",
+  "admin.do.verify": "Vérifier",
+  "admin.do.payout": "Reverser",
+  "admin.do.validate": "Valider",
+  "admin.do.declare": "Déclarer",
+  "admin.do.check": "Contrôler",
+  "admin.do.solve": "Régler",
+  "admin.do.see": "Voir",
 };

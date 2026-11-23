@@ -1143,3 +1143,13 @@ button.qr-tap { display: block; width: 100%; max-width: 320px; margin: 0 auto; p
 .qr-full-in b { display: block; font-size: 1.4rem; margin-top: 12px; }
 .qr-full-in span { display: block; font-size: 1.2rem; letter-spacing: .08em; margin-top: 4px; }
 .qr-full-in small { display: block; color: #5B6F78; margin-top: 14px; }
+/* v132 (lot 7) : admin — boîte « Aujourd'hui » (compteur, aperçu, bouton d'action sur la ligne), chiffres sur 2 colonnes au téléphone. */
+.ad-inbox { margin-bottom: 16px; }
+.ad-row { display: flex; align-items: center; min-height: 56px; padding: 10px 14px 10px 16px; }
+.ad-inbox li + li > .ad-row { background: linear-gradient(#E8EDEF, #E8EDEF) 16px 0 / calc(100% - 16px) 1px no-repeat; }
+.ad-n { flex: none; min-width: 28px; height: 28px; margin-right: 12px; padding: 0 8px; border-radius: 99px; background: #d93025; color: #fff; font-weight: 700; font-size: .85rem; line-height: 28px; text-align: center; }
+.ad-row .btn.small { flex: none; margin-left: 10px; }
+body.ios .ad-inbox .btn.small { background: #E8F3EF; color: var(--brand); border-color: #E8F3EF; }
+@media (max-width: 480px) { body.ios .stats { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; } body.ios .stats .stat { padding: 10px 8px; } body.ios .stats .stat b { font-size: .95rem; } body.ios .stats .stat span { font-size: .72rem; line-height: 1.25; } }
+.ios-list .ad-row a.btn { display: inline-block; width: auto; min-height: 0; padding: 7px 14px; font-size: .9rem; color: var(--brand); }
+.ad-row .ios-lbl { flex: 1; min-width: 0; }
