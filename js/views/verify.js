@@ -26,7 +26,8 @@ export async function verifyView([token = '']) {
         ${b.cadastur_valid_until ? `<p class="hint" style="margin:0">${t('vf.cad', { date: fmtDay(b.cadastur_valid_until, 'pt') })}</p>` : ''}
         ${b.is_test ? `<p class="badge warn" style="margin-top:8px">${t('vf.test')}</p>` : ''}
       </div>
-      ${partnerKey() && b.state === 'ok' ? `<div class="card no-print"><button class="btn block" id="vf-present">${t('vf.present')}</button>
+      ${partnerKey() && b.state === 'ok' ? `<div class="card no-print"><p style="margin:0 0 10px"><b>${t('ph.ask')}</b></p><button class="btn block" id="vf-present">${t('vf.present.yes')}</button>
+        <button class="btn ghost block" id="vf-notme" style="margin-top:8px">${t('ph.ask.no')}</button>
         <p class="hint" style="margin:8px 0 0">${t('vf.present.hint')}</p><div id="vf-present-msg"></div>
         <a class="btn secondary block" style="margin-top:10px" href="${esc(appLink('partner', `p/${encodeURIComponent(partnerKey())}/venda/${token}`))}">${t('vd.from.badge')}</a></div>` : ''}
       <ol class="vf-steps"><li>${t('vf.step1')}</li><li>${t('vf.step2')}</li></ol>
@@ -36,12 +37,19 @@ export async function verifyView([token = '']) {
     mount(root) {
       const btn = root.querySelector('#vf-present');
       if (!btn) return;
+      // v136 : la personne n'est pas celle de la photo → rien n'est enregistré, Kombrio est alertée.
+      root.querySelector('#vf-notme').onclick = async (e) => {
+        e.target.disabled = true; btn.disabled = true;
+        await store.guidePhotoMismatch(partnerKey(), token).catch(() => null);
+        root.querySelector('#vf-present-msg').innerHTML = `<div class="notice bad" style="margin-top:8px">${t('ph.no.done')}</div>`;
+      };
       btn.onclick = async () => {
         btn.disabled = true;
         const box = root.querySelector('#vf-present-msg');
         try {
           const r = await store.markGuidePresent(partnerKey(), token);
           if (r && r.ok) box.innerHTML = `<div class="notice ok" style="margin-top:8px">${t('vf.present.ok', { name: r.name, n: r.visits })}</div>`;
+          else if (r && r.reason === 'no_photo') box.innerHTML = `<div class="notice bad" style="margin-top:8px">${t('bill.err.no_photo')}</div>`;
           else if (r && r.reason === 'elsewhere') box.innerHTML = `<div class="notice bad" style="margin-top:8px">${t('vf.present.elsewhere', { n: r.minutes, place: r.place || '?' })}</div>`;
           else { btn.disabled = false; notify(t('vf.present.err')); }
         } catch { btn.disabled = false; notify(t('vf.present.err')); }

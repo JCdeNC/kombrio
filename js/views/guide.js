@@ -506,7 +506,7 @@ async function dashboardView(me, city, tab = 'inicio', focus = '') {
   const refRow = me.referralEnabled ? `<ul class="ios-list" style="margin-top:14px"><li><a href="#/indicacao"><span class="ios-lbl">${t('ref.card.title')}<small class="ios-sub-l">${t('ref.card.hint')}</small></span><span class="ios-chev" aria-hidden="true">›</span></a></li></ul>` : '';
   const recent = visits.slice(0, 5);
   const body = {
-    inicio: `${heroG}${staysNow}${newsList}${left ? todoCard : ''}${refRow}${startHtml || installCard('guide')}`,
+    inicio: `${photoNag(me)}${heroG}${staysNow}${newsList}${left ? todoCard : ''}${refRow}${startHtml || installCard('guide')}`,
     clientes: focus === 'novo' ? `<div class="ios-sub">${newStayForm}</div>` : `<a class="qr-new" href="#/clientes/novo"><span class="qr-new-plus">+</span><span><b>${t(company ? 'stay.group.new' : 'g.qr.new')}</b><small>${t('g.qr.new.hint')}</small></span></a>
       <div class="pd-cols"><div class="pd-side">${staysCard(stays, true)}${linkedCard}</div><div class="pd-side">${blackCard}${incCard}${offersCard}</div></div>`,
     ganhos: `${heroG}<div class="pd-cols"><div class="pd-side"><div class="card g-card"><div class="spread"><h2 style="margin:0">${t('g.all')}</h2>
@@ -1093,7 +1093,8 @@ async function badgeView(me, city) {
       <form class="card no-print" id="bdg-photo">
         <h2>${t('bdg.photo.title')}</h2>
         <p class="hint">${t('bdg.photo.hint')}</p>
-        <div class="field"><input type="file" name="photo" accept="image/*" required></div>
+        ${photoState(me)}
+        <div class="field"><input type="file" name="photo" accept="image/*" capture="user" required></div>
         <button class="btn secondary small">${t('common.save')}</button>
       </form>
       <div class="card no-print"><h2>${t('bdg.lost.title')}</h2><p class="hint">${t('bdg.lost.hint')}</p>
@@ -1113,7 +1114,8 @@ async function badgeView(me, city) {
         try {
           const jpg = await photoToJpeg(file, 480, 0.8);
           const r = await store.setMyPhoto(jpg);
-          if (r && r.ok) ctx.refresh(tRaw('common.saved')); else notify(tRaw('bdg.photo.err'));
+          if (r && r.ok) ctx.refresh(tRaw('ph.sent'));
+          else notify(r && r.reason === 'too_soon' ? tRaw('ph.too_soon', { date: fmtDay(String(r.from).slice(0, 10), getLang()) }) : tRaw('bdg.photo.err'));
         } catch { notify(tRaw('bdg.photo.err')); }
       };
       root.querySelector('#bdg-renew').onclick = async () => {
@@ -1180,4 +1182,21 @@ function undoToast(text, undo) {
   box.querySelector('button').onclick = async () => { box.remove(); await undo(); };
   document.body.appendChild(box);
   setTimeout(() => box.remove(), 6000);
+}
+
+// v136 : état de la photo (Kombrio la valide ; sans photo validée, pas de « guide présent » à partir de la date de la règle).
+function photoState(me) {
+  const st = me.photoStatus;
+  if (st === undefined) return '';
+  if (st === 'validated') return `<p class="notice ok">✓ ${t('ph.st.validated')}</p>`;
+  if (st === 'pending') return `<p class="notice warn">${t('ph.st.pending')}</p>`;
+  if (st === 'refused') return `<p class="notice bad">${t('ph.st.refused', { why: tRaw(`ph.why.${me.photoReason || 'other'}`) })}</p>`;
+  return `<p class="notice bad">${t('ph.st.none')}</p>`;
+}
+
+// v136 : rappel en tête de l'accueil tant que la photo n'est pas validée (un toucher ouvre la page du crachá).
+function photoNag(me) {
+  if (me.photoStatus === undefined || me.photoStatus === 'validated') return '';
+  const key = me.photoStatus === 'pending' ? 'ph.nag.pending' : me.photoStatus === 'refused' ? 'ph.nag.refused' : 'ph.nag.none';
+  return `<a class="card ios-row" href="#/cracha" style="text-decoration:none;color:inherit"><span style="flex:1;min-width:0"><b>${t('ph.nag.title')}</b><br><small class="hint">${t(key)}</small></span><span class="ios-chev" aria-hidden="true">›</span></a>`;
 }

@@ -403,6 +403,8 @@ export function scannedView({ partner, city, key, role, visits }, visit, action)
         if (answer !== 'yes') return true;
         const ref = root.querySelector('#rs-g').value.trim();
         if (!ref) { notify(tRaw('bill.ask.guide')); root.querySelector('#rs-g').focus(); return false; }
+        const idr = await store.identifyRef(key, ref).catch(() => null);   // v136 : photo du guide avant de le déclarer présent
+        if (idr && idr.ok && idr.guide && await confirmGuidePhoto(idr.guide) === 'no') { await photoRefused(key, ref); return false; }
         const r = await store.setVisitGuide(key, visit.id, ref).catch(() => null);
         if (!r || !r.ok) { notify(saveError(r, c, 0)); return false; }
         answer = 'done';
@@ -509,6 +511,7 @@ function saveError(r, c, photoMin) {
   const reason = r && r.reason;
   if (reason === 'photo_required') return tRaw('staff.photo.required');
   if (reason === 'elsewhere') return tRaw('bill.err.elsewhere', { place: r.place || '?', n: r.minutes || '' });   // v135
+  if (reason === 'no_photo') return tRaw('bill.err.no_photo');   // v136
   if (['quota', 'fix_late'].includes(reason)) return tRaw(`staff.err.${reason}`);
   if (['gg_expired', 'guide', 'guide_status', 'client', 'other_guide', 'mismatch', 'empty', 'expired', 'notyet', 'people'].includes(reason)) return tRaw(`bill.err.${reason}`);
   return tRaw(['amount', 'commission', 'already', 'counter_late', 'photo'].includes(reason) ? `rs.err.${reason}` : 'err.generic');
@@ -568,6 +571,30 @@ export function scanQr(opts = {}) {
       } catch { stop(); notify(tRaw('bill.scan.err')); resolve(null); }
     })();
   });
+}
+
+// v136 : « A pessoa é o guia da foto ? » — grande photo du guide, plein écran. Rend 'yes', 'no' ou 'nophoto'.
+export function confirmGuidePhoto(g) {
+  return new Promise((resolve) => {
+    const shown = (g && (g.badge_name || g.name)) || '?';
+    const has = g && g.photo && String(g.photo).startsWith('data:image/');
+    const box = document.createElement('div'); box.className = 'qr-scan ph-ask';
+    box.innerHTML = has
+      ? `<img src="${esc(g.photo)}" alt="" style="width:min(70vw,320px);height:min(70vw,320px);object-fit:cover;border-radius:24px;border:4px solid #fff">
+        <p style="font-size:22px;margin:14px 0 2px"><b>${esc(shown)}</b></p><p style="margin:0 0 18px;opacity:.8">${esc((g && g.code) || '')}</p>
+        <p style="font-size:20px;margin:0 0 16px;text-align:center"><b>${esc(tRaw('ph.ask'))}</b></p>
+        <button type="button" class="btn block" data-a="yes" style="max-width:360px">${esc(tRaw('ph.ask.yes'))}</button>
+        <button type="button" class="btn secondary block" data-a="no" style="max-width:360px;margin-top:10px">${esc(tRaw('ph.ask.no'))}</button>`
+      : `<p style="font-size:20px;text-align:center;max-width:360px"><b>${esc(shown)}</b><br>${esc(tRaw('ph.ask.nophoto'))}</p>
+        <button type="button" class="btn block" data-a="nophoto" style="max-width:360px">${esc(tRaw('ph.ask.ok'))}</button>`;
+    document.body.appendChild(box);
+    box.querySelectorAll('[data-a]').forEach((b) => { b.onclick = () => { box.remove(); resolve(b.dataset.a); }; });
+  });
+}
+// La caisse a répondu « Não » : rien n'est enregistré, Kombrio est alertée.
+async function photoRefused(key, ref) {
+  await store.guidePhotoMismatch(key, ref).catch(() => null);
+  notify(tRaw('ph.no.done'));
 }
 
 // Petite carte : photo, nom et code du guide (pour voir tout de suite s'il est là).
@@ -675,6 +702,7 @@ export function billView({ partner, city, key, role }, preset = '') {
       const setGuide = async (ref, label) => {
         const r = await store.identifyRef(key, ref).catch(() => null);
         if (!r || !r.ok || r.kind === 'client') { notify(saveError(r && r.ok ? { reason: 'guide' } : r, c, 0)); return; }
+        if (await confirmGuidePhoto(r.guide) === 'no') { await photoRefused(key, ref); return; }   // v136
         st.guide = ref; st.group = r.kind === 'guide_group' ? r.client : null;
         if (st.mode !== 'guide') setMode('guide');
         $('#b-g').value = label || (r.guide.badge_name || r.guide.name);

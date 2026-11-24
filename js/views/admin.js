@@ -129,7 +129,7 @@ function todoCounts({ guides, payoutList, paymentList, visits, adjustments, pixC
     inss: inssTodo.length,
     // v85 : échéances en retard ou dans les 3 jours.
     agenda: agendaTodo(agenda),
-    validations: guides.filter(toVerify).length,
+    validations: guides.filter(toVerify).length + guides.filter((g) => g.photoStatus === 'pending' && g.photo).length,   // v136 : photos à valider
     payments: paymentList.filter((p) => p.status === 'submitted').length,
     payouts: payoutList.filter((p) => p.status === 'in_progress').length
       + guides.filter((g) => visits.some((v) => v.guideId === g.id && v.status === 'received') && !blockReason(g, payoutList)).length,
@@ -257,7 +257,7 @@ async function dashboard({ guides, partnerList, visits, adjustments, cur, cityLi
     alertas: few(alerts.filter((a) => a.status === 'new').map((a) => `nº ${a.num}`)),
     payments: few(paymentList.filter((y) => y.status === 'submitted').map((y) => `nº ${y.num} · ${esc(pName(y.partnerId))} · ${cur(y.cents, cityId)}`)),
     payouts: few(guides.filter((g) => visits.some((v) => v.guideId === g.id && v.status === 'received')).map((g) => esc(g.name))),
-    validations: few(guides.filter(toVerify).map((g) => esc(g.name))),
+    validations: few([...guides.filter(toVerify).map((g) => esc(g.name)), ...guides.filter((g) => g.photoStatus === 'pending' && g.photo).map((g) => `📷 ${esc(g.badgeName || g.name)}`)]),
     partners: few(partnerList.filter((x) => x.status === 'pending').map((x) => esc(x.name))),
     transactions: few(visits.filter((v) => v.status === 'disputed').map((v) => esc(store.visitRef(v)))),
   };
@@ -366,8 +366,17 @@ async function validations({ guides, city, cadChecks }) {
         <button class="btn block">${t(validate ? 'admin.cad.saveval' : 'admin.cad.save')}</button>
       </form></div>`;
   };
+  // v136 : photos des guides à valider (la photo fait foi à la caisse : « A pessoa é o guia da foto? »).
+  const photos = guides.filter((g) => g.photoStatus === 'pending' && g.photo && g.photo.startsWith('data:image/'));
+  const photoCard = photos.length ? `<div class="card" id="ph-card"><h2>${t('ph.admin.title')} <span class="badge warn">${photos.length}</span></h2><p class="hint">${t('ph.admin.hint')}</p>
+      <ul class="list">${photos.map((g) => `<li><div class="row" style="gap:12px;align-items:center">
+        <img src="${esc(g.photo)}" alt="" style="width:110px;height:110px;object-fit:cover;border-radius:14px;flex:none">
+        <span style="flex:1;min-width:0"><b>${esc(g.badgeName || g.name)}</b><br><span class="hint">${esc(g.name)} · ${esc(g.code || '')}</span>
+          <div class="row" style="gap:6px;margin-top:8px;flex-wrap:wrap"><button class="btn small" data-ph-ok="${esc(g.id)}">${t('ph.admin.ok')}</button>
+          <select data-ph-why="${esc(g.id)}" style="width:auto">${['not_face', 'blurry', 'hidden', 'other'].map((k) => `<option value="${k}">${t(`ph.why.${k}`)}</option>`).join('')}</select>
+          <button class="btn ghost small" data-ph-no="${esc(g.id)}">${t('ph.admin.no')}</button></div></span></div></li>`).join('')}</ul></div>` : '';
   return {
-    html: `<div class="card">
+    html: `${photoCard}<div class="card">
       <h2>${t('admin.val.title')}</h2>
       ${pending.length ? `<ul class="list">${pending.map((g) => `<li>
         <div class="spread"><b>${esc(g.name)}${g.actorKind && g.actorKind !== 'guide' ? ` <span class="badge warn">${t(`role.${g.actorKind}`)}</span>` : ''}</b><span class="hint">${g.status === 'validated' ? `<span class="badge ok">${t('admin.val.active')}</span>` : `<span class="badge">${t('admin.val.noemail')}</span>`} ${esc(city(g.cityId)?.name || '')}</span></div>
@@ -387,6 +396,12 @@ async function validations({ guides, city, cadChecks }) {
       <div class="hint">${esc(city(g.cityId)?.licenseLabel || '')} ${esc(g.license || '')}</div>${cadBlock(g)}</li>`).join('')}</ul></div>` : ''}
     ${activeCard(guides.filter((g) => ['validated', 'suspended'].includes(g.status)), 'guide')}`,
     mount(root, ctx) {
+      root.querySelectorAll('[data-ph-ok],[data-ph-no]').forEach((b) => { b.onclick = async () => {
+        const id = b.dataset.phOk || b.dataset.phNo; const ok = !!b.dataset.phOk;
+        const why = ok ? null : (root.querySelector(`[data-ph-why="${id}"]`) || {}).value || 'other';
+        b.disabled = true;
+        try { await store.adminPhotoDecide(id, ok, why); ctx.refresh(tRaw(ok ? 'ph.admin.done.ok' : 'ph.admin.done.no')); } catch { b.disabled = false; notify(tRaw('err.generic')); }
+      }; });
       root.querySelectorAll('[data-cad-open]').forEach((b) => { b.onclick = () => {
         const g = guides.find((x) => x.id === b.dataset.cadOpen);
         openSheet(`${esc(g.name)} · ${esc(g.license || '')}${g.cpf ? ` · CPF ${esc(fmtTaxId(g.cpf))}` : ''}${g.cnpj ? ` · CNPJ ${esc(fmtTaxId(g.cnpj))}` : ''}`, `<iframe src="${CADASTUR_URL}" title="Cadastur"></iframe>`);

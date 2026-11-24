@@ -38,6 +38,8 @@ const toGuide = (r) => r && ({
   // Module Pix (v30) : undefined tant que le script 015 n'est pas lancé.
   pixKeyType: r.pix_key_type || '', pixKeyVersion: r.pix_key_version ?? null, pixStatus: r.pix_status, pixVerifiedAt: r.pix_verified_at || '',
   termsVersion: r.terms_version || '', termsAcceptedAt: r.terms_accepted_at || '', lang: r.lang || '',
+  // v136 : photo du guide validée par Kombrio (none | pending | validated | refused) ; undefined = script 077 pas lancé.
+  photoStatus: r.photo_status, photoReason: r.photo_reason || '', photoSubmittedAt: r.photo_submitted_at || '', photoValidatedAt: r.photo_validated_at || '',
   isTest: !!r.is_test, badgeName: r.badge_name || '', cadasturValidUntil: r.cadastur_valid_until || '', cadasturNumber: r.cadastur_number || '', cadasturCategory: r.cadastur_category || '',
 });
 const toPartner = (r) => r && ({
@@ -1079,4 +1081,12 @@ export async function importSales(managerToken, month, fileName, rows) {
 }
 export async function importUndo(managerToken, importId) {
   return check(await sb.rpc('import_undo', { p_manager_token: managerToken, p_import: importId }));
+}
+
+// v136 : la photo du guide fait foi — validation par l'admin ; « Não é a pessoa da foto » à la caisse.
+export async function adminPhotoDecide(guideId, ok, reason = null) {
+  return check(await sb.rpc('admin_photo_decide', { p_guide: guideId, p_ok: ok, p_reason: reason }));
+}
+export async function guidePhotoMismatch(token, ref) {
+  return check(await sb.rpc('guide_photo_mismatch', { p_token: token, p_ref: ref }));
 }
