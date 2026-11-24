@@ -508,6 +508,7 @@ function saleButton(key, withTabs = false) {
 function saveError(r, c, photoMin) {
   const reason = r && r.reason;
   if (reason === 'photo_required') return tRaw('staff.photo.required');
+  if (reason === 'elsewhere') return tRaw('bill.err.elsewhere', { place: r.place || '?', n: r.minutes || '' });   // v135
   if (['quota', 'fix_late'].includes(reason)) return tRaw(`staff.err.${reason}`);
   if (['gg_expired', 'guide', 'guide_status', 'client', 'other_guide', 'mismatch', 'empty', 'expired', 'notyet', 'people'].includes(reason)) return tRaw(`bill.err.${reason}`);
   return tRaw(['amount', 'commission', 'already', 'counter_late', 'photo'].includes(reason) ? `rs.err.${reason}` : 'err.generic');

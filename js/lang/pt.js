@@ -1496,7 +1496,7 @@ export default {
   'vf.present': "Registrar a presença deste guia aqui",
   'vf.present.hint': "Este celular está ligado ao seu estabelecimento: os grupos deste guia que passaram aqui nas últimas 3 horas ficam marcados « guia presente ».",
   'vf.present.ok': "Presença registrada: {name} · {n} grupo(s) marcado(s).",
-  'vf.present.elsewhere': "Este crachá foi registrado em outro estabelecimento há {n} min: um guia não pode estar em dois lugares ao mesmo tempo. A Kombrio foi avisada.",
+  'vf.present.elsewhere': "Este crachá foi registrado em « {place} » há {n} min: um guia não pode estar em dois lugares ao mesmo tempo. A Kombrio foi avisada.",
   'vf.present.err': "Não foi possível registrar a presença.",
   'np.title': "Não sou parceiro Kombrio",
   'np.text': "Este QR é o passe Kombrio de um cliente. Se o seu estabelecimento não é parceiro Kombrio, este cliente não tem oferta Kombrio aqui.",
@@ -2797,4 +2797,6 @@ export default {
   "imp.err.big": "Arquivo grande demais: {n} linhas no máximo.",
   "imp.err.read": "Não foi possível ler este arquivo. Salve em Excel (.xlsx) ou CSV e tente de novo.",
   "imp.err.cols": "Escolha a data, o valor e o código ou o nome do guia.",
+  // v135 : un guide ne peut pas être à deux endroits en même temps
+  "bill.err.elsewhere": "Este guia foi registrado em « {place} » há {n} min: um guia não pode estar em dois lugares ao mesmo tempo. A Kombrio foi avisada.",
 };

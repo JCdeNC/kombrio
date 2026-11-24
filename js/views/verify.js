@@ -42,7 +42,7 @@ export async function verifyView([token = '']) {
         try {
           const r = await store.markGuidePresent(partnerKey(), token);
           if (r && r.ok) box.innerHTML = `<div class="notice ok" style="margin-top:8px">${t('vf.present.ok', { name: r.name, n: r.visits })}</div>`;
-          else if (r && r.reason === 'elsewhere') box.innerHTML = `<div class="notice bad" style="margin-top:8px">${t('vf.present.elsewhere', { n: r.minutes })}</div>`;
+          else if (r && r.reason === 'elsewhere') box.innerHTML = `<div class="notice bad" style="margin-top:8px">${t('vf.present.elsewhere', { n: r.minutes, place: r.place || '?' })}</div>`;
           else { btn.disabled = false; notify(t('vf.present.err')); }
         } catch { btn.disabled = false; notify(t('vf.present.err')); }
       };
