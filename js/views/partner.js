@@ -17,6 +17,7 @@ import { companyEntryCard, companyView, groupInviteView } from './company.js';
 import { rulesCard, mountRulesCard, boostCard, mountBoostCard } from './boosts.js';
 import { rulesWizardView } from './rules-wizard.js';
 import { simulatorView, currentRulesHtml } from './simulator.js';
+import { importView } from './import.js';
 
 const MAX_RECEIPT = 1.5 * 1024 * 1024;
 export const TERMS_VERSION = 'P-2 · 16/11/2026';   // v74 (v1 · 30/10/2026 avant)
@@ -273,6 +274,7 @@ async function partnerViewCore([token, action, visitId], ctx) {
   if (['visitas', 'pagamentos', 'equipe', 'config'].includes(action)) { space.sub = action === 'config' ? visitId || '' : ''; return spaceView(space, action); }
   if (action === 'declarar') return declareManyView(space);
   if (action === 'pagar') return payView(space);
+  if (action === 'importar') return importView(space, ctx);   // v134 : relatório do mês (dossier Pierim)
   if (action === 'grupo' && space.group) return groupView(space);
   if (action === 'empresa') return companyView(space, visitId || '', ctx);   // v120 : Minha empresa
   if (action === 'regras') return rulesWizardView(space, ctx);   // v124 : assistente da comissão
@@ -1082,6 +1084,7 @@ export function spaceView(space, tab = 'painel') {
         ${ajRow(`href="${base}/empresa"`, t('aj.empresa'), space.group ? esc(space.group.group.name) : '')}
         ${space.group ? ajRow(`href="${base}/grupo"`, t('aj.grupo')) : ''}</ul>
       <h2 class="ios-sec">${t('aj.sec.account')}</h2><ul class="ios-list">
+        ${ajRow(`href="${base}/importar"`, t('aj.import'))}
         ${ajRow(`href="${base}/config/relatorios"`, t('aj.report'))}
         ${ajRow('href="#/instalar"', t('aj.install'))}
         ${ajRow('href="#/tuto"', t('aj.tutos'))}
@@ -1103,7 +1106,7 @@ export function spaceView(space, tab = 'painel') {
   const body = {
     painel: `${pendingCard({ city, visits, key })}${payHero}${declareRow}${kpis2}${adjustmentsCard(adjustments, city, lang)}${startHtml}`,
     visitas: visitsCard(t('pd.all'), visits, true),
-    pagamentos: `${payHero}<div class="pd-cols"><div class="pd-side">${payHistory}${chartCard}</div><div class="pd-side">${docsCard}${inssCard}${adjustmentsCard(adjustments, city, lang)}</div></div>`,
+    pagamentos: `${payHero}<a class="card ios-row no-print" href="${base}/importar"><span style="flex:1;min-width:0"><b>${t('aj.import')}</b><br><small class="hint">${t('imp.row.hint')}</small></span><span class="ios-chev" aria-hidden="true">›</span></a><div class="pd-cols"><div class="pd-side">${payHistory}${chartCard}</div><div class="pd-side">${docsCard}${inssCard}${adjustmentsCard(adjustments, city, lang)}</div></div>`,
     equipe: teamHtml(space),
     config: { oferta: setOffer, d1: setJ1, qr: setQr, relatorios: setReport }[gsub] || ajustesList,
     comissao: (() => {   // v126 → v128 : espace « Comissão » en liste, une page par réglage

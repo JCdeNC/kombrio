@@ -1059,3 +1059,24 @@ export async function setActorShare(share) { return check(await sb.rpc('admin_se
 export async function saveAdminSettings({ name, cnpj, opened, regime }) {
   return check(await sb.rpc('admin_settings_save', { p_name: name || null, p_cnpj: cnpj || null, p_opened: opened || null, p_regime: regime }));
 }
+
+// v134 : import du relevé du mois (« dossier Pierim ») — le gérant dépose la planilha de ses ventes avec guide.
+export async function importSpace(managerToken) {
+  const { data, error } = await sb.rpc('import_space', { p_manager_token: managerToken });
+  return error ? null : data;   // null = script 075 pas lancé (ou jeton inconnu)
+}
+export async function importTemplateSet(managerToken, mapping) {
+  return check(await sb.rpc('import_template_set', { p_manager_token: managerToken, p_mapping: mapping }));
+}
+export async function importMatchGuides(managerToken, refs) {
+  return check(await sb.rpc('import_match_guides', { p_manager_token: managerToken, p_refs: refs })) || [];
+}
+export async function importAliasSet(managerToken, label, guideCode) {
+  return check(await sb.rpc('import_alias_set', { p_manager_token: managerToken, p_label: label, p_guide_code: guideCode || '' }));
+}
+export async function importSales(managerToken, month, fileName, rows) {
+  return check(await sb.rpc('import_sales', { p_manager_token: managerToken, p_month: month, p_file: fileName, p_rows: rows }));
+}
+export async function importUndo(managerToken, importId) {
+  return check(await sb.rpc('import_undo', { p_manager_token: managerToken, p_import: importId }));
+}
