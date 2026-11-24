@@ -2828,4 +2828,17 @@ export default {
   "ph.admin.no": "Refuser",
   "ph.admin.done.ok": "Photo validée.",
   "ph.admin.done.no": "Photo refusée : le guide voit le motif.",
+  // v137 (lot A) : comptes de guide en double
+  "dup.title": "Comptes de guide en double",
+  "dup.hint": "Même clé Pix, même CPF ou même CNPJ sur plusieurs comptes : vérifiez (deux comptes de la même personne, compte prêté…). Rien n’est bloqué. Si c’est normal (ex. un couple avec la même clé Pix), marquez « C’est normal ».",
+  "dup.kind.pix": "Clé Pix",
+  "dup.kind.cpf": "CPF",
+  "dup.kind.cnpj": "CNPJ",
+  "dup.note": "Motif (facultatif)",
+  "dup.ok": "C’est normal",
+  "dup.done": "Groupe marqué comme normal.",
+  "dup.st.pending": "en validation",
+  "dup.st.validated": "actif",
+  "dup.st.suspended": "suspendu",
+  "dup.st.rejected": "refusé",
 };

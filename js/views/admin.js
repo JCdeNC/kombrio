@@ -104,23 +104,23 @@ function loginView() {
 const plural = (key, n) => tRaw(`${key}.${n === 1 ? 'one' : 'other'}`, { n });
 
 async function loadAll() {
-  const [cityList, guides, partnerList, visits, payoutList, paymentList, adjustments, pixChecks, expenses, cadChecks, alerts, inssTodo, agenda] = await Promise.all([
+  const [cityList, guides, partnerList, visits, payoutList, paymentList, adjustments, pixChecks, expenses, cadChecks, alerts, inssTodo, agenda, dups] = await Promise.all([
     store.listCities(), store.listGuides(), store.listPartners(), store.listVisits(), store.listPayouts(), store.listPayments(),
     store.listAdjustments(), store.listPixVerifications(), store.listExpenses(), store.listCadasturChecks(), store.adminListAlerts(),
-    store.adminInssTodo(), store.adminAgenda(new Date().toISOString().slice(0, 7)),
+    store.adminInssTodo(), store.adminAgenda(new Date().toISOString().slice(0, 7)), store.adminGuideDuplicates(),
   ]);
   const city = (id) => cityList.find((c) => c.id === id);
   const guide = (id) => guides.find((g) => g.id === id);
   const partner = (id) => partnerList.find((p) => p.id === id);
   const cur = (n, cityId) => cents(n, city(cityId)?.currency || 'BRL', getLang());
-  return { cityList, guides, partnerList, visits, payoutList, paymentList, adjustments, pixChecks, expenses, cadChecks, alerts, inssTodo: inssTodo || [], agenda, city, guide, partner, cur };
+  return { cityList, guides, partnerList, visits, payoutList, paymentList, adjustments, pixChecks, expenses, cadChecks, alerts, inssTodo: inssTodo || [], agenda, dups: dups || [], city, guide, partner, cur };
 }
 // Corrections pas encore reversées et déjà dues au guide : une baisse tout de suite, une hausse une fois le complément reçu.
 const openAdjustments = (adjustments, guideId) => adjustments.filter((a) => (!guideId || a.guideId === guideId) && !a.payoutId
   && (a.guideDelta < 0 || a.partnerStatus === 'settled'));
 
 // Pastilles des onglets : nombre de tâches qui attendent une action de l'admin.
-function todoCounts({ guides, payoutList, paymentList, visits, adjustments, pixChecks, partnerList, alerts, inssTodo = [], agenda = null }) {
+function todoCounts({ guides, payoutList, paymentList, visits, adjustments, pixChecks, partnerList, alerts, inssTodo = [], agenda = null, dups = [] }) {
   const openPix = (g) => pixChecks.some((c) => c.guideId === g.id && ['pending', 'sent'].includes(c.status) && !c.verifiedAt);
   const late = new Set(visits.filter((v) => v.status === 'declared' && v.declaredAt && Date.now() - new Date(v.declaredAt) > 30 * 864e5).map((v) => v.partnerId));
   return {
@@ -129,7 +129,7 @@ function todoCounts({ guides, payoutList, paymentList, visits, adjustments, pixC
     inss: inssTodo.length,
     // v85 : échéances en retard ou dans les 3 jours.
     agenda: agendaTodo(agenda),
-    validations: guides.filter(toVerify).length + guides.filter((g) => g.photoStatus === 'pending' && g.photo).length,   // v136 : photos à valider
+    validations: guides.filter(toVerify).length + guides.filter((g) => g.photoStatus === 'pending' && g.photo).length + dups.length,   // v136 : photos ; v137 : comptes en double
     payments: paymentList.filter((p) => p.status === 'submitted').length,
     payouts: payoutList.filter((p) => p.status === 'in_progress').length
       + guides.filter((g) => visits.some((v) => v.guideId === g.id && v.status === 'received') && !blockReason(g, payoutList)).length,
@@ -343,7 +343,7 @@ function openSheet(title, inner) {
 }
 const lastCheck = (cadChecks, gId) => cadChecks.find((c) => c.guideId === gId);
 
-async function validations({ guides, city, cadChecks }) {
+async function validations({ guides, city, cadChecks, dups = [] }) {
   const pending = guides.filter(toVerify);
   const lang = getLang();
   const today = new Date().toISOString().slice(0, 10);
@@ -375,8 +375,14 @@ async function validations({ guides, city, cadChecks }) {
           <div class="row" style="gap:6px;margin-top:8px;flex-wrap:wrap"><button class="btn small" data-ph-ok="${esc(g.id)}">${t('ph.admin.ok')}</button>
           <select data-ph-why="${esc(g.id)}" style="width:auto">${['not_face', 'blurry', 'hidden', 'other'].map((k) => `<option value="${k}">${t(`ph.why.${k}`)}</option>`).join('')}</select>
           <button class="btn ghost small" data-ph-no="${esc(g.id)}">${t('ph.admin.no')}</button></div></span></div></li>`).join('')}</ul></div>` : '';
+  // v137 (lot A) : comptes qui partagent une clé Pix, un CPF ou un CNPJ (rien n'est bloqué ; « C'est normal » les range).
+  const dupCard = dups.length ? `<div class="card" id="dup-card"><h2>${t('dup.title')} <span class="badge bad">${dups.length}</span></h2><p class="hint">${t('dup.hint')}</p>
+      <ul class="list">${dups.map((d) => `<li><div class="spread"><b>${t(`dup.kind.${d.kind}`)} · ${esc(d.kind === 'pix' ? d.shown : fmtTaxId(d.shown))}</b><span class="badge warn">${d.guides.length}</span></div>
+        <ul class="hint" style="margin:6px 0">${d.guides.map((g) => `<li>${esc(g.name)} · ${esc(g.code || '—')} · ${esc(t(`dup.st.${g.status}`))}${g.is_test ? ' · test' : ''}</li>`).join('')}</ul>
+        <div class="row" style="gap:6px"><input data-dup-note="${esc(d.kind)}|${esc(d.key)}" placeholder="${esc(tRaw('dup.note'))}" style="flex:1">
+        <button class="btn ghost small" data-dup-ok="${esc(d.kind)}|${esc(d.key)}">${t('dup.ok')}</button></div></li>`).join('')}</ul></div>` : '';
   return {
-    html: `${photoCard}<div class="card">
+    html: `${dupCard}${photoCard}<div class="card">
       <h2>${t('admin.val.title')}</h2>
       ${pending.length ? `<ul class="list">${pending.map((g) => `<li>
         <div class="spread"><b>${esc(g.name)}${g.actorKind && g.actorKind !== 'guide' ? ` <span class="badge warn">${t(`role.${g.actorKind}`)}</span>` : ''}</b><span class="hint">${g.status === 'validated' ? `<span class="badge ok">${t('admin.val.active')}</span>` : `<span class="badge">${t('admin.val.noemail')}</span>`} ${esc(city(g.cityId)?.name || '')}</span></div>
@@ -396,6 +402,11 @@ async function validations({ guides, city, cadChecks }) {
       <div class="hint">${esc(city(g.cityId)?.licenseLabel || '')} ${esc(g.license || '')}</div>${cadBlock(g)}</li>`).join('')}</ul></div>` : ''}
     ${activeCard(guides.filter((g) => ['validated', 'suspended'].includes(g.status)), 'guide')}`,
     mount(root, ctx) {
+      root.querySelectorAll('[data-dup-ok]').forEach((b) => { b.onclick = async () => {
+        const [kind, key] = b.dataset.dupOk.split('|'); const note = (root.querySelector(`[data-dup-note="${b.dataset.dupOk}"]`) || {}).value || '';
+        b.disabled = true;
+        try { await store.adminGuideDuplicateOk(kind, key, note); ctx.refresh(tRaw('dup.done')); } catch { b.disabled = false; notify(tRaw('err.generic')); }
+      }; });
       root.querySelectorAll('[data-ph-ok],[data-ph-no]').forEach((b) => { b.onclick = async () => {
         const id = b.dataset.phOk || b.dataset.phNo; const ok = !!b.dataset.phOk;
         const why = ok ? null : (root.querySelector(`[data-ph-why="${id}"]`) || {}).value || 'other';

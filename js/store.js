@@ -1090,3 +1090,12 @@ export async function adminPhotoDecide(guideId, ok, reason = null) {
 export async function guidePhotoMismatch(token, ref) {
   return check(await sb.rpc('guide_photo_mismatch', { p_token: token, p_ref: ref }));
 }
+
+// v137 (lot A) : comptes de guides qui partagent une clé Pix, un CPF ou un CNPJ — visible seulement de l'admin.
+export async function adminGuideDuplicates() {
+  const { data, error } = await sb.rpc('admin_guide_duplicates');
+  return error ? [] : (data || []);   // [] = script 078 pas lancé
+}
+export async function adminGuideDuplicateOk(kind, key, note = '') {
+  return check(await sb.rpc('admin_guide_duplicate_ok', { p_kind: kind, p_key: key, p_note: note }));
+}

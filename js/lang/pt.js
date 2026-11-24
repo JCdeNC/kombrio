@@ -2828,4 +2828,17 @@ export default {
   "ph.admin.no": "Recusar",
   "ph.admin.done.ok": "Foto validada.",
   "ph.admin.done.no": "Foto recusada: o guia vê o motivo.",
+  // v137 (lot A) : comptes de guide en double
+  "dup.title": "Contas de guia em dobro",
+  "dup.hint": "Mesma chave Pix, mesmo CPF ou mesmo CNPJ em várias contas: confira (duas contas da mesma pessoa, conta emprestada…). Nada é bloqueado. Se for normal (ex. um casal com a mesma chave Pix), marque «É normal».",
+  "dup.kind.pix": "Chave Pix",
+  "dup.kind.cpf": "CPF",
+  "dup.kind.cnpj": "CNPJ",
+  "dup.note": "Motivo (opcional)",
+  "dup.ok": "É normal",
+  "dup.done": "Grupo marcado como normal.",
+  "dup.st.pending": "em validação",
+  "dup.st.validated": "ativo",
+  "dup.st.suspended": "suspenso",
+  "dup.st.rejected": "recusado",
 };
