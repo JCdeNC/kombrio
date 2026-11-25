@@ -213,6 +213,7 @@ th { color: var(--muted); font-weight: 600; border-top: 0; }
 .pd-row { display: grid; grid-template-columns: 24px 82px minmax(0, 1.5fr) 140px 104px 92px; gap: 8px; align-items: center; padding: 9px 14px; border-top: 1px solid var(--line); font-size: .9rem; font-weight: 400; margin: 0; }
 .pd-row.pd-head { color: var(--muted); font-size: .76rem; background: var(--bg); }
 .pd-row input[type=checkbox] { width: auto; margin: 0; }
+.pd-dm { display: none; }   /* v145 : date de la visite dans la ligne, sur téléphone (la colonne Data est cachée) */
 .pd-who b { font-weight: 600; } .pd-who small { display: block; color: var(--muted); font-size: .78rem; }
 .pd-num, .pd-r { text-align: right; font-variant-numeric: tabular-nums; }
 .pd-st .badge { white-space: normal; text-align: center; line-height: 1.25; }
@@ -226,7 +227,7 @@ th { color: var(--muted); font-weight: 600; border-top: 0; }
   .pd-cols { grid-template-columns: minmax(0, 1fr); }
   .pd-row { grid-template-columns: 24px minmax(0, 1fr) auto; grid-template-areas: "c w s" "c i m"; row-gap: 6px; }
   .pd-row.pd-head { display: none; }
-  .pd-c { grid-area: c; } .pd-d { display: none; } .pd-who { grid-area: w; } .pd-st { grid-area: s; text-align: right; } .pd-i { grid-area: i; } .pd-com { grid-area: m; }
+  .pd-c { grid-area: c; align-self: start; padding-top: 3px; } .pd-d { display: none; } .pd-dm { display: inline; } .pd-who { grid-area: w; } .pd-st { grid-area: s; text-align: right; } .pd-i { grid-area: i; } .pd-com { grid-area: m; }
 }
 /* v33 : tableaux de bord plus larges sur ordinateur (guide et partenaire). */
 @media (min-width: 900px) { main.wide { max-width: 1100px; } }
@@ -561,7 +562,7 @@ main { overflow-wrap: break-word; }
   .tabs.apptabs a.on .ati { stroke-width: 2.1; background: var(--ok-bg); }
   .tabs.apptabs a:active { background: var(--bg); }
   .tabs.apptabs .todo { top: 2px; right: calc(50% - 28px); box-shadow: 0 0 0 2px var(--surface, #fff); }
-  body.has-apptabs { padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px)); }
+  body.has-apptabs { padding-bottom: calc(92px + env(safe-area-inset-bottom, 0px)); }   /* v145 : 72 → 92 px, le bouton central dépasse de la barre */
 }
 @media print { .tabs.apptabs { display: none; } body.has-apptabs { padding-bottom: 0; } }
 
@@ -1072,6 +1073,7 @@ body.ios .notice { border-radius: 12px; }
 .ios-ok b { display: block; font-size: 1.05rem; } .ios-ok small { display: block; color: var(--muted); }
 .ios-row { display: flex; align-items: center; text-decoration: none; color: var(--ink); }
 .ios-row b { flex: 1; min-width: 0; margin-left: 10px; font-weight: 600; }
+.ios-row span b { margin-left: 0; }   /* v145 : titre + sous-titre empilés (Importar, foto do guia, campanhas…) : titre aligné sur la ligne du dessous */
 .ios-kpis { grid-template-columns: 1fr 1fr !important; margin-bottom: 14px; }
 .st-fold > summary { list-style: none; cursor: pointer; }
 .st-fold > summary::-webkit-details-marker { display: none; }

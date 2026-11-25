@@ -23,7 +23,7 @@ const ICON = new URL('../icon.svg', import.meta.url).href;
 
 // routes : premier mot de l'adresse (#/c/…, #/p/…) → écran. "all" : l'écran reçoit toute l'adresse.
 const APPS = {
-  hub: { routes: { '': homeView }, lang: 'fr' },
+  hub: { routes: { '': homeView }, lang: 'pt' },
   client: { routes: { '': clientHome, c: clientView, l: catalogView, privacidade: privacyView }, lang: 'client' },
   partner: { routes: { '': partnerHome, s: scanView, p: partnerView, r: reportView, ativar: activateView, termos: termsView, parceria: signupView, equipe: staffEnrollView, gg: groupQrView, grupo: companyInviteRoute, instalar: installView, tuto: tutoView, simulador: simulatorRoute, calculadora: calculatorRoute, contador: accountantSignupView, a: accountantSpaceView }, lang: 'pt' },
   guide: { routes: { '': guideView }, lang: 'pt', all: true },

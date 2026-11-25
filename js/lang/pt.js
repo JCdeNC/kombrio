@@ -3073,4 +3073,12 @@ export default {
   "acc.ad.done.ok": "Contador validado: e-mail enviado.",
   "acc.ad.done.no": "Contador recusado.",
   "acc.ad.none": "Nenhum contador cadastrado. Página de cadastro: app › Parceiro › #/contador.",
+  "home2.tagline": "Indicações de guias de turismo, vendas e comissões, num só lugar.",
+  "home2.enter": "Entrar",
+  "home2.partner": "Estabelecimento",
+  "home2.partner.d": "Restaurante, loja, atividade ou serviço: registrar as visitas e gerenciar as comissões.",
+  "home2.guide": "Guia, Tour Company ou agência",
+  "home2.guide.d": "Criar o QR dos seus clientes e acompanhar os seus ganhos.",
+  "home2.client": "Turista? Abra o link ou o QR que o seu guia enviou.",
+  "home2.site": "Conhecer a Kombrio",
 };

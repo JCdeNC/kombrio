@@ -3073,4 +3073,12 @@ export default {
   "acc.ad.done.ok": "Comptable validé : e-mail envoyé.",
   "acc.ad.done.no": "Comptable refusé.",
   "acc.ad.none": "Aucun comptable inscrit. Page d'inscription : app › Partenaire › #/contador.",
+  "home2.tagline": "Recommandations des guides de tourisme, ventes et commissions, au même endroit.",
+  "home2.enter": "Entrer",
+  "home2.partner": "Établissement",
+  "home2.partner.d": "Restaurant, boutique, activité ou service : enregistrer les visites et gérer les commissions.",
+  "home2.guide": "Guide, Tour Company ou agence",
+  "home2.guide.d": "Créer le QR de vos clients et suivre vos gains.",
+  "home2.client": "Touriste ? Ouvrez le lien ou le QR envoyé par votre guide.",
+  "home2.site": "Découvrir Kombrio",
 };

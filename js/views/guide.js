@@ -487,7 +487,7 @@ async function dashboardView(me, city, tab = 'inicio', focus = '') {
         <span class="hint" style="display:block">${t('guide.weekly.hint')}</span></label>` : ''}
       <div class="card"><div class="spread"><h2 style="margin:0">${t('g.cad.title')}</h2>
         <span class="badge ${!cad ? '' : cad < today ? 'bad' : cad < soon60 ? 'warn' : 'ok'}">${t(!cad ? 'g.cad.unknown' : cad < today ? 'g.cad.st.expired' : cad < soon60 ? 'g.cad.st.soon' : 'g.cad.st.ok')}</span></div>
-        <p class="hint" style="margin:6px 0 0">${esc(me.license || '')}${cad ? ` · ${t('g.cad.until', { date: fmtDay(cad, lang) })}` : ''}</p></div>
+        <p class="hint" style="margin:6px 0 0">${[esc(me.license || ''), cad ? t('g.cad.until', { date: fmtDay(cad, lang) }) : ''].filter(Boolean).join(' · ')}</p></div>
       <a class="card" href="#/cracha" style="display:block;text-decoration:none;color:inherit"><div class="spread"><b>${t('bdg.card.title')}</b><span>→</span></div>
         <span class="hint" style="display:block">${t('bdg.card.hint')}</span></a>
       <a class="card" href="#/lugares" style="display:block;text-decoration:none;color:inherit"><div class="spread"><b>${t('pick.card.title')}</b><span>→</span></div>
@@ -1212,13 +1212,13 @@ function photoNag(me) {
 // page de ses clients, et sa page publique (lien + QR) les montre avant le voyage. Rien de payé ni d'enregistré par ce lien.
 async function placesView(me, city) {
   const [partners, favs] = await Promise.all([store.publicPartners(me.cityId), store.myFavorites()]);
-  if (favs === null) return { html: `${iosBack('#/', 'ios.back.home')}<div class="notice warn">${t('pick.unavailable')}</div>` };
+  if (favs === null) return { html: `${iosBack('#/', 'g.tab.inicio')}<div class="notice warn">${t('pick.unavailable')}</div>` };
   const fav = {}; favs.forEach((f) => { fav[f.partner_id] = f.note || ''; });
   const list = [...partners].sort((a, b) => ((b.id in fav) - (a.id in fav)) || a.name.localeCompare(b.name));
   const tok = me.status === 'validated' ? await store.myCatalogToken().catch(() => null) : null;
   const link = tok ? appLink('client', `l/${tok}`) : '';
   return {
-    html: `${iosBack('#/', 'ios.back.home')}
+    html: `${iosBack('#/', 'g.tab.inicio')}
       <div class="card"><h1>${t('pick.title')}</h1><p class="hint">${t('pick.intro')}</p></div>
       ${link ? `<div class="card"><h2>${t('pick.share.title')}</h2><p class="hint">${t('pick.share.hint')}</p>
         <div class="qr" style="max-width:220px;margin:8px auto">${qrSvg(link)}</div>

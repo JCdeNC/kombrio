@@ -93,7 +93,9 @@ async function patchPayout(id: string, fields: Record<string, unknown>) {
 function pixKeyFor(g: Record<string, string>): string {
   const k = String(g.pix_key || '').trim(); const type = String(g.pix_key_type || '');
   if (type === 'cpf' || type === 'cnpj') return k.replace(/\D/g, '');
-  if (type === 'phone') { const d = k.replace(/\D/g, ''); return '+' + (d.startsWith('55') ? d : '55' + d); }
+  // v145 : un numéro brésilien sans indicatif pays a 10 ou 11 chiffres (DDD + numéro) ; avec « 55 » devant, 12 ou 13.
+  // (Avant : « commence par 55 » prenait un DDD 55 du Rio Grande do Sul pour l'indicatif du Brésil.)
+  if (type === 'phone') { const d = k.replace(/\D/g, ''); return '+' + (d.length >= 12 && d.startsWith('55') ? d : '55' + d); }
   if (type === 'email') return k.toLowerCase();
   return k;
 }

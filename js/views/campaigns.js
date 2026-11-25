@@ -71,7 +71,7 @@ export async function guideCampaignsView(city) {
   const c = (n) => cents(n, (city && city.currency) || 'BRL', lang);
   const list = await store.guideCampaigns();
   return {
-    html: `<a class="ios-back no-print" href="#/"><span aria-hidden="true">‹</span> ${t('ios.back.home')}</a>
+    html: `<a class="ios-back no-print" href="#/"><span aria-hidden="true">‹</span> ${t('g.tab.inicio')}</a>
       <div class="card"><h1>${t('gcamp.title')}</h1><p class="hint">${t('gcamp.intro')}</p></div>
       ${list.length ? list.map((x) => `<div class="card"><div class="spread"><h2 style="margin:0">${esc(x.partner)}</h2>${x.won ? `<span class="badge ok">🏆 ${t('gcamp.won')}</span>` : ''}</div>
         <p style="margin:4px 0"><b>${esc(x.title)}</b> · ${t('gcamp.line', { n: x.target, bonus: c(x.bonus_cents) })}</p>

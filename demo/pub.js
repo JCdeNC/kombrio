@@ -5,7 +5,7 @@
   'use strict';
   var DURATION = 5000;
   var SLIDES = [
-    { ico: '🍽️', title: 'Seus clientes chegam com um guia?', text: 'A Kombrio registra, calcula e paga as comissões por você.' },
+    { ico: '🍽️', title: 'Seus clientes chegam com um guia?', text: 'A Kombrio registra as indicações, calcula e gerencia as comissões por você.' },
     { ico: '📱', title: 'Escaneie o QR do cliente', text: 'Um segundo, com a câmera do celular. Nada para instalar.', mock: 'scan' },
     { ico: '🧾', title: 'Digite o valor da conta', text: 'A comissão é calculada sozinha, com a taxa que você escolhe.', mock: 'bill', ms: 8000 },
     { ico: '💸', title: 'Um só Pix por mês', text: 'A Kombrio repassa a cada guia, Tour Company ou agência.', mock: 'pix' },

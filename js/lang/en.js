@@ -861,4 +861,12 @@ export default {
   "loyal.g": "Loyal client: a client who already came here and returns alone up to {n} days after the stay: {value}",
   "loyal.c.title": "Your QR still works at these places:",
   "loyal.c.until": "until {day}",
+  "home2.tagline": "Tour guide referrals, sales and commissions, all in one place.",
+  "home2.enter": "Sign in",
+  "home2.partner": "Venue",
+  "home2.partner.d": "Restaurant, shop, activity or service: record visits and manage commissions.",
+  "home2.guide": "Guide, Tour Company or agency",
+  "home2.guide.d": "Create your clients' QR and follow your earnings.",
+  "home2.client": "Tourist? Open the link or QR your guide sent you.",
+  "home2.site": "Discover Kombrio",
 };
