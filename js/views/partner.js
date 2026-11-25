@@ -1571,7 +1571,7 @@ function adjustmentsCard(adjustments, city, lang, month) {
       <div class="hint">${fmtMoment(a.createdAt, lang, city.timezone)} · ${esc(a.reason)}</div></li>`).join('')}</ul></div>`;
 }
 
-function reportBlock({ partner, city, visits, adjustments = [] }, month, base) {
+function reportBlock({ partner, city, visits, adjustments = [], payments = [] }, month, base) {
   const lang = getLang();
   const months = [...new Set([monthOf(new Date().toISOString(), city.timezone), ...visits.map((v) => monthOf(v.at, city.timezone))])].sort().reverse();
   const m = months.includes(month) ? month : months[0];
@@ -1604,6 +1604,7 @@ function reportBlock({ partner, city, visits, adjustments = [] }, month, base) {
       </table></div>` : `<p class="hint">${t('report.none')}</p>`}
       <div class="row no-print" style="margin-top:12px">
         <button type="button" class="btn secondary" id="csv">${t('report.excel')}</button>
+        <button type="button" class="btn secondary" id="csv-pix">${t('report.excel.pix')}</button>
         <button type="button" class="btn ghost" id="pdf">${t('report.print')}</button>
       </div>
       <p class="hint" style="margin-top:10px">kombrio · ${t('report.generated', { date: fmtDay(new Date().toISOString().slice(0, 10), lang) })}</p>
@@ -1619,14 +1620,34 @@ function reportBlock({ partner, city, visits, adjustments = [] }, month, base) {
     root.querySelector('#csv').onclick = () => {
       const num = (n) => (n == null ? '' : (n / 100).toFixed(2).replace('.', ','));
       const cell = (x) => `"${String(x ?? '').replace(/"/g, '""')}"`;
-      const head = ['report.col.id', 'report.col.date', 'report.col.client', 'report.col.guide', 'report.col.people', 'report.col.amount', 'report.col.status'].map((k) => cell(tRaw(k)));
+      // v138 (lot D) : colonnes du comptable ajoutées à droite (les 7 premières ne changent pas).
+      const head = ['report.col.id', 'report.col.date', 'report.col.client', 'report.col.guide', 'report.col.people', 'report.col.amount', 'report.col.status',
+        'report.col.shop', 'report.col.guidecode', 'report.col.ticket', 'report.col.seller', 'report.col.sale', 'report.col.excluded', 'report.col.rate',
+        'report.col.fee', 'report.col.due', 'report.col.mode', 'report.col.paynum', 'report.col.paidat'].map((k) => cell(tRaw(k)));
+      const pct = (r) => (r == null ? '' : `${String(Math.round(r * 10000) / 100).replace('.', ',')} %`);
       const lines = rows.map((v) => [store.txNum(v.num), shortMoment(v.at, lang, city.timezone), v.client, v.actorRole && (v.parentVisitId || v.actorRole !== 'guide') ? `${v.guideName} (${tRaw(`role.${v.actorRole}`)})` : v.guideName, v.parentVisitId ? '' : v.peopleServed,
-        num(v.declaredCents), pLabel(v)].map(cell));
-      lines.push([cell(tRaw('report.total')), '', '', '', '', cell(num(declared)), '']);
+        num(v.declaredCents), pLabel(v),
+        partner.name, v.guideCode || '', v.extTicket || '', v.extSeller || '', num(v.invoiceCents), num(v.excludedCents), v.perPersonCents != null ? '' : pct(v.rate),
+        num(v.feeCents || 0), num(v.dueCents), v.mode === 2 ? tRaw('report.mode.2') : tRaw('report.mode.1'), v.paymentNum ? `nº ${v.paymentNum}` : '', v.paidAt ? shortMoment(v.paidAt, lang, city.timezone) : ''].map(cell));
+      lines.push([cell(tRaw('report.total')), '', '', '', '', cell(num(declared)), '', '', '', '', '', '', '', '',
+        cell(num(rows.reduce((s, v) => s + (v.feeCents || 0), 0))), cell(num(rows.reduce((s, v) => s + (v.dueCents || 0), 0))), '', '', '']);
       const csv = '﻿' + [head, ...lines].map((r) => r.join(';')).join('\r\n');
       const a = document.createElement('a');
       a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
       a.download = `kombrio-${partner.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${m}.csv`;
+      a.click();
+    };
+    // v138 (lot D) : les Pix envoyés à Kombrio (pour le rapprochement bancaire du comptable), tous mois confondus.
+    root.querySelector('#csv-pix').onclick = () => {
+      const num = (n) => (n == null ? '' : (n / 100).toFixed(2).replace('.', ','));
+      const cell = (x) => `"${String(x ?? '').replace(/"/g, '""')}"`;
+      const head = ['report.pix.num', 'report.pix.sent', 'report.pix.amount', 'report.pix.method', 'report.pix.status', 'report.pix.verified'].map((k) => cell(tRaw(k)));
+      const lines = (payments || []).map((y) => [`nº ${y.num}`, y.submittedAt ? shortMoment(y.submittedAt, lang, city.timezone) : '', num(y.cents), y.method || '',
+        tRaw(`report.pix.st.${y.status}`), y.verifiedAt ? shortMoment(y.verifiedAt, lang, city.timezone) : ''].map(cell));
+      const csv = '\ufeff' + [head, ...lines].map((r) => r.join(';')).join('\r\n');
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+      a.download = `kombrio-${partner.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-pix.csv`;
       a.click();
       setTimeout(() => URL.revokeObjectURL(a.href), 5000);
     };

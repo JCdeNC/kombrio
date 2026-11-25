@@ -95,6 +95,8 @@ const toVisit = (r) => r && ({
   dueCents: r.declared_cents == null ? null : Number(r.declared_cents) + (Number(r.fee_cents) || 0),
   parentVisitId: r.parent_visit_id || null, actorRole: r.actor_role || null, // v101 : ligne de commission par rôle
   // v123 : part non commissionnable, plafond / minimum figés au scan, « turbo » ou « palier » appliqué.
+  // v138 : relevé du comptable (code du guide, ticket et vendeuse de l'import, n° et date de vérification du paiement).
+  guideCode: r.guide_code || '', extTicket: r.ext_ticket || '', extSeller: r.ext_seller || '', paymentNum: num(r.payment_num), paidAt: r.paid_at || '',
   excludedCents: num(r.excluded_cents), capCents: num(r.cap_cents), minCents: num(r.min_cents), incentive: r.incentive || '', incentiveNote: r.incentive_note || '',
 });
 // v102 : chaque ligne de commission (TC, guide d'un groupe d'agence) juste après son passage principal.
