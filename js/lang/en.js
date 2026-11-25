@@ -858,4 +858,7 @@ export default {
   "gcamp.top": "Ranking",
   "gcamp.none": "No campaigns right now.",
   "gcamp.card": "{n} bonus campaign(s)",
+  "loyal.g": "Loyal client: a client who already came here and returns alone up to {n} days after the stay: {value}",
+  "loyal.c.title": "Your QR still works at these places:",
+  "loyal.c.until": "until {day}",
 };

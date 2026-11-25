@@ -440,6 +440,7 @@ async function dashboardView(me, city, tab = 'inicio', focus = '') {
       <ul class="list">${incList.map((x) => `<li><b>${esc(pName(x.partnerId))}</b> <span class="hint">· ${t('bst.g.base', { value: esc(valOf(x, x.model === 'per_person' ? null : x.rate, x.model === 'per_person' ? x.ppCents : null)) })}</span>
         ${x.boosts.map((b) => `<div class="bst-line"><span class="badge ok">${esc(valOf(x, b.rate, b.ppCents))}</span> ${esc(boostWhen(b, lang))}${b.note ? ` <span class="hint">· ${esc(b.note)}</span>` : ''}</div>`).join('')}
         ${x.tier ? `<div class="bst-line">${t('bst.g.tier', { n: x.tier.clients, value: esc(valOf(x, x.tier.rate, x.tier.ppCents)) })}</div>` : ''}
+        ${x.loyal ? `<div class="bst-line">${t('loyal.g', { n: x.loyal.days, value: esc(valOf(x, x.loyal.rate, x.loyal.ppCents)) })}</div>` : ''}
         ${x.excludedLabel ? `<div class="hint">${t('bst.g.excluded', { label: esc(x.excludedLabel) })}</div>` : ''}</li>`).join('')}</ul></div>` : '';
 
   // v100 : groupes d'une agence ou d'un TC auxquels ce compte est rattaché.

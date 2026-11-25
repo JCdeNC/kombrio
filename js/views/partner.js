@@ -14,7 +14,7 @@ import { installCard, mountInstallCard, installEnv } from './install.js';
 import { startCard, mountStartCard, partnerSteps } from './start.js';
 import { blackoutCard, mountBlackoutCard, blackoutToday } from './blackouts.js';
 import { companyEntryCard, companyView, groupInviteView } from './company.js';
-import { rulesCard, mountRulesCard, boostCard, mountBoostCard } from './boosts.js';
+import { rulesCard, mountRulesCard, boostCard, mountBoostCard, loyalCard, mountLoyalCard } from './boosts.js';
 import { rulesWizardView } from './rules-wizard.js';
 import { simulatorView, currentRulesHtml } from './simulator.js';
 import { importView } from './import.js';
@@ -921,7 +921,7 @@ export function spaceView(space, tab = 'painel') {
     if (v.mode === 2) tags.push(v.feeCents ? t('mode2.tag.fee', { fee: c(v.feeCents) }) : t('mode2.tag'));
     if (v.guidePresent && v.mode !== 2) tags.push(t('rs.present'));
     if (v.guideMeal) tags.push(t('rs.meal.tag'));
-    if (v.incentive) tags.push(t(v.incentive === 'boost' ? 'bst.tag' : 'tier.tag'));   // v123
+    if (v.incentive) tags.push(t(v.incentive === 'boost' ? 'bst.tag' : v.incentive === 'loyal' ? 'loyal.tag' : 'tier.tag'));   // v123, v143
     if (v.excludedCents) tags.push(t('rs.excluded.tag', { label: esc(partner.excludedLabel || '—'), amount: c(v.excludedCents) }));
     if (v.computedCents != null && v.declaredCents != null && v.declaredCents < v.computedCents) tags.push(t('rs.reduced', { from: c(v.computedCents) }));
     if (v.declaredBy === 'counter') tags.push(t('rs.by.counter'));
@@ -1144,7 +1144,7 @@ export function spaceView(space, tab = 'painel') {
     comissao: (() => {   // v126 → v128 : espace « Comissão » en liste, une page par réglage
       if (tab !== 'comissao') return '';
       if (csub === 'sim') return (space.simView = simulatorView(space, null, { embedded: true })).html;
-      if (csub === 'regras') return `<div class="pd-cols"><div class="pd-side">${rulesCard(partner, c)}</div><div class="pd-side">${boostCard(space, c)}</div></div>`;
+      if (csub === 'regras') return `<div class="pd-cols"><div class="pd-side">${rulesCard(partner, c)}${loyalCard(partner, c)}</div><div class="pd-side">${boostCard(space, c)}</div></div>`;
       if (csub === 'taxa') return setRate;
       if (csub === 'tc') return setRoles;
       if (csub === 'bonus') return setExtras;
@@ -1291,7 +1291,7 @@ export function spaceView(space, tab = 'painel') {
         ctx.refresh(tRaw('common.saved'));
       };
       mountBlackoutCard(root, ctx, space);   // v118 : jours sans commission
-      mountRulesCard(root, ctx, partner, key); mountBoostCard(root, ctx, space, c);   // v123 : règles et horaires turbo
+      mountRulesCard(root, ctx, partner, key); mountLoyalCard(root, ctx, partner, key); mountBoostCard(root, ctx, space, c);   // v123 : règles et horaires turbo
       if (space.simView) space.simView.mount(root, ctx);   // v126 : simulateur dans l'espace Comissão
       const j1b = root.querySelector('#j1-toggle');
       if (j1b) j1b.onclick = async () => {

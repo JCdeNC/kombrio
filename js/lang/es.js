@@ -858,4 +858,7 @@ export default {
   "gcamp.top": "Clasificación",
   "gcamp.none": "No hay campañas por ahora.",
   "gcamp.card": "{n} campaña(s) con bono",
+  "loyal.g": "Cliente fiel: el cliente que ya vino aquí y vuelve solo hasta {n} días después de la estadía: {value}",
+  "loyal.c.title": "Su QR sigue valiendo en estos lugares:",
+  "loyal.c.until": "hasta el {day}",
 };

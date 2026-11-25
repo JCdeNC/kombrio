@@ -40,6 +40,9 @@ export async function clientView([token]) {
   const [partners, picks] = await Promise.all([store.publicPartners(city.id), store.stayGuidePicks(token)]);
   const lang = getLang();
   const valid = stayIsValid(stay, city);
+  // v143 (lot I) : séjour terminé, mais certains établissements gardent le client fidèle à son guide.
+  const loyal = valid ? [] : await store.stayLoyalPlaces(token).catch(() => []);
+  const showQr = valid || loyal.length > 0;
   // v140 (lot F) : les lieux que le guide recommande passent en tête, avec son petit mot.
   const notes = {}; picks.forEach((x) => { notes[x.partner_id] = x.note || ''; });
   const picked = picks.map((x) => partners.find((p) => p.id === x.partner_id)).filter(Boolean);
@@ -50,11 +53,12 @@ export async function clientView([token]) {
       <div class="card" style="text-align:center">
         <h1>${t('client.title', { client: stay.client })}</h1>
         <p>${validity(stay, valid, lang)}</p>
-        ${valid ? `<button type="button" class="qr qr-tap" id="qrbig" aria-label="${esc(tRaw('client.qr.tap'))}">${qrSvg(appLink('partner', `s/${stay.token}`))}</button>
+        ${!valid && loyal.length ? `<div class="notice ok" style="text-align:left"><b>${t('loyal.c.title')}</b><ul style="margin:6px 0 0;padding-left:18px">${loyal.map((x) => `<li>${esc(x.name)} · ${t('loyal.c.until', { day: fmtDay(x.until, lang) })}</li>`).join('')}</ul></div>` : ''}
+        ${showQr ? `<button type="button" class="qr qr-tap" id="qrbig" aria-label="${esc(tRaw('client.qr.tap'))}">${qrSvg(appLink('partner', `s/${stay.token}`))}</button>
           <p class="hint qr-tap-hint">${t('client.qr.tap')}</p>
           <p><b>${t('client.show')}</b></p>
           ${stay.code ? `<p class="client-code">${t('client.code', { code: stay.code })}</p>` : ''}
-          <p class="hint">${t('client.people', { n: stay.people, end: fmtDay(stay.end, lang) })}</p>
+          ${valid ? `<p class="hint">${t('client.people', { n: stay.people, end: fmtDay(stay.end, lang) })}</p>` : ''}
           <button type="button" class="btn block" id="saveqr">${t('client.saveqr')}</button>
           <p class="hint" style="margin-top:8px">${t('client.saveqr.hint')}</p>
           ${showGoogleWallet() ? `<button type="button" class="btn block wallet-google" id="gwallet">${t('client.wallet.google')}</button>` : ''}

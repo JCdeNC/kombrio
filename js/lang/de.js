@@ -848,4 +848,7 @@ export default {
   "gcamp.top": "Rangliste",
   "gcamp.none": "Zurzeit keine Aktionen.",
   "gcamp.card": "{n} Prämienaktion(en)",
+  "loyal.g": "Treuer Kunde: Ein Kunde, der schon hier war und bis {n} Tage nach dem Aufenthalt allein wiederkommt: {value}",
+  "loyal.c.title": "Ihr QR-Code gilt noch an diesen Orten:",
+  "loyal.c.until": "bis {day}",
 };

@@ -70,6 +70,50 @@ export function mountRulesCard(root, ctx, partner, key) {
   };
 }
 
+// v143 (lot I) : carte « Cliente fiel » (gérant) — option désactivée par défaut, commission du retour plus basse.
+export function loyalCard(partner, c) {
+  const pp = partner.commissionModel === 'per_person';
+  const on = partner.loyalDays > 0;
+  const base = pp ? c(partner.perPersonCents) : `${pct(partner.commissionRate)} %`;
+  return `<form class="card" id="loyal">
+    <h2>${t('loyal.title')}</h2>
+    <p class="hint">${t('loyal.hint')}</p>
+    <div class="field"><label style="font-weight:400;display:flex;gap:10px;align-items:center"><input type="checkbox" name="on" style="width:auto"${on ? ' checked' : ''}> ${t('loyal.on')}</label></div>
+    <div id="loyal-f"${on ? '' : ' hidden'}>
+      <div class="grid2 rs-keep2">
+        <div class="field"><label for="lo-d">${t('loyal.days')}</label><select id="lo-d" name="days">${[30, 60, 90, 180, 365].map((d) => `<option value="${d}"${(partner.loyalDays || 90) === d ? ' selected' : ''}>${t('loyal.days.n', { n: d })}</option>`).join('')}</select></div>
+        <div class="field"><label for="lo-v">${t(pp ? 'loyal.pp' : 'loyal.rate')}</label><input id="lo-v" name="v" inputmode="decimal"
+          placeholder="${pp ? money(Math.round(partner.perPersonCents / 2)) : pct(partner.commissionRate / 2)}" value="${pp ? money(partner.loyalPpCents) : pct(partner.loyalRate)}"></div>
+      </div>
+      <p class="hint" style="margin:0 0 10px">${t('loyal.base', { base })}</p>
+    </div>
+    <div class="notice" style="margin:0 0 10px"><b>${t('loyal.how')}</b><ul style="margin:6px 0 0;padding-left:18px">
+      <li>${t('loyal.how.1')}</li><li>${t('loyal.how.2')}</li><li>${t('loyal.how.3')}</li><li>${t('loyal.how.4')}</li></ul></div>
+    <button class="btn secondary">${t('common.save')}</button>
+  </form>`;
+}
+
+export function mountLoyalCard(root, ctx, partner, key) {
+  const f = root.querySelector('#loyal');
+  if (!f) return;
+  const pp = partner.commissionModel === 'per_person';
+  f.on.onchange = () => { f.querySelector('#loyal-f').hidden = !f.on.checked; };
+  f.onsubmit = async (e) => {
+    e.preventDefault();
+    let days = 0; let rate = null; let ppCents = null;
+    if (f.on.checked) {
+      days = Number(f.days.value);
+      const v = pp ? parseMoney(f.v.value) : parsePct(f.v.value);
+      const base = pp ? partner.perPersonCents : Math.round(partner.commissionRate * 10000) / 100;
+      if (v == null || Number.isNaN(v) || v <= 0 || v >= base || (pp && v < 100)) { notify(tRaw('loyal.err.lower')); f.v.focus(); return; }
+      if (pp) ppCents = v; else rate = Math.round(v * 100) / 10000;
+    }
+    const r = await store.setLoyalty(key, { days, rate, ppCents }).catch(() => null);
+    if (r && r.ok) ctx.refresh(tRaw(days ? 'loyal.saved.on' : 'loyal.saved.off'));
+    else notify(tRaw(r && r.reason === 'lower' ? 'loyal.err.lower' : 'err.generic'));
+  };
+}
+
 // Carte des horaires turbo (gérant).
 export function boostCard(space, c) {
   if (space.boosts == null) return '';

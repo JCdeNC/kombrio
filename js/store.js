@@ -66,6 +66,8 @@ const toPartner = (r) => r && ({
   // v123 (script 074) : part non commissionnable (libellé), plafond / minimum par addition, palier du mois.
   excludedLabel: r.excluded_label || '', capCents: num(r.commission_cap_cents), minCents: num(r.commission_min_cents),
   tierClients: num(r.tier_clients) || 0, tierRate: r.tier_rate == null ? null : Number(r.tier_rate), tierPpCents: num(r.tier_pp_cents),
+  // v143 (script 083) : client fidèle — jours après le séjour (0 = désactivé) et commission du retour, plus basse.
+  loyalDays: num(r.loyal_days) || 0, loyalRate: r.loyal_rate == null ? null : Number(r.loyal_rate), loyalPpCents: num(r.loyal_pp_cents),
 });
 const toStay = (r) => r && ({
   id: r.id, guideId: r.guide_id, client: r.client, people: r.people, start: r.start_day, end: r.end_day,
@@ -527,11 +529,21 @@ export async function addBoosts(managerToken, { days, weekdays, from, to, rate, 
 export async function removeBoost(managerToken, id) {
   return check(await sb.rpc('partner_boosts_remove', { p_manager_token: managerToken, p_id: id }));
 }
+// v143 (script 083) : option « client fidèle » du gérant (0 jour = désactivée).
+export async function setLoyalty(managerToken, { days, rate, ppCents }) {
+  return check(await sb.rpc('set_loyalty', { p_manager_token: managerToken, p_days: days || 0, p_rate: rate || null, p_pp_cents: ppCents || null }));
+}
+// Page du client : établissements où son QR marche encore après le séjour ([] sans le script 083).
+export async function stayLoyalPlaces(token) {
+  const { data, error } = await sb.rpc('stay_loyal_places', { p_token: token });
+  return error ? [] : (data || []).map((x) => ({ partnerId: x.partner_id, name: x.name, until: x.until }));
+}
 // Pour le guide connecté : horaires turbo, paliers et parts non commissionnées des partenaires de sa ville ([] sans le script 074).
 export async function guideIncentives(cityId) {
   const { data, error } = await sb.rpc('guide_incentives', { p_city: cityId });
   return error ? [] : (data || []).map((x) => ({ partnerId: x.partner_id, model: x.model, rate: x.rate == null ? null : Number(x.rate), ppCents: num(x.pp_cents),
     tier: x.tier ? { clients: Number(x.tier.clients), rate: x.tier.rate == null ? null : Number(x.tier.rate), ppCents: num(x.tier.pp_cents) } : null,
+    loyal: x.loyal ? { days: Number(x.loyal.days), rate: x.loyal.rate == null ? null : Number(x.loyal.rate), ppCents: num(x.loyal.pp_cents) } : null,
     excludedLabel: x.excluded_label || '', boosts: (x.boosts || []).map(toBoost) }));
 }
 // v71 : forfait enfant — le serveur indique les enfants du groupe ; le gérant fixe le montant par enfant.
