@@ -84,7 +84,7 @@ export function simulatorView(space, ctx, opts = {}) {
           <div class="sim-month" id="sm-res"></div></div>
         <div class="card sim-go">${space
           ? `<p class="hint">${t('sim.save.hint')}</p><button type="button" class="btn block" id="sim-save">${t('sim.save')}</button>`
-          : `<p class="hint">${t('sim.public.note')}</p><a class="btn block" href="#/parceria">${t('sim.public.cta')}</a>`}</div>
+          : `<p class="hint">${t('sim.public.note')}</p><a class="btn block" href="#/parceria">${t('sim.public.cta')}</a><a class="btn ghost block" href="#/calculadora" style="margin-top:8px">${t('calc.from.sim')}</a>`}</div>
       </div>
     </div></div>`;
 
