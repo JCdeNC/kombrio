@@ -251,11 +251,38 @@ export async function signUpPartner({ email, password, code, name, phone, terms 
   if (error) throw new Error(error.message.includes('registered') ? 'exists' : 'code');
   return Boolean(data.session);
 }
+// v144 (script 084) : contadores parceiros — lien de parrainage, sans prime.
+export async function accountantSignup({ name, firm, crc, email, phone, lang }) {
+  return check(await sb.rpc('accountant_signup', { p_name: name, p_firm: firm || '', p_crc: crc, p_email: email, p_phone: phone || '', p_lang: lang || 'pt' }));
+}
+export async function accountantRefInfo(code) {
+  const { data, error } = await sb.rpc('accountant_ref_info', { p_code: code });
+  return error ? null : data;
+}
+export async function accountantSpace(token) {
+  const { data, error } = await sb.rpc('accountant_space', { p_token: token });
+  return error ? null : data;
+}
+export async function partnerAccountant(managerToken) {
+  const { data, error } = await sb.rpc('partner_accountant', { p_manager_token: managerToken });
+  return error ? undefined : data;   // undefined : script 084 pas encore lancé
+}
+export async function partnerAccountantSet(managerToken, code, share) {
+  return check(await sb.rpc('partner_accountant_set', { p_manager_token: managerToken, p_code: code, p_share: share }));
+}
+export async function adminAccountants() {
+  const { data, error } = await sb.rpc('admin_accountants');
+  return error ? null : data || [];
+}
+export async function adminAccountantDecide(id, status) {
+  return check(await sb.rpc('admin_accountant_decide', { p_id: id, p_status: status }));
+}
 // v89 : un établissement s'inscrit lui-même (établissement + accès du gérant), puis l'administrateur le valide.
-export async function signUpPartnerSelf({ email, password, partnerName, partnerType, city, area, address, taxId, name, phone, terms, lang }) {
+export async function signUpPartnerSelf({ email, password, partnerName, partnerType, city, area, address, taxId, name, phone, terms, lang, accountantRef = '', accountantShare = false }) {
   const { data, error } = await sb.auth.signUp({
     email, password,
-    options: { data: { role: 'partner_signup', partner_name: partnerName, partner_type: partnerType, city, area, address, tax_id: taxId, name, phone, terms, lang },
+    options: { data: { role: 'partner_signup', partner_name: partnerName, partner_type: partnerType, city, area, address, tax_id: taxId, name, phone, terms, lang,
+      ...(accountantRef ? { accountant_ref: accountantRef, accountant_share: !!accountantShare } : {}) },
       emailRedirectTo: location.href.split('#')[0] },
   });
   if (error) throw new Error(error.message.includes('registered') ? 'exists' : 'signup');

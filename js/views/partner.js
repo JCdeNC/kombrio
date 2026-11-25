@@ -14,6 +14,7 @@ import { installCard, mountInstallCard, installEnv } from './install.js';
 import { startCard, mountStartCard, partnerSteps } from './start.js';
 import { blackoutCard, mountBlackoutCard, blackoutToday } from './blackouts.js';
 import { companyEntryCard, companyView, groupInviteView } from './company.js';
+import { signupRefBanner, partnerAccountantView } from './accountants.js';
 import { rulesCard, mountRulesCard, boostCard, mountBoostCard, loyalCard, mountLoyalCard } from './boosts.js';
 import { rulesWizardView } from './rules-wizard.js';
 import { simulatorView, currentRulesHtml } from './simulator.js';
@@ -145,6 +146,7 @@ export async function activateView([code = ''], ctx) {
 // Il arrive « en attente » : Kombrio le valide dans l'admin avant qu'il n'apparaisse aux clients.
 export async function signupView(params, ctx) {
   const cities = await store.listCities().catch(() => []);
+  const refb = await signupRefBanner(params && params[0]);   // v144 : inscription par le lien d'un comptable
   return {
     html: `
       <a class="ios-back no-print" href="#/"><span aria-hidden="true">‹</span> ${t('pm.title')}</a>
@@ -174,6 +176,7 @@ export async function signupView(params, ctx) {
           <div class="field"><label for="s-pass">${t('auth.password.new')}</label><input id="s-pass" name="password" type="password" required minlength="8" autocomplete="new-password"></div>
           <div class="field"><label for="s-pass2">${t('auth.password.confirm')}</label><input id="s-pass2" name="password2" type="password" required minlength="8" autocomplete="new-password"></div>
         </div>
+        ${refb.html}
         <label style="font-weight:400;display:flex;gap:10px;align-items:flex-start;margin:4px 0 14px">
           <input type="checkbox" name="terms" required style="width:auto;margin-top:4px">
           <span>${t('pm.terms.accept')} <a href="#/termos" target="_blank" rel="noopener">${t('pm.terms.link')}</a> (${esc(TERMS_VERSION)}).</span>
@@ -195,6 +198,7 @@ export async function signupView(params, ctx) {
           const ready = await store.signUpPartnerSelf({
             email: f.email.trim(), password: f.password, partnerName: f.partnerName.trim(), partnerType: f.partnerType, city: f.city,
             area: f.area.trim(), address: f.address.trim(), taxId: tax, name: f.name.trim(), phone, terms: TERMS_VERSION, lang: getLang(),
+            accountantRef: refb.ref, accountantShare: f.accountantShare === 'on',
           });
           ctx.go('', tRaw(ready ? 'ps.done' : 'ps.confirm'));
         } catch (err) {
@@ -276,6 +280,7 @@ async function partnerViewCore([token, action, visitId], ctx) {
   if (action === 'declarar') return declareManyView(space);
   if (action === 'pagar') return payView(space);
   if (action === 'importar') return importView(space, ctx);
+  if (action === 'contador') return partnerAccountantView(space, ctx);   // v144 (lot J)
   if (action === 'campanhas') return partnerCampaignsView(space, ctx);   // v142 (lot H)   // v134 : relatório do mês (dossier Pierim)
   if (action === 'grupo' && space.group) return groupView(space);
   if (action === 'empresa') return companyView(space, visitId || '', ctx);   // v120 : Minha empresa
@@ -1117,6 +1122,7 @@ export function spaceView(space, tab = 'painel') {
       <h2 class="ios-sec">${t('aj.sec.account')}</h2><ul class="ios-list">
         ${ajRow(`href="${base}/importar"`, t('aj.import'))}
         ${ajRow(`href="${base}/config/relatorios"`, t('aj.report'))}
+        ${ajRow(`href="${base}/contador"`, t('acc.p.row'))}
         ${ajRow('href="#/instalar"', t('aj.install'))}
         ${ajRow('href="#/tuto"', t('aj.tutos'))}
         ${loggedIn ? `<li><button type="button" class="ios-danger" id="logout">${t('aj.logout')}</button></li>` : ''}</ul></div>`;

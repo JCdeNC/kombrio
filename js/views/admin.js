@@ -12,6 +12,7 @@ import { TERMS_VERSION } from './partner.js';
 import { inssAdmin } from './admin-inss.js';
 import { agendaAdmin, agendaTodo, agendaLabel } from './admin-agenda.js';
 import { trendsAdmin } from './admin-trends.js';
+import { accountantsAdmin } from './accountants.js';
 import { avisosAdmin } from './admin-avisos.js';
 
 // v86 : ordre logique, le même sur ordinateur et sur mobile — piloter (tableau de bord, agenda), puis traiter l'argent dans
@@ -19,7 +20,7 @@ import { avisosAdmin } from './admin-avisos.js';
 export const TAB_GROUPS = [
   ['overview', ['dashboard', 'agenda', 'avisos', 'trends']],
   ['todo', ['alertas', 'payments', 'payouts', 'inss', 'pix']],
-  ['network', ['validations', 'partners', 'referral', 'cities']],
+  ['network', ['validations', 'partners', 'accountants', 'referral', 'cities']],
   ['records', ['transactions', 'journal']],
 ];
 const TABS = TAB_GROUPS.flatMap(([, ks]) => ks);
@@ -44,7 +45,7 @@ export async function adminView([tab = 'dashboard']) {
     // v86 : sur mobile, un menu déroulant classé dans le même ordre (avec le nombre de tâches), au lieu d'une ligne de 13 boutons.
     + `<div class="tabs-select"><select id="tab-menu" aria-label="${esc(tRaw('admin.menu'))}">${TAB_GROUPS.map(([g, ks]) => `<optgroup label="${esc(tRaw(`admin.group.${g}`))}">${ks.map((k) => `<option value="${k}"${k === tab ? ' selected' : ''}>${esc(tRaw(`admin.tab.${k}`))}${todo[k] ? ` (${todo[k]})` : ''}</option>`).join('')}</optgroup>`).join('')}</select>${Object.values(todo).some(Boolean) ? `<span class="todo-n" title="${esc(tRaw('admin.todo.hint'))}">${Object.values(todo).reduce((a, b) => a + (b || 0), 0)}</span>` : ''}</div>`;
   data.todo = todo;
-  const view = await ({ dashboard, agenda: agendaAdmin, avisos: avisosAdmin, trends: trendsAdmin, alertas, validations, payments, payouts, inss: inssAdmin, pix: pixAdmin, referral, transactions, partners, cities, journal })[tab](data);
+  const view = await ({ dashboard, agenda: agendaAdmin, avisos: avisosAdmin, trends: trendsAdmin, accountants: accountantsAdmin, alertas, validations, payments, payouts, inss: inssAdmin, pix: pixAdmin, referral, transactions, partners, cities, journal })[tab](data);
   return {
     html: `<div class="spread"><h1>${t('admin.title')}</h1>
         <span class="hint">${esc(me.email)} <button class="btn ghost small" id="logout">${t('common.logout')}</button></span></div>
@@ -105,23 +106,23 @@ function loginView() {
 const plural = (key, n) => tRaw(`${key}.${n === 1 ? 'one' : 'other'}`, { n });
 
 async function loadAll() {
-  const [cityList, guides, partnerList, visits, payoutList, paymentList, adjustments, pixChecks, expenses, cadChecks, alerts, inssTodo, agenda, dups] = await Promise.all([
+  const [cityList, guides, partnerList, visits, payoutList, paymentList, adjustments, pixChecks, expenses, cadChecks, alerts, inssTodo, agenda, dups, accs] = await Promise.all([
     store.listCities(), store.listGuides(), store.listPartners(), store.listVisits(), store.listPayouts(), store.listPayments(),
     store.listAdjustments(), store.listPixVerifications(), store.listExpenses(), store.listCadasturChecks(), store.adminListAlerts(),
-    store.adminInssTodo(), store.adminAgenda(new Date().toISOString().slice(0, 7)), store.adminGuideDuplicates(),
+    store.adminInssTodo(), store.adminAgenda(new Date().toISOString().slice(0, 7)), store.adminGuideDuplicates(), store.adminAccountants().catch(() => null),
   ]);
   const city = (id) => cityList.find((c) => c.id === id);
   const guide = (id) => guides.find((g) => g.id === id);
   const partner = (id) => partnerList.find((p) => p.id === id);
   const cur = (n, cityId) => cents(n, city(cityId)?.currency || 'BRL', getLang());
-  return { cityList, guides, partnerList, visits, payoutList, paymentList, adjustments, pixChecks, expenses, cadChecks, alerts, inssTodo: inssTodo || [], agenda, dups: dups || [], city, guide, partner, cur };
+  return { cityList, guides, partnerList, visits, payoutList, paymentList, adjustments, pixChecks, expenses, cadChecks, alerts, inssTodo: inssTodo || [], agenda, dups: dups || [], accs: accs || [], city, guide, partner, cur };
 }
 // Corrections pas encore reversées et déjà dues au guide : une baisse tout de suite, une hausse une fois le complément reçu.
 const openAdjustments = (adjustments, guideId) => adjustments.filter((a) => (!guideId || a.guideId === guideId) && !a.payoutId
   && (a.guideDelta < 0 || a.partnerStatus === 'settled'));
 
 // Pastilles des onglets : nombre de tâches qui attendent une action de l'admin.
-function todoCounts({ guides, payoutList, paymentList, visits, adjustments, pixChecks, partnerList, alerts, inssTodo = [], agenda = null, dups = [] }) {
+function todoCounts({ guides, payoutList, paymentList, visits, adjustments, pixChecks, partnerList, alerts, inssTodo = [], agenda = null, dups = [], accs = [] }) {
   const openPix = (g) => pixChecks.some((c) => c.guideId === g.id && ['pending', 'sent'].includes(c.status) && !c.verifiedAt);
   const late = new Set(visits.filter((v) => v.status === 'declared' && v.declaredAt && Date.now() - new Date(v.declaredAt) > 30 * 864e5).map((v) => v.partnerId));
   return {
@@ -138,6 +139,7 @@ function todoCounts({ guides, payoutList, paymentList, visits, adjustments, pixC
       && (g.pixStatus === 'review' || pixChecks.some((c) => c.guideId === g.id && c.status === 'pending') || (g.pixStatus !== 'verified' && g.pixKey && !openPix(g)))).length,
     transactions: visits.filter((v) => v.status === 'disputed').length + adjustments.filter((a) => a.partnerStatus !== 'settled').length,
     // v89 : inscriptions de partenaires à valider, en plus des partenaires en retard de paiement.
+    accountants: accs.filter((a) => a.status === 'pending').length,   // v144 : comptables à valider
     partners: partnerList.filter((p) => (p.status === 'active' && late.has(p.id)) || p.status === 'pending').length,
   };
 }
