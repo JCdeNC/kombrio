@@ -1101,3 +1101,26 @@ export async function adminGuideDuplicates() {
 export async function adminGuideDuplicateOk(kind, key, note = '') {
   return check(await sb.rpc('admin_guide_duplicate_ok', { p_kind: kind, p_key: key, p_note: note }));
 }
+
+// v140 (lot F) : les lieux que le guide recommande (favoris + petit mot), sa page publique « L- ».
+export async function myFavorites() {
+  const { data, error } = await sb.from('guide_favorites').select('partner_id, note, position');
+  return error ? null : (data || []);   // null = script 080 pas lancé
+}
+export async function setFavorite(partnerId, on, note = '') {
+  const user = await currentUser();
+  if (!user) throw new Error('auth');
+  if (!on) return check(await sb.from('guide_favorites').delete().eq('partner_id', partnerId));
+  return check(await sb.from('guide_favorites').upsert({ guide_id: user.id, partner_id: partnerId, note: String(note || '').slice(0, 140) }, { onConflict: 'guide_id,partner_id' }));
+}
+export async function myCatalogToken(renew = false) {
+  return check(await sb.rpc('my_catalog_token', { p_renew: renew }));
+}
+export async function stayGuidePicks(stayToken) {
+  const { data, error } = await sb.rpc('stay_guide_picks', { p_token: stayToken });
+  return error ? [] : (data || []);
+}
+export async function guideCatalog(token) {
+  const { data, error } = await sb.rpc('guide_catalog', { p_token: token });
+  return error ? null : data;
+}

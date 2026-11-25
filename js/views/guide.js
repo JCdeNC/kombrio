@@ -59,6 +59,7 @@ export async function guideView(params, ctx) {
   if (params[0] === 'repasse') return payoutView(me, city, params[1]);
   if (params[0] === 'indicacao') return referralView(me, city);
   if (params[0] === 'cracha') return badgeView(me, city);
+  if (params[0] === 'lugares') return placesView(me, city);   // v140 (lot F)
   if (params[0] === 'qr') return qrView(me, city);
   if (['clientes', 'ganhos', 'conta'].includes(params[0])) return dashboardView(me, city, params[0], params[1]);
   return dashboardView(me, city);
@@ -485,6 +486,8 @@ async function dashboardView(me, city, tab = 'inicio', focus = '') {
         <p class="hint" style="margin:6px 0 0">${esc(me.license || '')}${cad ? ` · ${t('g.cad.until', { date: fmtDay(cad, lang) })}` : ''}</p></div>
       <a class="card" href="#/cracha" style="display:block;text-decoration:none;color:inherit"><div class="spread"><b>${t('bdg.card.title')}</b><span>→</span></div>
         <span class="hint" style="display:block">${t('bdg.card.hint')}</span></a>
+      <a class="card" href="#/lugares" style="display:block;text-decoration:none;color:inherit"><div class="spread"><b>${t('pick.card.title')}</b><span>→</span></div>
+        <span class="hint" style="display:block">${t('pick.card.hint')}</span></a>
       <div class="card"><h2>${t('g.docs')}</h2><ul class="list">
         <li><a href="#/releve"><div class="spread"><span>${t('guide.statement.title')}</span><span>→</span></div></a></li></ul>
         <p class="hint">${t('g.docs.hint')}</p></div>
@@ -1199,4 +1202,43 @@ function photoNag(me) {
   if (me.photoStatus === undefined || me.photoStatus === 'validated') return '';
   const key = me.photoStatus === 'pending' ? 'ph.nag.pending' : me.photoStatus === 'refused' ? 'ph.nag.refused' : 'ph.nag.none';
   return `<a class="card ios-row" href="#/cracha" style="text-decoration:none;color:inherit"><span style="flex:1;min-width:0"><b>${t('ph.nag.title')}</b><br><small class="hint">${t(key)}</small></span><span class="ios-chev" aria-hidden="true">›</span></a>`;
+}
+
+// v140 (lot F) : « Meus lugares » — le guide coche ses établissements préférés (avec un petit mot) ; ils passent en tête sur la
+// page de ses clients, et sa page publique (lien + QR) les montre avant le voyage. Rien de payé ni d'enregistré par ce lien.
+async function placesView(me, city) {
+  const [partners, favs] = await Promise.all([store.publicPartners(me.cityId), store.myFavorites()]);
+  if (favs === null) return { html: `${iosBack('#/', 'ios.back.home')}<div class="notice warn">${t('pick.unavailable')}</div>` };
+  const fav = {}; favs.forEach((f) => { fav[f.partner_id] = f.note || ''; });
+  const list = [...partners].sort((a, b) => ((b.id in fav) - (a.id in fav)) || a.name.localeCompare(b.name));
+  const tok = me.status === 'validated' ? await store.myCatalogToken().catch(() => null) : null;
+  const link = tok ? appLink('client', `l/${tok}`) : '';
+  return {
+    html: `${iosBack('#/', 'ios.back.home')}
+      <div class="card"><h1>${t('pick.title')}</h1><p class="hint">${t('pick.intro')}</p></div>
+      ${link ? `<div class="card"><h2>${t('pick.share.title')}</h2><p class="hint">${t('pick.share.hint')}</p>
+        <div class="qr" style="max-width:220px;margin:8px auto">${qrSvg(link)}</div>
+        <div class="row" style="gap:8px;flex-wrap:wrap"><button type="button" class="btn small" id="pk-copy">${t('pick.share.copy')}</button>
+          <a class="btn secondary small" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent(tRaw('pick.share.text', { link }))}">WhatsApp</a>
+          <a class="btn ghost small" target="_blank" rel="noopener" href="${esc(link)}">${t('pick.share.open')}</a>
+          <button type="button" class="btn ghost small" id="pk-renew">${t('pick.share.renew')}</button></div></div>` : `<div class="notice">${t('pick.share.later')}</div>`}
+      <div class="card"><h2>${t('pick.list.title', { n: favs.length })}</h2>
+        ${list.length ? `<ul class="list">${list.map((p) => `<li class="pick-row"><input type="checkbox" data-pk="${esc(p.id)}"${p.id in fav ? ' checked' : ''} aria-label="${esc(p.name)}">
+          <div class="pick-body"><b>${esc(p.name)}</b><div class="hint">${t(`ptype.${p.type}`)}${p.area ? ` · ${esc(p.area)}` : ''}${p.offer ? ` · ${esc(p.offer)}` : ''}</div>
+          <input data-note="${esc(p.id)}" maxlength="140" placeholder="${esc(tRaw('pick.note.ph'))}" value="${esc(fav[p.id] || '')}"${p.id in fav ? '' : ' hidden'}></div></li>`).join('')}</ul>`
+          : `<p class="hint">${t('pick.none')}</p>`}</div>`,
+    mount(root, ctx) {
+      const save = async (id, on, note) => { try { await store.setFavorite(id, on, note); } catch { notify(tRaw('err.generic')); } };
+      root.querySelectorAll('[data-pk]').forEach((k) => { k.onchange = async () => {
+        const n = root.querySelector(`[data-note="${k.dataset.pk}"]`); n.hidden = !k.checked;
+        await save(k.dataset.pk, k.checked, n.value); notify(tRaw(k.checked ? 'pick.added' : 'pick.removed'));
+        if (k.checked) n.focus();
+      }; });
+      root.querySelectorAll('[data-note]').forEach((n) => { n.onchange = () => save(n.dataset.note, true, n.value); });
+      const cp = root.querySelector('#pk-copy');
+      if (cp) cp.onclick = async () => { try { await navigator.clipboard.writeText(link); notify(tRaw('pick.share.copied')); } catch { window.prompt('', link); } };
+      const rn = root.querySelector('#pk-renew');
+      if (rn) rn.onclick = async () => { if (!window.confirm(tRaw('pick.share.renew.confirm'))) return; try { await store.myCatalogToken(true); ctx.refresh(); } catch { notify(tRaw('err.generic')); } };
+    },
+  };
 }

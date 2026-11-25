@@ -128,8 +128,8 @@ const TYPE_ICON = {
   restaurant: '<svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3v8M4 3v5a3 3 0 0 0 6 0V3M7 11v10M17 3c-2 2-3 5-3 8h3v10"/></svg>',
   shop: '<svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8h14l-1 12H6L5 8z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/></svg>',
 };
-export function partnerShowcase(partners, city) {
-  const list = [...partners].sort((a, b) => (b.offer || b.offerPromoCents ? 1 : 0) - (a.offer || a.offerPromoCents ? 1 : 0) || a.name.localeCompare(b.name));
+export function partnerShowcase(partners, city, notes = null) {
+  const list = notes ? [...partners] : [...partners].sort((a, b) => (b.offer || b.offerPromoCents ? 1 : 0) - (a.offer || a.offerPromoCents ? 1 : 0) || a.name.localeCompare(b.name));
   const types = [...new Set(list.map((p) => p.type))];
   const chips = types.length > 1
     ? `<div class="chips">${['all', ...types].map((k, i) => `<button type="button" class="chip${i ? '' : ' on'}" data-f="${esc(k)}">${k === 'all' ? t('client.filter.all') : t(`ptype.${k}.many`)}</button>`).join('')}</div>`
@@ -139,6 +139,7 @@ export function partnerShowcase(partners, city) {
       <div class="pphoto">${photo(p)}</div>
       <div class="pbody">
         <h3>${esc(p.name)}</h3>
+        ${notes && notes[p.id] ? `<div class="pick-note">💬 ${esc(notes[p.id])}</div>` : ''}
         <div class="hint">${t(`ptype.${p.type}`)}${p.area ? ` · ${esc(p.area)}` : ''}</div>
         ${p.offerPromoCents ? `<div class="offer"><b>${t('client.price')}</b> ${esc(cents(p.offerPromoCents, city.currency, getLang()))} <s class="hint">${esc(cents(p.offerPriceCents, city.currency, getLang()))}</s></div>` : ''}
         ${p.offer ? `<div class="offer"><b>${t('client.offer')}</b> ${esc(p.offer)}</div>` : ''}

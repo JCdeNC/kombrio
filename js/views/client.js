@@ -37,9 +37,13 @@ export async function clientView([token]) {
   }
   try { localStorage.setItem(LAST_KEY, token); } catch { /* rien */ }
   const { stay, guide, city } = data;
-  const partners = await store.publicPartners(city.id);
+  const [partners, picks] = await Promise.all([store.publicPartners(city.id), store.stayGuidePicks(token)]);
   const lang = getLang();
   const valid = stayIsValid(stay, city);
+  // v140 (lot F) : les lieux que le guide recommande passent en tête, avec son petit mot.
+  const notes = {}; picks.forEach((x) => { notes[x.partner_id] = x.note || ''; });
+  const picked = picks.map((x) => partners.find((p) => p.id === x.partner_id)).filter(Boolean);
+  const others = partners.filter((p) => !(p.id in notes));
 
   return {
     html: `
@@ -62,10 +66,11 @@ export async function clientView([token]) {
         <p class="hint">${t('client.yourguide')}</p>
         ${guideCard(guide, city)}
       </div>
+      ${picked.length ? `<div class="card pick-card"><h2>${t('pick.client.title', { guide: guide.name.split(/\s+/)[0] })}</h2>${partnerShowcase(picked, city, notes)}</div>` : ''}
       <div class="card">
-        <h2>${t('client.partners')}</h2>
+        <h2>${t(picked.length ? 'pick.client.others' : 'client.partners')}</h2>
         <p class="hint">${t('client.partners.hint')} ${t('client.onlylist')}</p>
-        ${partnerShowcase(partners, city)}
+        ${partnerShowcase(picked.length ? others : partners, city)}
         <p class="hint" style="margin:12px 0 0;padding:10px 12px;background:var(--bg);border-radius:10px">${t('client.disclosure')}
           ${t('client.data')} <a href="#/privacidade">${t('privacy.link')}</a></p>
       </div>
@@ -143,4 +148,25 @@ async function openGoogleWallet(button, token, lang) {
   } finally {
     button.disabled = false;
   }
+}
+
+// v140 (lot F) : page publique du guide (#/l/<L-…>) : sa carte et les lieux qu'il recommande, à envoyer avant le voyage.
+// N'enregistre rien : pour que l'établissement compte la visite, le client montre le QR de séjour créé par son guide.
+export async function catalogView([token]) {
+  const data = token && await store.guideCatalog(token);
+  if (!data) return notFound('err.qr');
+  const city = { id: data.city.id, name: data.city.name, currency: data.city.currency, timezone: data.city.timezone };
+  const partners = await store.publicPartners(city.id);
+  const notes = {}; (data.picks || []).forEach((x) => { notes[x.partner_id] = x.note || ''; });
+  const picked = (data.picks || []).map((x) => partners.find((p) => p.id === x.partner_id)).filter(Boolean);
+  const g = data.guide; const shown = g.badge_name || g.name;
+  const ph = g.photo ? `<img src="${esc(g.photo)}" alt="">` : esc(String(shown || '?').split(/\s+/).map((w) => w[0]).slice(0, 2).join('').toUpperCase());
+  return {
+    html: `<div class="card"><div class="person"><div class="avatar">${ph}</div><div>
+        <h1 style="margin:0">${esc(shown)}</h1><div class="hint">${t('pick.pub.role', { city: city.name })} · ${esc(g.code || '')}</div></div></div>
+        <p style="margin-top:12px">${t('pick.pub.intro')}</p></div>
+      <div class="card pick-card"><h2>${t('pick.pub.title')}</h2>${picked.length ? partnerShowcase(picked, city, notes) : `<p class="hint">${t('pick.pub.none')}</p>`}</div>
+      <div class="card"><p class="hint" style="margin:0">${t('pick.pub.qr')}</p></div>`,
+    mount(root) { mountShowcase(root); },
+  };
 }

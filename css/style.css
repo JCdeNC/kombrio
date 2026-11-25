@@ -1165,3 +1165,9 @@ body.ios .ad-inbox .btn.small { background: #E8F3EF; color: var(--brand); border
 /* v133 : champ heure du simulateur et de l'assistant (« 13: » coupé) */
 #st-h, #sm-h { min-width: 104px; flex: 0 0 auto; }
 #st-d, #sm-d { flex: 1 1 auto; min-width: 0; }
+/* v140 (lot F) : lieux recommandés par le guide */
+.pick-note { margin: 4px 0 6px; font-style: italic; color: var(--ink, #12303A); }
+.pick-row { display: flex; gap: 10px; align-items: flex-start; }
+.pick-row input[type=checkbox] { width: 22px; height: 22px; flex: none; margin-top: 2px; }
+.pick-row .pick-body { flex: 1; min-width: 0; }
+.pick-row .pick-body input { margin-top: 6px; }
