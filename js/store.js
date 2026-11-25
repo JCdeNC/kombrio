@@ -1124,3 +1124,9 @@ export async function guideCatalog(token) {
   const { data, error } = await sb.rpc('guide_catalog', { p_token: token });
   return error ? null : data;
 }
+
+// v141 : tableau admin de l'évolution des taux de commission par groupe et par type d'établissement.
+export async function adminCommissionTrends(months = 12) {
+  const { data, error } = await sb.rpc('admin_commission_trends', { p_months: months });
+  return error ? null : data;   // null = script 081 pas lancé
+}

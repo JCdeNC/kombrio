@@ -11,12 +11,13 @@ import { GUIDE_TERMS_VERSION } from './guide.js';
 import { TERMS_VERSION } from './partner.js';
 import { inssAdmin } from './admin-inss.js';
 import { agendaAdmin, agendaTodo, agendaLabel } from './admin-agenda.js';
+import { trendsAdmin } from './admin-trends.js';
 import { avisosAdmin } from './admin-avisos.js';
 
 // v86 : ordre logique, le même sur ordinateur et sur mobile — piloter (tableau de bord, agenda), puis traiter l'argent dans
 // l'ordre où il circule (alertes, Pix reçus des partenaires, virements aux guides, INSS retenu, clés Pix), puis le réseau, puis les registres.
 export const TAB_GROUPS = [
-  ['overview', ['dashboard', 'agenda', 'avisos']],
+  ['overview', ['dashboard', 'agenda', 'avisos', 'trends']],
   ['todo', ['alertas', 'payments', 'payouts', 'inss', 'pix']],
   ['network', ['validations', 'partners', 'referral', 'cities']],
   ['records', ['transactions', 'journal']],
@@ -43,7 +44,7 @@ export async function adminView([tab = 'dashboard']) {
     // v86 : sur mobile, un menu déroulant classé dans le même ordre (avec le nombre de tâches), au lieu d'une ligne de 13 boutons.
     + `<div class="tabs-select"><select id="tab-menu" aria-label="${esc(tRaw('admin.menu'))}">${TAB_GROUPS.map(([g, ks]) => `<optgroup label="${esc(tRaw(`admin.group.${g}`))}">${ks.map((k) => `<option value="${k}"${k === tab ? ' selected' : ''}>${esc(tRaw(`admin.tab.${k}`))}${todo[k] ? ` (${todo[k]})` : ''}</option>`).join('')}</optgroup>`).join('')}</select>${Object.values(todo).some(Boolean) ? `<span class="todo-n" title="${esc(tRaw('admin.todo.hint'))}">${Object.values(todo).reduce((a, b) => a + (b || 0), 0)}</span>` : ''}</div>`;
   data.todo = todo;
-  const view = await ({ dashboard, agenda: agendaAdmin, avisos: avisosAdmin, alertas, validations, payments, payouts, inss: inssAdmin, pix: pixAdmin, referral, transactions, partners, cities, journal })[tab](data);
+  const view = await ({ dashboard, agenda: agendaAdmin, avisos: avisosAdmin, trends: trendsAdmin, alertas, validations, payments, payouts, inss: inssAdmin, pix: pixAdmin, referral, transactions, partners, cities, journal })[tab](data);
   return {
     html: `<div class="spread"><h1>${t('admin.title')}</h1>
         <span class="hint">${esc(me.email)} <button class="btn ghost small" id="logout">${t('common.logout')}</button></span></div>
