@@ -838,4 +838,14 @@ export default {
   "pick.pub.title": "Meine empfohlenen Orte",
   "pick.pub.none": "Demnächst.",
   "pick.pub.qr": "Zeigen Sie während der Reise in den Betrieben den QR-Code, den Ihr Guide für Ihre Gruppe erstellt: manche Angebote gelten nur damit.",
+  // v142 (lot H) : campagnes à objectif
+  "gcamp.title": "Aktionen",
+  "gcamp.intro": "Prämien der Betriebe: Erreichen Sie das Kundenziel im Zeitraum, dann kommt die Prämie zu Ihrer nächsten Auszahlung.",
+  "gcamp.line": "{n} Kunden = {bonus}",
+  "gcamp.dates": "Vom {start} bis {end}",
+  "gcamp.mine": "Sie: {n} / {target}",
+  "gcamp.won": "Prämie gewonnen",
+  "gcamp.top": "Rangliste",
+  "gcamp.none": "Zurzeit keine Aktionen.",
+  "gcamp.card": "{n} Prämienaktion(en)",
 };

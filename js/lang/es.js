@@ -848,4 +848,14 @@ export default {
   "pick.pub.title": "Mis lugares recomendados",
   "pick.pub.none": "Pronto.",
   "pick.pub.qr": "Durante el viaje, muestre en los establecimientos el QR que su guía creará para su grupo: algunas ofertas solo valen con él.",
+  // v142 (lot H) : campagnes à objectif
+  "gcamp.title": "Campañas",
+  "gcamp.intro": "Bonos ofrecidos por los establecimientos: alcance la meta de clientes en el período y el bono se suma a su próximo pago.",
+  "gcamp.line": "{n} clientes = {bonus}",
+  "gcamp.dates": "Del {start} al {end}",
+  "gcamp.mine": "Usted: {n} / {target}",
+  "gcamp.won": "Bono ganado",
+  "gcamp.top": "Clasificación",
+  "gcamp.none": "No hay campañas por ahora.",
+  "gcamp.card": "{n} campaña(s) con bono",
 };

@@ -848,4 +848,14 @@ export default {
   "pick.pub.title": "My recommended places",
   "pick.pub.none": "Coming soon.",
   "pick.pub.qr": "During your trip, show the venues the QR your guide will create for your group: some offers only apply with it.",
+  // v142 (lot H) : campagnes à objectif
+  "gcamp.title": "Campaigns",
+  "gcamp.intro": "Bonuses offered by venues: reach the client target in the period and the bonus is added to your next payout.",
+  "gcamp.line": "{n} clients = {bonus}",
+  "gcamp.dates": "From {start} to {end}",
+  "gcamp.mine": "You: {n} / {target}",
+  "gcamp.won": "Bonus won",
+  "gcamp.top": "Ranking",
+  "gcamp.none": "No campaigns right now.",
+  "gcamp.card": "{n} bonus campaign(s)",
 };

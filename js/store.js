@@ -1130,3 +1130,19 @@ export async function adminCommissionTrends(months = 12) {
   const { data, error } = await sb.rpc('admin_commission_trends', { p_months: months });
   return error ? null : data;   // null = script 081 pas lancé
 }
+
+// v142 (lot H) : campagnes à objectif créées et payées par l'établissement (prime + 5 % de frais Kombrio).
+export async function partnerCampaigns(token) {
+  const { data, error } = await sb.rpc('partner_campaigns_list', { p_token: token });
+  return error ? null : (data || []);   // null = script 082 pas lancé
+}
+export async function campaignCreate(managerToken, { title, start, end, target, bonusCents }) {
+  return check(await sb.rpc('campaign_create', { p_manager_token: managerToken, p_title: title, p_start: start, p_end: end, p_target: target, p_bonus_cents: bonusCents }));
+}
+export async function campaignCancel(managerToken, id) {
+  return check(await sb.rpc('campaign_cancel', { p_manager_token: managerToken, p_campaign: id }));
+}
+export async function guideCampaigns() {
+  const { data, error } = await sb.rpc('guide_campaigns');
+  return error ? [] : (data || []);
+}

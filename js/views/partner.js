@@ -18,6 +18,7 @@ import { rulesCard, mountRulesCard, boostCard, mountBoostCard } from './boosts.j
 import { rulesWizardView } from './rules-wizard.js';
 import { simulatorView, currentRulesHtml } from './simulator.js';
 import { importView } from './import.js';
+import { partnerCampaignsView } from './campaigns.js';
 
 const MAX_RECEIPT = 1.5 * 1024 * 1024;
 export const TERMS_VERSION = 'P-2 · 16/11/2026';   // v74 (v1 · 30/10/2026 avant)
@@ -274,7 +275,8 @@ async function partnerViewCore([token, action, visitId], ctx) {
   if (['visitas', 'pagamentos', 'equipe', 'config'].includes(action)) { space.sub = action === 'config' ? visitId || '' : ''; return spaceView(space, action); }
   if (action === 'declarar') return declareManyView(space);
   if (action === 'pagar') return payView(space);
-  if (action === 'importar') return importView(space, ctx);   // v134 : relatório do mês (dossier Pierim)
+  if (action === 'importar') return importView(space, ctx);
+  if (action === 'campanhas') return partnerCampaignsView(space, ctx);   // v142 (lot H)   // v134 : relatório do mês (dossier Pierim)
   if (action === 'grupo' && space.group) return groupView(space);
   if (action === 'empresa') return companyView(space, visitId || '', ctx);   // v120 : Minha empresa
   if (action === 'regras') return rulesWizardView(space, ctx);   // v124 : assistente da comissão
@@ -1125,7 +1127,8 @@ export function spaceView(space, tab = 'painel') {
         ${ajRow(`href="${base}/comissao/tc"`, t('aj.c.tc'), esc(roleVal))}
         ${ajRow(`href="${base}/comissao/bonus"`, t('aj.c.bonus'))}
         ${ajRow(`href="${base}/comissao/regras"`, t('cm.sub.rules'))}
-        ${ajRow(`href="${base}/comissao/dias"`, t('aj.days'), nBo ? String(nBo) : '')}</ul>
+        ${ajRow(`href="${base}/comissao/dias"`, t('aj.days'), nBo ? String(nBo) : '')}
+        ${ajRow(`href="${base}/campanhas"`, t('camp.row'))}</ul>
       <h2 class="ios-sec">${t('aj.sec.decide')}</h2><ul class="ios-list">
         ${ajRow(`href="${base}/comissao/sim"`, t('cm.sub.sim'))}
         ${ajRow(`href="${base}/regras"`, t('aj.c.wizard'))}

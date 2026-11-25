@@ -8,6 +8,7 @@ import { helpButton, problemLink, mountHelp, topicLabel, alertStatus } from './h
 import { installView, installCard, mountInstallCard, installEnv } from './install.js';
 import { startCard, mountStartCard, guideSteps } from './start.js';
 import { tutoView } from './tuto.js';
+import { guideCampaignsView, guideCampaignsCard } from './campaigns.js';
 import { blackoutLines, stayBlackoutCard } from './blackouts.js';
 import { boostWhen } from './boosts.js';
 import { broadcastGate, broadcastBanners, mountBroadcastBanners } from './broadcast.js';
@@ -60,6 +61,7 @@ export async function guideView(params, ctx) {
   if (params[0] === 'indicacao') return referralView(me, city);
   if (params[0] === 'cracha') return badgeView(me, city);
   if (params[0] === 'lugares') return placesView(me, city);   // v140 (lot F)
+  if (params[0] === 'campanhas') return guideCampaignsView(city);   // v142 (lot H)
   if (params[0] === 'qr') return qrView(me, city);
   if (['clientes', 'ganhos', 'conta'].includes(params[0])) return dashboardView(me, city, params[0], params[1]);
   return dashboardView(me, city);
@@ -365,7 +367,8 @@ async function dashboardView(me, city, tab = 'inicio', focus = '') {
 
   // À faire (cases à cocher gardées sur l'appareil).
   const dk = gDoneKey(me.id); const done = readDone(dk);
-  const startHtml = tab === 'inicio' ? startCard('guide', me.id, guideSteps({ me, stays, pixOk }), { collapsed: true }) : '';   // v113 ; v129 : replié
+  const startHtml = tab === 'inicio' ? startCard('guide', me.id, guideSteps({ me, stays, pixOk }), { collapsed: true }) : '';
+  const campHtml = tab === 'inicio' && me.status === 'validated' ? await guideCampaignsCard() : '';   // v142 (lot H)   // v113 ; v129 : replié
   const todo = [];
   if (!pixOk) todo.push([`pix-${me.pixKeyVersion}`, t(openCheck ? 'g.todo.pixconfirm' : 'g.todo.pix')]);
   toConfirm.forEach((p) => todo.push([`po-${p.id}`, t('g.todo.payout', { amount: cur(p.cents) })]));
@@ -509,7 +512,7 @@ async function dashboardView(me, city, tab = 'inicio', focus = '') {
   const refRow = me.referralEnabled ? `<ul class="ios-list" style="margin-top:14px"><li><a href="#/indicacao"><span class="ios-lbl">${t('ref.card.title')}<small class="ios-sub-l">${t('ref.card.hint')}</small></span><span class="ios-chev" aria-hidden="true">›</span></a></li></ul>` : '';
   const recent = visits.slice(0, 5);
   const body = {
-    inicio: `${photoNag(me)}${heroG}${staysNow}${newsList}${left ? todoCard : ''}${refRow}${startHtml || installCard('guide')}`,
+    inicio: `${photoNag(me)}${campHtml}${heroG}${staysNow}${newsList}${left ? todoCard : ''}${refRow}${startHtml || installCard('guide')}`,
     clientes: focus === 'novo' ? `<div class="ios-sub">${newStayForm}</div>` : `<a class="qr-new" href="#/clientes/novo"><span class="qr-new-plus">+</span><span><b>${t(company ? 'stay.group.new' : 'g.qr.new')}</b><small>${t('g.qr.new.hint')}</small></span></a>
       <div class="pd-cols"><div class="pd-side">${staysCard(stays, true)}${linkedCard}</div><div class="pd-side">${blackCard}${incCard}${offersCard}</div></div>`,
     ganhos: `${heroG}<div class="pd-cols"><div class="pd-side"><div class="card g-card"><div class="spread"><h2 style="margin:0">${t('g.all')}</h2>
