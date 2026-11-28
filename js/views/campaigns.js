@@ -23,7 +23,7 @@ export async function partnerCampaignsView(space, ctx) {
   const today = todayIn(city.timezone);
   const feeRate = 0.05;
   const html = `<a class="ios-back no-print" href="#/p/${encodeURIComponent(key)}/comissao"><span aria-hidden="true">‹</span> ${t('pd.tab.comissao')}</a>
-    <div class="card"><h1>${t('camp.title')}</h1><p class="hint">${t('camp.intro')}</p></div>
+    <div class="ios-head"><h1 class="ios-title">${t('camp.title')}</h1><p class="hint">${t('camp.intro')}</p></div>
     <form class="card" id="camp-new"><h2>${t('camp.new')}</h2>
       <label for="cp-t">${t('camp.f.title')}</label><input id="cp-t" maxlength="80" placeholder="${esc(tRaw('camp.f.title.ph'))}" required>
       <div class="row" style="gap:8px"><div style="flex:1"><label for="cp-s">${t('camp.f.start')}</label><input id="cp-s" type="date" value="${today}"></div>
@@ -73,7 +73,7 @@ export async function guideCampaignsView(city) {
   const list = await store.guideCampaigns();
   return {
     html: `<a class="ios-back no-print" href="#/"><span aria-hidden="true">‹</span> ${t('g.tab.inicio')}</a>
-      <div class="card"><h1>${t('gcamp.title')}</h1><p class="hint">${t('gcamp.intro')}</p></div>
+      <div class="ios-head"><h1 class="ios-title">${t('gcamp.title')}</h1><p class="hint">${t('gcamp.intro')}</p></div>
       ${list.length ? list.map((x) => `<div class="card"><div class="spread"><h2 style="margin:0">${esc(x.partner)}</h2>${x.won ? `<span class="badge ok">🏆 ${t('gcamp.won')}</span>` : ''}</div>
         <p style="margin:4px 0"><b>${esc(x.title)}</b> · ${t('gcamp.line', { n: x.target, bonus: c(x.bonus_cents) })}</p>
         <p class="hint" style="margin:0">${t('gcamp.dates', { start: fmtDay(x.start, lang), end: fmtDay(x.end, lang) })}${x.area ? ` · ${esc(x.area)}` : ''}</p>

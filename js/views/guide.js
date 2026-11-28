@@ -1229,7 +1229,7 @@ async function placesView(me, city) {
   const link = tok ? appLink('client', `l/${tok}`) : '';
   return {
     html: `${iosBack('#/', 'g.tab.inicio')}
-      <div class="card"><h1>${t('pick.title')}</h1><p class="hint">${t('pick.intro')}</p></div>
+      <div class="ios-head"><h1 class="ios-title">${t('pick.title')}</h1><p class="hint">${t('pick.intro')}</p></div>
       ${link ? `<div class="card"><h2>${t('pick.share.title')}</h2><p class="hint">${t('pick.share.hint')}</p>
         <div class="qr" style="max-width:220px;margin:8px auto">${qrSvg(link)}</div>
         <div class="row" style="gap:8px;flex-wrap:wrap"><button type="button" class="btn small" id="pk-copy">${t('pick.share.copy')}</button>

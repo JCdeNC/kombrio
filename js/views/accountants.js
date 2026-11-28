@@ -89,7 +89,7 @@ export async function partnerAccountantView(space, ctx) {
   if (d === undefined) return { html: `${back}<div class="notice warn">${t('acc.unavailable')}</div>` };
   const a = d && d.accountant;
   return {
-    html: `${back}<div class="card"><h1>${t('acc.p.title')}</h1><p class="hint">${t('acc.p.hint')}</p></div>
+    html: `${back}<div class="ios-head"><h1 class="ios-title">${t('acc.p.title')}</h1><p class="hint">${t('acc.p.hint')}</p></div>
       ${a ? `<form class="card" id="ct-cur"><h2>${esc(a.firm || a.name)}</h2><p class="hint">${esc(a.name)} · CRC ${esc(a.crc)}</p>
           <label style="font-weight:400;display:flex;gap:10px;align-items:flex-start;margin:4px 0 12px"><input type="checkbox" name="share" style="width:auto;margin-top:4px"${d.share ? ' checked' : ''}>
           <span>${t('acc.p.share')}</span></label>
