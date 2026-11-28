@@ -1252,6 +1252,18 @@ input[type=checkbox], input[type=radio] { min-height: 0; }
 .bt-row-l small { display: block; color: var(--amber-ink); font-size: .86rem; }
 .bt-row .bt-go { color: var(--amber-ink); width: 20px; height: 20px; }
 .bt-main:active, .bt-tile:active, .bt-row:active { transform: scale(.985); }
+/* 28/11 retouches : tuiles compactes (icône à gauche du libellé) ; grande tuile « douce » (vert clair, texte foncé)
+   quand l'écran a déjà un bouton plein au-dessus (accueil établissement : « Pagar com Pix »). */
+.bt-tile { display: flex; align-items: center; min-height: 60px; padding: 12px 14px; }
+.bt-tile .ic { flex: none; width: 22px; height: 22px; margin: 0 10px 0 0; }
+.bt-tile b { flex: 1; min-width: 0; }
+.bt-n { position: static; flex: none; margin-left: 6px; }
+.bt-main.soft { min-height: 0; align-items: center; padding: 16px; background: #E7F3EF; color: var(--ink); }
+.bt-main.soft > .ic:first-child { position: static; flex: none; width: 26px; height: 26px; margin-right: 12px; color: var(--brand); }
+.bt-main.soft .bt-main-l b { font-size: 1.15rem; }
+.bt-main.soft .bt-main-l small { color: var(--muted, #5b6b70); }
+.bt-main.soft .bt-go { position: static; flex: none; width: 20px; height: 20px; color: var(--brand); opacity: 1; }
+
 @media (min-width: 700px) { .bt-tiles { grid-template-columns: repeat(4, minmax(0, 1fr)); } .bt-tiles.odd > .bt-tile:last-child { grid-column: auto; } }
 @media print { .bento { display: none; } }
 /* v146 : les boutons cachés derrière une ligne de client (Arquivar, Excluir) ne débordent plus en fins traits sombres. */

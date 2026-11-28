@@ -828,7 +828,7 @@ function pendingCard({ city, visits, key }) {
   return `<div class="card rs-pend"><div class="spread"><h2 style="margin:0">${t('rs.pending')}</h2><span class="badge warn">${list.length}</span></div>
     <ul class="list">${list.map((v) => `<li><div class="spread" style="align-items:center">
       <span>${v.tableLabel ? `<b class="rs-table">${t('rs.table.short', { n: v.tableLabel })}</b> · ` : ''}<b>${esc(v.client || '?')}</b>
-        <br><span class="hint">${t('scan.people', { n: v.peopleServed })} · ${t('partner.visit.guide', { guide: v.guideName || '?' })} · ${t('rs.arrived', { at: sinceLabel(v.at, lang, city.timezone) })}${v.guidePresent ? ` · ${t('rs.present')}` : ''}</span></span>
+        <br><span class="hint">${t('scan.people', { n: v.peopleServed })} · ${t('partner.visit.guide', { guide: v.guideName || '?' })} · ${sinceLabel(v.at, lang, city.timezone)}${v.guidePresent ? ` · ${t('rs.present')}` : ''}</span></span>
       <span class="row" style="gap:6px"><a class="btn small" href="#/p/${encodeURIComponent(key)}/lancar/${esc(v.id)}">${t('rs.launch')}</a>
         <button type="button" class="btn ghost small" data-zero="${esc(v.id)}">${t('rs.zero')}</button></span></div></li>`).join('')}</ul></div>`;
 }
@@ -1151,7 +1151,7 @@ export function spaceView(space, tab = 'painel') {
   const hhmm = lastV ? new Intl.DateTimeFormat(locale(lang), { hour: '2-digit', minute: '2-digit', timeZone: tz }).format(new Date(lastV.at)) : '';
   const inviteMsg = tRaw('bt.invite.wa', { name: partner.name, link: appLink('guide') });
   const partnerBento = bento({
-    main: { href: `${base}/visitas`, icon: 'list',
+    main: { href: `${base}/visitas`, icon: 'list', soft: true,
       label: todayV.length ? (todayV.length === 1 ? t('bt.today.one') : t('bt.today', { n: todayV.length })) : t('bt.today.none'),
       sub: lastV ? t('bt.today.last', { at: hhmm, guide: esc(lastV.guideName || '?') }) : t('bt.today.none.hint') },
     tiles: [{ href: `${base}/comissao`, icon: 'wallet', label: t('pd.tab.comissao') },
