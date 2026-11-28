@@ -870,4 +870,11 @@ export default {
   "home2.client": "Tourist? Open the link or QR your guide sent you.",
   "home2.site": "Discover Kombrio",
   "bt.details": "See details",
+  "bt.today": "Today: {n} visits",
+  "bt.today.one": "Today: 1 visit",
+  "bt.today.none": "No visits today yet",
+  "bt.today.last": "last at {at} · guide {guide}",
+  "bt.today.none.hint": "They show up here as soon as a client arrives with the QR",
+  "bt.invite": "Invite guides",
+  "bt.invite.wa": "Hi! {name} works with Kombrio: guides who bring clients earn a commission, recorded and tracked in the app. Sign up here: {link}",
 };

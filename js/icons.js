@@ -25,7 +25,7 @@ export function bento({ main, tiles = [], row } = {}) {
   const tl = tiles.filter(Boolean);
   return `<div class="bento no-print">
     ${main ? `<a class="bt-main" href="${main.href}">${ic(main.icon)}<span class="bt-main-l"><b>${main.label}</b>${main.sub ? `<small>${main.sub}</small>` : ''}</span>${ic('chev', 'bt-go')}</a>` : ''}
-    ${tl.length ? `<div class="bt-tiles${tl.length % 2 ? ' odd' : ''}">${tl.map((x) => `<a class="bt-tile" href="${x.href}">${ic(x.icon)}<b>${x.label}</b>${x.n ? `<span class="bt-n">${x.n}</span>` : ''}</a>`).join('')}</div>` : ''}
+    ${tl.length ? `<div class="bt-tiles${tl.length % 2 ? ' odd' : ''}">${tl.map((x) => `<a class="bt-tile" href="${x.href}"${x.ext ? ' target="_blank" rel="noopener"' : ''}>${ic(x.icon)}<b>${x.label}</b>${x.n ? `<span class="bt-n">${x.n}</span>` : ''}</a>`).join('')}</div>` : ''}
     ${row ? `<a class="bt-row" href="${row.href}">${ic(row.icon)}<span class="bt-row-l"><b>${row.label}</b>${row.sub ? `<small>${row.sub}</small>` : ''}</span>${ic('chev', 'bt-go')}</a>` : ''}
   </div>`;
 }

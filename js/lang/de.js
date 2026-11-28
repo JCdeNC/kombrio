@@ -852,4 +852,11 @@ export default {
   "loyal.c.title": "Ihr QR-Code gilt noch an diesen Orten:",
   "loyal.c.until": "bis {day}",
   "bt.details": "Details ansehen",
+  "bt.today": "Heute: {n} Besuche",
+  "bt.today.one": "Heute: 1 Besuch",
+  "bt.today.none": "Heute noch keine Besuche",
+  "bt.today.last": "zuletzt um {at} · Guide {guide}",
+  "bt.today.none.hint": "Sie erscheinen hier, sobald ein Kunde mit dem QR kommt",
+  "bt.invite": "Guides einladen",
+  "bt.invite.wa": "Hallo! {name} arbeitet mit Kombrio: Guides, die Kunden bringen, erhalten eine Provision, erfasst und in der App verfolgt. Hier anmelden: {link}",
 };

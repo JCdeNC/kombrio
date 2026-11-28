@@ -1140,13 +1140,24 @@ export function spaceView(space, tab = 'painel') {
         ${ajRow(`href="${base}/comissao/sim"`, t('cm.sub.sim'))}
         ${ajRow(`href="${base}/regras"`, t('aj.c.wizard'))}
         ${ajRow('href="#/tuto/rules"', t('cm.sub.tuto'))}</ul></div>`;
-  // v146 (refonte Bento) : les gestes du gérant en tuiles — lancer une valeur en grand, puis visites, commission, rapports, équipe.
+  // v146 (refonte Bento) : la grande tuile montre la journée (le bouton central de la barre reste le seul « scanner »),
+  // puis commission, rapports, équipe et « Convidar guias » (partage WhatsApp du lien d'inscription des guides).
+  const tz = city.timezone;
+  const dayFmt = new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' });
+  const today = todayIn(tz);
+  const todayV = visits.filter((v) => v.status !== 'cancelled' && store.isMainVisit(v) && dayFmt.format(new Date(v.at)) === today)
+    .sort((a, b) => (a.at < b.at ? 1 : -1));
+  const lastV = todayV[0];
+  const hhmm = lastV ? new Intl.DateTimeFormat(locale(lang), { hour: '2-digit', minute: '2-digit', timeZone: tz }).format(new Date(lastV.at)) : '';
+  const inviteMsg = tRaw('bt.invite.wa', { name: partner.name, link: appLink('guide') });
   const partnerBento = bento({
-    main: { href: `${base}/conta`, icon: 'scan', label: t('scan.big'), sub: t('scan.big.hint') },
-    tiles: [{ href: `${base}/visitas`, icon: 'list', label: t('pd.tab.visitas') },
-      { href: `${base}/comissao`, icon: 'wallet', label: t('pd.tab.comissao') },
+    main: { href: `${base}/visitas`, icon: 'list',
+      label: todayV.length ? (todayV.length === 1 ? t('bt.today.one') : t('bt.today', { n: todayV.length })) : t('bt.today.none'),
+      sub: lastV ? t('bt.today.last', { at: hhmm, guide: esc(lastV.guideName || '?') }) : t('bt.today.none.hint') },
+    tiles: [{ href: `${base}/comissao`, icon: 'wallet', label: t('pd.tab.comissao') },
       { href: `${base}/config/relatorios`, icon: 'chart', label: t('aj.report') },
-      { href: `${base}/equipe`, icon: 'users', label: t('aj.equipe') }],
+      { href: `${base}/equipe`, icon: 'users', label: t('aj.equipe') },
+      { href: `https://wa.me/?text=${encodeURIComponent(inviteMsg)}`, ext: true, icon: 'share', label: t('bt.invite') }],
     row: { href: `${base}/campanhas`, icon: 'target', label: t('camp.row') },
   });
   const csub = tab === 'comissao' ? space.sub || '' : '';
