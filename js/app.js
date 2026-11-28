@@ -57,7 +57,11 @@ async function render() {
     view = conf.routes[parts[0]];
     params = parts.slice(1);
   }
-  const fallback = conf.lang === 'client' ? browserLang() : conf.lang;
+  const langs = conf.langs ? LANGS.filter(([code]) => conf.langs.includes(code))
+    : LANGS.filter(([code]) => RICH_APPS.includes(APP) || !GUIDE_ONLY_LANGS.includes(code));
+  // v148 : sans choix enregistré, la langue du téléphone ou de l'ordinateur si l'app la propose, sinon celle de l'app.
+  const device = (navigator.language || '').slice(0, 2).toLowerCase();
+  const fallback = conf.lang === 'client' ? browserLang() : (langs.some(([code]) => code === device) ? device : conf.lang);
   let lang = chosenLang() || fallback;
   if (conf.langs && !conf.langs.includes(lang)) lang = conf.langs[0];
   if (!RICH_APPS.includes(APP) && GUIDE_ONLY_LANGS.includes(lang)) lang = fallback;
@@ -75,8 +79,6 @@ async function render() {
   const message = (linkError ? `<div class="notice bad" role="alert">${t(linkError === 'otp_expired' ? 'err.link.expired' : 'err.link')}</div>` : '')
     + (flash ? `<div class="notice ok" role="status">${esc(flash)}</div>` : '');
   flash = null;
-  const langs = conf.langs ? LANGS.filter(([code]) => conf.langs.includes(code))
-    : LANGS.filter(([code]) => RICH_APPS.includes(APP) || !GUIDE_ONLY_LANGS.includes(code));
   // v60 : sur téléphone, la langue en 2 lettres (« PT ») pour ne pas déborder de l'en-tête.
   const narrow = window.matchMedia('(max-width: 480px)').matches;
   // v131 (lot 6) : une agence ou une Tour Company voit son nom de métier au lieu de « Guia » (window.kbActor, posé par l'app Guide).
@@ -87,13 +89,14 @@ async function render() {
     <header class="top">
       <a class="brand" href="#/"><img src="${ICON}" alt=""><span class="brand-word">kombrio<i></i></span>${APP === 'hub' ? '' : `<span class="brand-app">${narrow && APP === 'admin' ? 'Admin' : appName}</span>`}</a>
       <span class="top-r"><button type="button" class="hdr-help no-print" id="hdr-help" hidden aria-label="${esc(tRaw('help.btn'))}">?</button>
-      <select id="lang" aria-label="${t('common.language')}">
+      ${APP === 'client' ? `<select id="lang" aria-label="${t('common.language')}">
         ${langs.map(([code, label]) => `<option value="${code}" ${code === getLang() ? 'selected' : ''}>${narrow ? code.toUpperCase() : label}</option>`).join('')}
-      </select></span>
+      </select>` : ''}</span>
     </header>
     <main>${message}${out.html}</main>
     <footer class="demo">
       <span>Kombrio ${VERSION} · ${VERSION_DATE}${store.DEMO ? ` · ${t('demo.banner')}` : ''}</span>
+      ${APP === 'client' ? '' : `<select class="foot-lang no-print" data-lang-set aria-label="${t('common.language')}"></select>`}
       ${store.DEMO ? `<button class="btn ghost small" id="demo-reset">${t('demo.reset')}</button>` : ''}
     </footer>`;
 
@@ -101,7 +104,14 @@ async function render() {
   const mainEl = root.querySelector('main');
   mainEl.classList.toggle('wide', !!mainEl.querySelector('.dash-wide'));
   mainEl.querySelectorAll('.card, details').forEach((c) => { if (c.querySelector('table')) c.classList.add('has-table'); });
-  document.getElementById('lang').onchange = (e) => { chooseLang(e.target.value); render(); };
+  // v148 : le choix de la langue n'est dans l'en-tête que pour les clients ; ailleurs, dans les réglages de chaque app
+  // (Conta, Ajustes) et en petit en bas de page (pages d'entrée et d'inscription, avant d'avoir des réglages).
+  const head = document.getElementById('lang');
+  if (head) head.onchange = (e) => { chooseLang(e.target.value); render(); };
+  root.querySelectorAll('select[data-lang-set]').forEach((sel) => {
+    sel.innerHTML = langs.map(([code, label]) => `<option value="${code}" ${code === getLang() ? 'selected' : ''}>${label}</option>`).join('');
+    sel.onchange = () => { chooseLang(sel.value); render(); };
+  });
   const reset = document.getElementById('demo-reset');
   if (reset) {
     reset.onclick = async () => {

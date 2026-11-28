@@ -530,7 +530,7 @@ async function dashboardView(me, city, tab = 'inicio', focus = '') {
         ${infoTip(t('guide.sum.note', { pct }))}</div>${filters}<div id="g-list">${visits.length ? visits.map(txRow).join('') : `<p class="hint">${t('g.tx.none')}</p>`}</div>
         ${visits.length ? `<p class="hint" style="margin:8px 0 0">${t('gh.tap')}</p>` : ''}</div></div>
       <div class="pd-side">${nextCard}${adjCard}${payoutsCard}<a class="card" href="#/releve" style="display:block;text-decoration:none;color:inherit"><b>${t('guide.statement.title')}</b><span class="hint" style="display:block">${t('g.statement.hint')}</span></a>${chartCard}${partnersCard}</div></div>`,
-    conta: `<div class="pd-cols"><div class="pd-side">${contaBody}</div><div class="pd-side"><div class="card no-print"><h2>${t('g.session')}</h2>${logoutButton()}</div></div></div>`,
+    conta: `<div class="pd-cols"><div class="pd-side">${contaBody}</div><div class="pd-side"><ul class="ios-list no-print" style="margin-bottom:12px"><li class="ios-lang"><label class="ios-lbl" for="lang-set">${t('common.language')}</label><select id="lang-set" data-lang-set></select></li></ul><div class="card no-print"><h2>${t('g.session')}</h2>${logoutButton()}</div></div></div>`,
   }[tab];
 
   const counts = { inicio: todo.filter(([k]) => !done.has(k)).length, clientes: soonStays.length, ganhos: toConfirm.length, conta: !pixOk ? 1 : 0 };

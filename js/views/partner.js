@@ -1126,6 +1126,7 @@ export function spaceView(space, tab = 'painel') {
         ${ajRow(`href="${base}/contador"`, t('acc.p.row'))}
         ${ajRow('href="#/instalar"', t('aj.install'))}
         ${ajRow('href="#/tuto"', t('aj.tutos'))}
+        <li class="ios-lang"><label class="ios-lbl" for="lang-set">${t('common.language')}</label><select id="lang-set" data-lang-set></select></li>
         ${loggedIn ? `<li><button type="button" class="ios-danger" id="logout">${t('aj.logout')}</button></li>` : ''}</ul></div>`;
   const roleVal = [partner.rateTc > 0 ? `TC ${pct(partner.rateTc)}` : '', partner.rateAgency > 0 ? `${t('aj.agency.short')} ${pct(partner.rateAgency)}` : ''].filter(Boolean).join(' · ');
   const comissaoList = `<div class="ios-lists no-print">

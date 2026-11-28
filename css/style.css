@@ -1271,3 +1271,11 @@ input[type=checkbox], input[type=radio] { min-height: 0; }
 .sw-row.open .sw-actions, .sw-row.sw-drag .sw-actions { visibility: visible; transition-delay: 0s; }
 /* v146 : le choix de langue de l'en-tête garde sa petite taille (pas de 48 px). */
 .top select, .top input { min-height: 0; }
+
+/* v148 · langue : petit sélecteur en bas de page (hors clients) et ligne « Idioma » dans les réglages. */
+.demo .foot-lang { width: auto; min-height: 0; padding: 4px 8px; font: inherit; font-size: .85rem; color: var(--muted); background: transparent; border: 1px solid var(--line); border-radius: 8px; }
+.ios-list li.ios-lang { display: flex; align-items: center; min-height: 50px; padding: 6px 16px; }
+.ios-list li.ios-lang .ios-lbl { flex: 1; margin: 0; font-size: 1.02rem; font-weight: 400; color: var(--ink); }
+.ios-list li.ios-lang select { width: auto; min-height: 0; padding: 6px 10px; font: inherit; color: var(--muted); background: transparent; border: 0; text-align: right; }
+.ios-list li.ios-lang > * { background: none; }
+.ios-list li + li.ios-lang { background: linear-gradient(#E8EDEF, #E8EDEF) 16px 0 / calc(100% - 16px) 1px no-repeat; }
