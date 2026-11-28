@@ -851,4 +851,5 @@ export default {
   "loyal.g": "Treuer Kunde: Ein Kunde, der schon hier war und bis {n} Tage nach dem Aufenthalt allein wiederkommt: {value}",
   "loyal.c.title": "Ihr QR-Code gilt noch an diesen Orten:",
   "loyal.c.until": "bis {day}",
+  "bt.details": "Details ansehen",
 };

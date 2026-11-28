@@ -1173,3 +1173,89 @@ body.ios .ad-inbox .btn.small { background: #E8F3EF; color: var(--brand); border
 .pick-row input[type=checkbox] { width: 22px; height: 22px; flex: none; margin-top: 2px; }
 .pick-row .pick-body { flex: 1; min-width: 0; }
 .pick-row .pick-body input { margin-top: 6px; }
+
+/* ================================================================================================
+   v146 · REFONTE « BENTO » (décision de JC 27/11/2026) — une couche, à la fin : la retirer remet la v145.
+   Principes : une seule couleur forte pour l'action principale (vert), aplats sans dégradé, ombres quasi nulles,
+   angles 14 à 20 px, police Inter, montants en grand, zones tactiles ≥ 48 px, icônes au trait (js/icons.js).
+   Compatibilité iOS 13.4 / Chrome 80 : pas de :has(), pas de inset, pas de gap flex indispensable.
+   ================================================================================================ */
+:root {
+  --bg: #F4F6F5; --line: #E6ECEA; --radius: 20px; --radius-btn: 14px; --shadow: 0 1px 2px rgba(16,44,56,.04);
+  --font-title: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-body: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --amber-bg: #F8EBD3; --amber-ink: #7A4E05;
+}
+body, body.ios { font-family: var(--font-body); background: var(--bg); -webkit-font-smoothing: antialiased; }
+body.ios h1, body.ios h2, body.ios h3, body.ios .btn, h1, h2, h3 { font-family: var(--font-title); }
+h1, h2, h3 { font-weight: 700; letter-spacing: -.02em; }
+.ios-title { font-weight: 800; letter-spacing: -.03em; }
+b, strong { font-weight: 600; }
+.pay-hero-n, .pd-kpi b, .stat b, .g-amt, .ios-val, input.ios-amount { font-variant-numeric: tabular-nums; }
+/* Cartes : blanches, sans bordure, ombre presque nulle. */
+.card, body.ios .card, .stat, .pd-kpi, .ios-list, .qr-pick, .qr-badge, .faq-item { border-color: transparent !important; box-shadow: var(--shadow) !important; border-radius: var(--radius); }
+body.ios .card { border-radius: var(--radius); padding: 18px; }
+.ios-list { border-radius: 18px; }
+.notice { border-radius: 16px; }
+/* Boutons : 48 px, angles 14 px, un seul plein par écran ; les autres en vert très clair. */
+.btn, body.ios .btn { border-radius: var(--radius-btn); font-weight: 600; min-height: 48px; padding: 12px 18px; letter-spacing: -.005em; transition: transform .12s ease, background-color .12s ease; }
+.btn:active { transform: scale(.98); }
+.btn.small, body.ios .btn.small { min-height: 36px; padding: 7px 14px; border-radius: 12px; }
+.btn.secondary, body.ios .btn.secondary { background: #E7F3EF; border-color: #E7F3EF; color: var(--brand); }
+.btn.ghost, body.ios .btn.ghost { background: #EDF1F0; border-color: #EDF1F0; color: var(--ink); }
+input, select, textarea { border-radius: 14px; min-height: 48px; }
+textarea { min-height: 0; }
+input[type=checkbox], input[type=radio] { min-height: 0; }
+/* Icônes */
+.ic { width: 22px; height: 22px; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; vertical-align: -5px; }
+/* Montant principal : carte blanche, chiffre en grand, bouton vert dessous (plus de bloc dégradé). */
+.pay-hero { background: var(--surface) !important; color: var(--ink); box-shadow: var(--shadow) !important; border-radius: var(--radius); padding: 20px; }
+.pay-hero-l { color: var(--muted); font-size: .95rem; }
+.pay-hero-n { color: var(--ink); font-size: 2.4rem; font-weight: 700; letter-spacing: -.03em; margin: 4px 0 2px; }
+.pay-hero-btn { background: var(--brand) !important; color: #fff !important; border-color: var(--brand) !important; border-radius: 14px; }
+.pay-hero.bad { background: var(--bad-bg) !important; }
+.pay-hero.bad .pay-hero-n { color: var(--bad); }
+.pay-hero.bad .pay-hero-btn { background: var(--bad) !important; border-color: var(--bad) !important; color: #fff !important; }
+.pay-hero-more { display: inline-flex; align-items: center; margin-top: 8px; color: var(--brand); font-weight: 600; font-size: .95rem; }
+.pay-hero-more .ic { width: 18px; height: 18px; margin-left: 2px; vertical-align: -4px; }
+.pay-hero.bad .pay-hero-more { color: var(--bad); }
+/* Guide : le premier chiffre (montant disponible) en aplat vert, sans dégradé. */
+.g-kpis > .pd-kpi:first-child { background: var(--brand) !important; }
+/* Grandes actions (nouveau client, scanner, équipier) : aplat vert, sans ombre colorée. */
+.qr-new, .staff-scan, .ios-scan { background: var(--brand) !important; box-shadow: none !important; border-radius: var(--radius); }
+.qr-new-plus, .staff-scan-ico, .ios-scan-ico { background: rgba(255,255,255,.16); border-radius: 14px; }
+.ios-ok-ico { background: var(--ok-bg); }
+.ios-qr { border-radius: 10px; }
+/* Barre du bas : bouton central en aplat. */
+@media (max-width: 560px) {
+  .tabs.apptabs { box-shadow: 0 -1px 0 var(--line), 0 -6px 18px rgba(16,44,56,.05); }
+  .tabs.apptabs a.at-center .atc { background: var(--brand); box-shadow: 0 4px 12px rgba(0,127,101,.25); }
+}
+/* Grille Bento (js/icons.js › bento) */
+.bento { margin: 0 0 14px; }
+.bt-main { display: flex; align-items: flex-end; min-height: 120px; padding: 18px; margin-bottom: 10px; border-radius: var(--radius); background: var(--brand); color: #fff; text-decoration: none; position: relative; }
+.bt-main > .ic:first-child { position: absolute; top: 18px; left: 18px; width: 30px; height: 30px; }
+.bt-main-l { flex: 1; min-width: 0; }
+.bt-main-l b { display: block; font-size: 1.3rem; font-weight: 600; letter-spacing: -.02em; line-height: 1.2; }
+.bt-main-l small { display: block; color: rgba(255,255,255,.85); font-size: .9rem; margin-top: 2px; }
+.bt-main .bt-go { position: absolute; top: 18px; right: 16px; opacity: .9; }
+.bt-tiles { display: grid; grid-template-columns: 1fr 1fr; grid-gap: 10px; margin-bottom: 10px; }
+.bt-tiles.odd > .bt-tile:last-child { grid-column: 1 / -1; }
+.bt-tile { position: relative; display: block; min-height: 96px; padding: 16px; border-radius: 18px; background: var(--surface); color: var(--ink); text-decoration: none; box-shadow: var(--shadow); }
+.bt-tile .ic { display: block; width: 26px; height: 26px; color: var(--brand); margin-bottom: 14px; }
+.bt-tile b { display: block; font-weight: 600; font-size: 1rem; line-height: 1.25; }
+.bt-n { position: absolute; top: 12px; right: 12px; min-width: 24px; height: 24px; padding: 0 7px; border-radius: 99px; background: #d93025; color: #fff; font-size: .8rem; font-weight: 700; line-height: 24px; text-align: center; }
+.bt-row { display: flex; align-items: center; min-height: 60px; padding: 14px 16px; border-radius: 18px; background: var(--amber-bg); color: var(--ink); text-decoration: none; }
+.bt-row > .ic:first-child { color: var(--amber-ink); margin-right: 12px; }
+.bt-row-l { flex: 1; min-width: 0; }
+.bt-row-l b { display: block; font-weight: 600; }
+.bt-row-l small { display: block; color: var(--amber-ink); font-size: .86rem; }
+.bt-row .bt-go { color: var(--amber-ink); width: 20px; height: 20px; }
+.bt-main:active, .bt-tile:active, .bt-row:active { transform: scale(.985); }
+@media (min-width: 700px) { .bt-tiles { grid-template-columns: repeat(4, minmax(0, 1fr)); } .bt-tiles.odd > .bt-tile:last-child { grid-column: auto; } }
+@media print { .bento { display: none; } }
+/* v146 : les boutons cachés derrière une ligne de client (Arquivar, Excluir) ne débordent plus en fins traits sombres. */
+.sw-row .sw-actions { visibility: hidden; transition: visibility 0s .2s; }
+.sw-row.open .sw-actions, .sw-row.sw-drag .sw-actions { visibility: visible; transition-delay: 0s; }
+/* v146 : le choix de langue de l'en-tête garde sa petite taille (pas de 48 px). */
+.top select, .top input { min-height: 0; }

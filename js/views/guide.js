@@ -13,7 +13,8 @@ import { blackoutLines, stayBlackoutCard } from './blackouts.js';
 import { boostWhen } from './boosts.js';
 import { broadcastGate, broadcastBanners, mountBroadcastBanners } from './broadcast.js';
 import { WEEKLY_OPTION } from '../config.js';
-import { scanQr } from './partner.js';   // v131 : scanner du crachá (rattacher un guide à un groupe)
+import { scanQr } from './partner.js';
+import { ic, bento } from '../icons.js';   // v146 : refonte Bento   // v131 : scanner du crachá (rattacher un guide à un groupe)
 // Durée maximale d'un séjour (K-15, décidé le 06/11/2026) : les clients restent au plus une semaine. Même règle dans la base (script 014).
 const MAX_STAY_DAYS = 7;
 // v74 : version des conditions du guide à accepter (texte dans la base, script 047).
@@ -501,7 +502,16 @@ async function dashboardView(me, city, tab = 'inicio', focus = '') {
   // toucher), les 3 dernières nouvelles, « Para começar » replié. Le détail (suivi, virements, graphiques) est dans Ganhos.
   const heroG = `<a class="pay-hero g-hero${blocked ? ' bad' : ''}" href="#/ganhos"><span class="pay-hero-l">${t('g.next.title')} · ${t(blocked ? 'g.next.blocked' : sum.available > 0 ? 'g.next.planned' : 'g.next.nothing')}</span>
       <b class="pay-hero-n">${cur(Math.max(0, sum.available))}</b>
-      ${sum.expected ? `<span class="pay-hero-l">${t('gh.wait', { amount: cur(sum.expected) })}</span>` : ''}</a>`;
+      ${sum.expected ? `<span class="pay-hero-l">${t('gh.wait', { amount: cur(sum.expected) })}</span>` : ''}
+      <span class="pay-hero-more">${t('bt.details')}${ic('chev')}</span></a>`;
+  // v146 (refonte Bento) : les gestes du guide en tuiles — nouveau client en grand, puis gains, crachá, lieux, extrait.
+  const guideBento = bento({
+    main: { href: '#/clientes/novo', icon: 'qr', label: t(company ? 'stay.group.new' : 'g.qr.new'), sub: t('g.qr.new.hint') },
+    tiles: [{ href: '#/ganhos', icon: 'chart', label: t('g.tab.ganhos'), n: toConfirm.length || 0 },
+      { href: '#/cracha', icon: 'badge', label: t('bdg.card.title') },
+      { href: '#/lugares', icon: 'pin', label: t('pick.card.title') },
+      { href: '#/releve', icon: 'file', label: t('guide.statement.title') }],
+  });
   const nowStays = stays.filter((s) => !s.direct && !s.archivedAt && stayState(s) === 'active').sort((a, b) => (a.end < b.end ? -1 : 1));
   const staysNow = `<h2 class="ios-sec">${t('g.qr.active')}</h2><ul class="ios-list">${nowStays.length ? nowStays.map((s) => `<li><a href="#/sejour/${encodeURIComponent(s.id)}">
       <span class="ios-lbl"><b>${esc(s.client)}</b><small class="ios-sub-l">${t('stay.people', { n: s.people })} · ${t('g.qr.until')} ${fmtDay(s.end, lang)}</small></span>
@@ -513,7 +523,7 @@ async function dashboardView(me, city, tab = 'inicio', focus = '') {
   const refRow = me.referralEnabled ? `<ul class="ios-list" style="margin-top:14px"><li><a href="#/indicacao"><span class="ios-lbl">${t('ref.card.title')}<small class="ios-sub-l">${t('ref.card.hint')}</small></span><span class="ios-chev" aria-hidden="true">›</span></a></li></ul>` : '';
   const recent = visits.slice(0, 5);
   const body = {
-    inicio: `${photoNag(me)}${campHtml}${heroG}${staysNow}${newsList}${left ? todoCard : ''}${refRow}${startHtml || installCard('guide')}`,
+    inicio: `${photoNag(me)}${heroG}${guideBento}${campHtml}${staysNow}${newsList}${left ? todoCard : ''}${refRow}${startHtml || installCard('guide')}`,
     clientes: focus === 'novo' ? `<div class="ios-sub">${newStayForm}</div>` : `<a class="qr-new" href="#/clientes/novo"><span class="qr-new-plus">+</span><span><b>${t(company ? 'stay.group.new' : 'g.qr.new')}</b><small>${t('g.qr.new.hint')}</small></span></a>
       <div class="pd-cols"><div class="pd-side">${staysCard(stays, true)}${linkedCard}</div><div class="pd-side">${blackCard}${incCard}${offersCard}</div></div>`,
     ganhos: `${heroG}<div class="pd-cols"><div class="pd-side"><div class="card g-card"><div class="spread"><h2 style="margin:0">${t('g.all')}</h2>
@@ -1150,11 +1160,11 @@ function mountStayActions(root, ctx) {
       if (x0 == null) return;
       const mx = e.touches[0].clientX - x0; const my = e.touches[0].clientY - y0;
       if (!moved && Math.abs(my) > Math.abs(mx)) { x0 = null; return; }  // défilement vertical : on laisse faire
-      moved = true; dx = Math.min(0, mx) + (row.classList.contains('open') ? -actionsWidth(row) : 0);
+      moved = true; row.classList.add('sw-drag'); dx = Math.min(0, mx) + (row.classList.contains('open') ? -actionsWidth(row) : 0);
       content.style.transition = 'none'; content.style.transform = `translateX(${Math.max(dx, -actionsWidth(row) - 30)}px)`;
     }, { passive: true });
     content.addEventListener('touchend', () => {
-      if (x0 == null) return; x0 = null; content.style.transition = ''; content.style.transform = '';
+      if (x0 == null) return; x0 = null; row.classList.remove('sw-drag'); content.style.transition = ''; content.style.transform = '';
       if (moved) { const o = -dx > actionsWidth(row) * 0.4; closeAll(row); row.classList.toggle('open', o); }
     });
     content.addEventListener('click', (e) => { if (moved || row.classList.contains('open')) { e.preventDefault(); if (!moved) row.classList.remove('open'); moved = false; } }, true);

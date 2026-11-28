@@ -6,6 +6,7 @@
 import { t, tRaw, getLang } from '../i18n.js';
 import { esc, cents, fmtDay, notify, todayIn, addDays, parseCents } from '../util.js';
 import * as store from '../store.js';
+import { ic } from '../icons.js';
 
 const bar = (n, target) => {
   const p = Math.max(0, Math.min(100, Math.round((n / Math.max(1, target)) * 100)));
@@ -86,5 +87,6 @@ export async function guideCampaignsView(city) {
 export async function guideCampaignsCard() {
   const list = await store.guideCampaigns().catch(() => []);
   if (!list.length) return '';
-  return `<a class="card ios-row" href="#/campanhas" style="text-decoration:none;color:inherit"><span style="flex:1;min-width:0"><b>🎯 ${t('gcamp.card', { n: list.length })}</b><br><small class="hint">${esc(list.map((x) => x.partner).slice(0, 3).join(' · '))}</small></span><span class="ios-chev" aria-hidden="true">›</span></a>`;
+  // v146 (refonte Bento) : ligne ambre sous les tuiles de l'accueil.
+  return `<a class="bt-row" href="#/campanhas" style="margin-bottom:14px">${ic('target')}<span class="bt-row-l"><b>${t('gcamp.card', { n: list.length })}</b><small>${esc(list.map((x) => x.partner).slice(0, 3).join(' · '))}</small></span>${ic('chev', 'bt-go')}</a>`;
 }

@@ -3081,4 +3081,5 @@ export default {
   "home2.guide.d": "Créer le QR de vos clients et suivre vos gains.",
   "home2.client": "Touriste ? Ouvrez le lien ou le QR envoyé par votre guide.",
   "home2.site": "Découvrir Kombrio",
+  "bt.details": "Voir le détail",
 };

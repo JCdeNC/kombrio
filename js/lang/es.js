@@ -869,4 +869,5 @@ export default {
   "home2.guide.d": "Crear el QR de sus clientes y seguir sus ganancias.",
   "home2.client": "¿Turista? Abra el enlace o el QR que le envió su guía.",
   "home2.site": "Conocer Kombrio",
+  "bt.details": "Ver detalles",
 };

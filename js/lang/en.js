@@ -869,4 +869,5 @@ export default {
   "home2.guide.d": "Create your clients' QR and follow your earnings.",
   "home2.client": "Tourist? Open the link or QR your guide sent you.",
   "home2.site": "Discover Kombrio",
+  "bt.details": "See details",
 };

@@ -20,6 +20,7 @@ import { rulesWizardView } from './rules-wizard.js';
 import { simulatorView, currentRulesHtml } from './simulator.js';
 import { importView } from './import.js';
 import { partnerCampaignsView } from './campaigns.js';
+import { ic, bento } from '../icons.js';   // v146 : refonte Bento
 
 const MAX_RECEIPT = 1.5 * 1024 * 1024;
 export const TERMS_VERSION = 'P-2 · 16/11/2026';   // v74 (v1 · 30/10/2026 avant)
@@ -1139,10 +1140,19 @@ export function spaceView(space, tab = 'painel') {
         ${ajRow(`href="${base}/comissao/sim"`, t('cm.sub.sim'))}
         ${ajRow(`href="${base}/regras"`, t('aj.c.wizard'))}
         ${ajRow('href="#/tuto/rules"', t('cm.sub.tuto'))}</ul></div>`;
+  // v146 (refonte Bento) : les gestes du gérant en tuiles — lancer une valeur en grand, puis visites, commission, rapports, équipe.
+  const partnerBento = bento({
+    main: { href: `${base}/conta`, icon: 'scan', label: t('scan.big'), sub: t('scan.big.hint') },
+    tiles: [{ href: `${base}/visitas`, icon: 'list', label: t('pd.tab.visitas') },
+      { href: `${base}/comissao`, icon: 'wallet', label: t('pd.tab.comissao') },
+      { href: `${base}/config/relatorios`, icon: 'chart', label: t('aj.report') },
+      { href: `${base}/equipe`, icon: 'users', label: t('aj.equipe') }],
+    row: { href: `${base}/campanhas`, icon: 'target', label: t('camp.row') },
+  });
   const csub = tab === 'comissao' ? space.sub || '' : '';
   const gsub = tab === 'config' ? space.sub || '' : '';
   const body = {
-    painel: `${pendingCard({ city, visits, key })}${payHero}${declareRow}${kpis2}${adjustmentsCard(adjustments, city, lang)}${startHtml}`,
+    painel: `${pendingCard({ city, visits, key })}${payHero}${partnerBento}${declareRow}${kpis2}${adjustmentsCard(adjustments, city, lang)}${startHtml}`,
     visitas: visitsCard(t('pd.all'), visits, true),
     pagamentos: `${payHero}<a class="card ios-row no-print" href="${base}/importar"><span style="flex:1;min-width:0"><b>${t('aj.import')}</b><br><small class="hint">${t('imp.row.hint')}</small></span><span class="ios-chev" aria-hidden="true">›</span></a><div class="pd-cols"><div class="pd-side">${payHistory}${chartCard}</div><div class="pd-side">${docsCard}${inssCard}${adjustmentsCard(adjustments, city, lang)}</div></div>`,
     equipe: teamHtml(space),
